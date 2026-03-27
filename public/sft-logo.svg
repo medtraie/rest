@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="frame" x1="56" y1="56" x2="456" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38E8FF"/>
+      <stop offset="1" stop-color="#68FFA7"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(176 108) rotate(35) scale(498)">
+      <stop stop-color="#163A73"/>
+      <stop offset="1" stop-color="#071124"/>
+    </radialGradient>
+    <linearGradient id="panel" x1="84" y1="96" x2="430" y2="418" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2B57"/>
+      <stop offset="1" stop-color="#0A1835"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="80" y1="104" x2="432" y2="408" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#49EEFF"/>
+      <stop offset="1" stop-color="#74FFB0"/>
+    </linearGradient>
+  </defs>
+  <rect x="56" y="56" width="400" height="400" rx="96" fill="url(#bg)"/>
+  <rect x="56" y="56" width="400" height="400" rx="96" stroke="url(#frame)" stroke-width="16"/>
+  <rect x="82" y="88" width="348" height="336" rx="72" fill="url(#panel)" opacity="0.82"/>
+  <rect x="94" y="132" width="144" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="94" y="220" width="144" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="94" y="308" width="144" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="94" y="170" width="40" height="50" rx="18" fill="url(#letter)"/>
+  <rect x="198" y="258" width="40" height="50" rx="18" fill="url(#letter)"/>
+  <rect x="246" y="132" width="40" height="214" rx="12" fill="url(#letter)"/>
+  <rect x="246" y="132" width="112" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="246" y="220" width="96" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="334" y="132" width="98" height="38" rx="19" fill="url(#letter)"/>
+  <rect x="363" y="132" width="40" height="214" rx="12" fill="url(#letter)"/>
+  <rect x="246" y="360" width="157" height="10" rx="5" fill="url(#frame)" opacity="0.92"/>
+  <circle cx="120" cy="388" r="7" fill="#49EEFF"/>
+  <circle cx="150" cy="408" r="6" fill="#74FFB0"/>
+  <circle cx="362" cy="388" r="7" fill="#74FFB0"/>
+  <circle cx="392" cy="408" r="6" fill="#49EEFF"/>
+</svg>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SFT - Live Map Professional Guide</title>
+  <style>
+    @page { size: A4; margin: 15mm 14mm 18mm 14mm; }
+    body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #0f172a; line-height: 1.8; font-size: 12.3px; counter-reset: page; }
+    .cover {
+      min-height: 260mm;
+      background: radial-gradient(circle at top right, #22d3ee, #0f172a 55%, #0b1220);
+      color: #e2e8f0;
+      border-radius: 18px;
+      padding: 24px;
+      box-sizing: border-box;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover .logo { width: 170px; background: #fff; border-radius: 14px; padding: 8px; }
+    .cover h1 { font-size: 36px; margin: 18px 0 8px; color: #f8fafc; }
+    .cover h2 { font-size: 22px; margin: 0; color: #67e8f9; border: 0; padding: 0; }
+    .cover p { max-width: 80%; }
+    .badge { display: inline-block; border: 1px solid #67e8f9; border-radius: 999px; padding: 4px 10px; margin-left: 6px; font-size: 11px; }
+    .cover-footer { position: absolute; bottom: 20px; right: 24px; left: 24px; display: flex; justify-content: space-between; color: #bae6fd; font-size: 12px; }
+    .break { page-break-before: always; }
+    h2 { margin-top: 18px; font-size: 18px; color: #0f766e; border-right: 5px solid #0f766e; padding-right: 8px; }
+    h3 { margin: 10px 0 5px; font-size: 14px; color: #1d4ed8; }
+    .panel { border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #f8fafc; }
+    .section-img { width: 100%; border-radius: 10px; border: 1px solid #cbd5e1; margin: 7px 0 6px; }
+    ul { margin: 4px 0 8px; padding-right: 18px; }
+    .example { border: 1px solid #99f6e4; background: #ecfeff; border-radius: 8px; padding: 8px; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+    th, td { border: 1px solid #cbd5e1; padding: 7px; text-align: right; vertical-align: top; }
+    th { background: #ecfeff; color: #0f766e; }
+    .footer {
+      position: fixed;
+      bottom: 6mm;
+      left: 14mm;
+      right: 14mm;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #334155;
+    }
+    .pagenum::after { counter-increment: page; content: "Page " counter(page); }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <img class="logo" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/sft-logo.svg" alt="SFT Logo" />
+    <h1>SFT</h1>
+    <h2>Live Map Operational Intelligence Guide</h2>
+    <p>
+      دليل رسمي احترافي يشرح خصائص Live Map كما هي مطبقة فعليًا، مع تصميم موجه لفرق العمليات والأمن
+      يتضمن أمثلة عملية وصور توضيحية تساعد على تسريع الاستيعاب واتخاذ القرار.
+    </p>
+    <div>
+      <span class="badge">Smart Focus 2.0</span>
+      <span class="badge">Incident Timeline</span>
+      <span class="badge">Adaptive Clustering</span>
+      <span class="badge">Command Palette</span>
+      <span class="badge">Offline/Retry UX</span>
+    </div>
+    <div class="cover-footer">
+      <span>Version: SFT-LM-2026.03</span>
+      <span>Prepared For: Operations & Security Teams</span>
+    </div>
+  </section>
+
+  <div class="break"></div>
+
+  <h2>1) نظرة عامة تنفيذية</h2>
+  <div class="panel">
+    Live Map منصة قيادة لحظية تجمع التتبع، التنبيه، المقارنة، والتحليل الزمني في شاشة واحدة.
+    الهدف هو تقليل زمن الاستجابة وتحسين دقة القرار خلال التشغيل اليومي.
+  </div>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/live-map-architecture.svg" alt="Architecture" />
+
+  <h2>2) Smart Focus 2.0</h2>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/smart-focus-flow.svg" alt="Smart Focus" />
+  <ul>
+    <li>ترتيب الأولوية يعتمد على: سرعة غير طبيعية + خروج geofence + انقطاع GPS.</li>
+    <li>فرز تلقائي للمركبات الأخطر.</li>
+    <li>انتقال ذكي بين الأهداف عالية الخطورة عندما يكون Focus مفعّلًا.</li>
+  </ul>
+  <div class="example"><b>مثال تشغيلي:</b> مركبة تجاوزت 110 km/h ثم فقدت GPS تظهر في أعلى Radar وتُتابع تلقائيًا.</div>
+
+  <h2>3) Presets التشغيل</h2>
+  <table>
+    <thead><tr><th>Preset</th><th>الاستخدام</th><th>التأثير</th></tr></thead>
+    <tbody>
+      <tr><td>Operations</td><td>تشغيل يومي</td><td>Heat + Alerts + Feed + Trace</td></tr>
+      <tr><td>Security</td><td>مراقبة أمنية</td><td>Smart Focus + Alerts + Feed</td></tr>
+      <tr><td>Replay</td><td>تحليل الحوادث</td><td>Replay + Table + Trace</td></tr>
+    </tbody>
+  </table>
+  <div class="example"><b>مثال:</b> التحول الفوري إلى Security عند بدء Incident بدون إعادة ضبط يدوية للإعدادات.</div>
+
+  <h2>4) Incident Timeline + Multi-Compare + Triage</h2>
+  <h3>Incident Timeline</h3>
+  <ul>
+    <li>يعرض تغير الحالة: Moving/Stop/Offline/Online + أحداث geofence/speed.</li>
+    <li>كل حدث يدعم Jump مباشر للموقع على الخريطة.</li>
+  </ul>
+  <h3>Multi-Select Compare</h3>
+  <ul>
+    <li>مقارنة 2–4 مركبات: Speed, Stops, Risk, Compliance.</li>
+  </ul>
+  <h3>One-Click Triage</h3>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/triage-workflow.svg" alt="Triage" />
+  <ul>
+    <li>Mute 10m / Assign / Escalate مباشرة من Feed.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> تنبيه متكرر يتم Mute، تنبيه geofence يتم Escalate، ثم Assign للمسؤول المناوب.</div>
+
+  <h2>5) الأداء والثبات</h2>
+  <ul>
+    <li>Adaptive Clustering + Viewport Rendering لتخفيف الازدحام البصري والحمولة.</li>
+    <li>Trace Decimation لتسريع الرسم في المسارات الطويلة.</li>
+    <li>Polling Strategy حسب النشاط ودرجة المخاطر.</li>
+    <li>Offline/Retry UX بشارة حالة واتصال متدرج حتى الاستعادة.</li>
+  </ul>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/live-map-section.png" alt="Live map section" />
+
+  <h2>6) التوصيات التشغيلية</h2>
+  <ul>
+    <li>استخدم Security preset أثناء المناوبات الحرجة.</li>
+    <li>فعّل Compare قبل اتخاذ قرار إعادة توزيع مركبات.</li>
+    <li>استعمل Replay + Export/Record لتوثيق الحوادث.</li>
+    <li>اعتمد على PDF المرفق كمرجع تدريبي للفرق الجديدة.</li>
+  </ul>
+
+  <div class="footer">
+    <span>SFT · Live Map Professional Report</span>
+    <span class="pagenum"></span>
+  </div>
+</body>
+</html>

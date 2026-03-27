@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460">
+  <rect width="1200" height="460" fill="#fefce8"/>
+  <text x="600" y="58" text-anchor="middle" fill="#713f12" font-size="34" font-family="Segoe UI">One-Click Triage Workflow</text>
+  <rect x="100" y="130" width="260" height="220" rx="20" fill="#fff7ed" stroke="#fdba74" stroke-width="3"/>
+  <text x="230" y="195" text-anchor="middle" fill="#9a3412" font-size="30" font-family="Segoe UI">Mute 10m</text>
+  <text x="230" y="235" text-anchor="middle" fill="#7c2d12" font-size="18" font-family="Segoe UI">تقليل ضوضاء التنبيه</text>
+  <rect x="470" y="130" width="260" height="220" rx="20" fill="#eff6ff" stroke="#93c5fd" stroke-width="3"/>
+  <text x="600" y="195" text-anchor="middle" fill="#1e3a8a" font-size="30" font-family="Segoe UI">Assign</text>
+  <text x="600" y="235" text-anchor="middle" fill="#1e293b" font-size="18" font-family="Segoe UI">إسناد لمسؤول مباشر</text>
+  <rect x="840" y="130" width="260" height="220" rx="20" fill="#fef2f2" stroke="#fca5a5" stroke-width="3"/>
+  <text x="970" y="195" text-anchor="middle" fill="#991b1b" font-size="30" font-family="Segoe UI">Escalate</text>
+  <text x="970" y="235" text-anchor="middle" fill="#7f1d1d" font-size="18" font-family="Segoe UI">تصعيد للحالة الحرجة</text>
+  <line x1="360" y1="240" x2="470" y2="240" stroke="#f59e0b" stroke-width="6"/>
+  <line x1="730" y1="240" x2="840" y2="240" stroke="#f59e0b" stroke-width="6"/>
+</svg>

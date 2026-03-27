@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Map - دليل الخصائص الكامل</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; color: #0f172a; line-height: 1.8; font-size: 12.5px; }
+    h1,h2,h3 { margin: 0 0 8px; }
+    h1 { font-size: 27px; color: #0b1220; }
+    h2 { margin-top: 22px; font-size: 19px; color: #1d4ed8; border-right: 5px solid #1d4ed8; padding-right: 9px; }
+    h3 { margin-top: 12px; font-size: 15px; color: #0f766e; }
+    .hero { background: linear-gradient(135deg,#eff6ff,#ecfeff); border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; }
+    .hero-grid { display: grid; grid-template-columns: 1fr 180px; gap: 10px; align-items: center; }
+    .hero img { width: 170px; border-radius: 10px; border: 1px solid #cbd5e1; }
+    .muted { color: #475569; }
+    .pill { display: inline-block; border: 1px solid #cbd5e1; border-radius: 999px; padding: 2px 8px; margin-left: 4px; background: #f8fafc; font-size: 11px; }
+    .section-img { width: 100%; border-radius: 10px; border: 1px solid #cbd5e1; margin: 8px 0 6px; }
+    .example { border: 1px solid #bae6fd; background: #f0f9ff; border-radius: 8px; padding: 9px; margin-top: 8px; }
+    ul { margin: 4px 0 8px; padding-right: 18px; }
+    li { margin: 2px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 9px 0; }
+    th,td { border: 1px solid #cbd5e1; padding: 7px; text-align: right; vertical-align: top; }
+    th { background: #e2e8f0; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card { border: 1px solid #dbeafe; background: #f8fafc; border-radius: 8px; padding: 9px; }
+    .small { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="hero-grid">
+      <div>
+        <h1>Live Map — شرح دقيق ومرتب لكل الخصائص</h1>
+        <p class="muted">
+          هذا المستند يغطي الخصائص الفعلية داخل شاشة Live Map مع شرح تشغيلي مفصل وأمثلة عملية،
+          إضافة إلى صور توضيحية داخل كل قسم رئيسي.
+        </p>
+        <span class="pill">Smart Focus 2.0</span><span class="pill">Presets</span><span class="pill">Command Palette</span><span class="pill">Incident Timeline</span><span class="pill">Polling + Retry</span>
+      </div>
+      <img src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/sft-logo.svg" alt="SFT logo" />
+    </div>
+  </div>
+
+  <h2>1) البنية العامة للشاشة</h2>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/live-map-architecture.svg" alt="architecture" />
+  <div class="two">
+    <div class="card">
+      <h3>منطقة الخريطة</h3>
+      <ul><li>خريطة تفاعلية + طبقات + markers + traces + alerts + heat zones.</li><li>دعم mini-map وتوجيه Follow/Center.</li></ul>
+    </div>
+    <div class="card">
+      <h3>اللوحة الجانبية وDock</h3>
+      <ul><li>Feed/Table + Risk Radar + Timeline + Compare.</li><li>Dock لأزرار التحكم السريع اليومية.</li></ul>
+    </div>
+  </div>
+  <div class="example"><b>مثال:</b> المشغل يبدأ بالبحث، يحدد مركبة، ثم Follow أو Center لبدء التتبع الفوري.</div>
+
+  <h2>2) Smart Focus 2.0</h2>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/smart-focus-flow.svg" alt="smart focus flow" />
+  <p>النظام يبني درجة أولوية لكل مركبة اعتمادًا على: <b>السرعة</b> + <b>geofence</b> + <b>حالة GPS</b>.</p>
+  <ul>
+    <li>سرعة 110+ = إنذار قوي، 95+ = تنبيه متقدم.</li>
+    <li>خروج geofence يزيد الأولوية بشكل كبير.</li>
+    <li>GPS متأخر/Offline يضيف وزن خطورة.</li>
+    <li>انتقال ذكي بين المركبات الأعلى أولوية عند تفعيل Focus.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> مركبة بسرعة 118 وخارج geofence تتقدم تلقائيًا على كل المركبات الأقل خطورة.</div>
+
+  <h2>3) Layer Presets (Operations / Security / Replay)</h2>
+  <table>
+    <thead><tr><th>الوضع</th><th>الغرض</th><th>ما يتغير تلقائيًا</th></tr></thead>
+    <tbody>
+      <tr><td>Operations</td><td>تشغيل يومي</td><td>Heat ON، Alerts ON، Feed، Trace ON</td></tr>
+      <tr><td>Security</td><td>حساسية أمنية أعلى</td><td>Smart Focus ON، Alerts ON، Heat OFF، Feed</td></tr>
+      <tr><td>Replay</td><td>تحليل بعد الحدث</td><td>Replay ON، Table، Alerts OFF، Heat OFF</td></tr>
+    </tbody>
+  </table>
+  <div class="example"><b>مثال:</b> في حادث مباشر يكفي الضغط على Security للتحول الفوري لوضع الاستجابة.</div>
+
+  <h2>4) Adaptive Clustering + Viewport Rendering</h2>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/live-map-section.png" alt="live map snapshot" />
+  <ul>
+    <li>Clustering يتغير حسب zoom والكثافة: بعيد = clusters، قريب = markers فردية.</li>
+    <li>Viewport Rendering: عرض العناصر داخل نطاق الخريطة الفعلي فقط.</li>
+    <li>تقليل الضغط البصري وتحسين الأداء مع الأساطيل الكبيرة.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> عند التكبير لمدينة، تختفي الكتل تدريجيًا وتظهر مركبات منفصلة.</div>
+
+  <h2>5) Incident Timeline + Jump</h2>
+  <ul>
+    <li>يسجل انتقالات الحالة: Moving/Stop/Offline/Online.</li>
+    <li>يسجل خروج geofence وتجاوز السرعة.</li>
+    <li>كل حدث قابل للنقر للانتقال مباشرة إلى موقعه على الخريطة.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> النقر على حدث “Sortie geofence” يقوم بعمل Center للنقطة فورًا.</div>
+
+  <h2>6) Multi-Select Compare (2–4 مركبات)</h2>
+  <ul>
+    <li>مقارنة فورية في: Speed / Stops / Risk / Compliance.</li>
+    <li>اختيار حتى 4 مركبات مع تحديث لحظي.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> عند انخفاض Compliance لمركبة واحدة إلى 62% يتم تصنيفها كأولوية تحقق.</div>
+
+  <h2>7) One-Click Triage داخل Alerts Feed</h2>
+  <img class="section-img" src="file:///C:/Users/SF/OneDrive/Bureau/BRDAT/Gazzzit-main/public/pdf-assets/triage-workflow.svg" alt="triage workflow" />
+  <ul>
+    <li><b>Mute 10m:</b> كتم تنبيه متكرر.</li>
+    <li><b>Assign:</b> إسناد التنبيه لمسؤول.</li>
+    <li><b>Escalate:</b> تصعيد الحالات الحرجة.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> تنبيه GPS متكرر يتم Mute، بينما خروج geofence يتم Escalate مباشرة.</div>
+
+  <h2>8) Command Palette (Ctrl/Cmd+K)</h2>
+  <ul>
+    <li>بحث فوري عن المركبة بالاسم/IMEI/Plate.</li>
+    <li>تنفيذ أوامر مباشرة: Smart Focus، تبديل Feed/Table، Preset Security.</li>
+    <li>الوصول للأوامر دون التنقل اليدوي بين الأقسام.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> Ctrl+K ثم كتابة جزء IMEI ثم Enter للانتقال الفوري للمركبة.</div>
+
+  <h2>9) الأداء والاستقرار</h2>
+  <ul>
+    <li><b>Trace Decimation:</b> تبسيط نقاط المسار حسب zoom.</li>
+    <li><b>Polling ذكي:</b> تحديث أسرع للمركبات النشطة وأبطأ للثابتة.</li>
+    <li><b>Offline/Retry:</b> شارة حالة + retry تدريجي تلقائي.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> عند انقطاع API تظهر Retrying ثم تستأنف المزامنة تلقائيًا بعد نجاح الاتصال.</div>
+
+  <h2>10) تحسينات UX والبصريات</h2>
+  <ul>
+    <li>Density-Aware Typography حسب كثافة المحتوى وحجم اللوحة.</li>
+    <li>Semantic Colors موحدة عبر الخريطة والبادجات والتنبيهات.</li>
+    <li>Motion Budget موجه للحالات الحرجة لتقليل التشتيت.</li>
+  </ul>
+  <div class="example"><b>مثال:</b> عند كثافة مركبات مرتفعة يتم تقليل الخط تلقائيًا للحفاظ على وضوح القراءة.</div>
+
+  <h2>11) ملخص الأزرار الأساسية</h2>
+  <table>
+    <thead><tr><th>الزر</th><th>الوظيفة</th><th>أفضل وقت للاستخدام</th></tr></thead>
+    <tbody>
+      <tr><td>Ops / Security / Replay</td><td>تبديل وضع المراقبة</td><td>تغيير السيناريو بسرعة</td></tr>
+      <tr><td>PDF</td><td>تحميل الدليل</td><td>التوثيق والمشاركة</td></tr>
+      <tr><td>Focus</td><td>تفعيل Smart Focus</td><td>أثناء التصعيد</td></tr>
+      <tr><td>Replay</td><td>تشغيل تتبع تاريخي</td><td>تحليل الحوادث</td></tr>
+      <tr><td>Cluster</td><td>التحكم في التجميع</td><td>مع كثافة بيانات عالية</td></tr>
+    </tbody>
+  </table>
+
+  <p class="small muted">تم إعداد هذا الدليل انطلاقًا من الخصائص المطبقة فعليًا داخل Live Map في المشروع الحالي.</p>
+</body>
+</html>

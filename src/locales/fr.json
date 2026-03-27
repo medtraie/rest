@@ -1,0 +1,2072 @@
+{
+  "brand": "SFT GAZ",
+  "loading": "Chargement...",
+  "sidebar": {
+    "navigation": "Navigation",
+    "tagline": "Gestion de distribution"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "inventory": "Inventaire",
+    "trucks": "Camions",
+    "drivers": "Chauffeurs",
+    "clients": "Clients",
+    "factory": "Fournisseurs",
+    "supplyReturn": "Distrubition",
+    "petitCamion": "Allogaz",
+    "exchanges": "Échanges",
+    "defectiveStock": "Stock Défectueux",
+    "fuelManagement": "Gestion Carburant & Huile",
+    "repairs": "Gestion des Réparations",
+    "expenses": "Dépenses Diverses",
+    "liveMap": "Carte Live",
+    "revenue": "Recette",
+    "reports": "Rapports",
+    "settings": "Paramètres"
+  },
+  "login": {
+    "title": "Connexion",
+    "description": "Entrez vos identifiants pour accéder au tableau de bord",
+    "email": "Email",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "submitting": "Connexion..."
+  },
+  "language": {
+    "french": "Français",
+    "arabic": "العربية"
+  },
+  "layout": {
+    "systemTitle": "Système de Distribution de Gaz",
+    "cardClassic": "Classique",
+    "cardCinematic": "Cinématique"
+  },
+  "app": {
+    "accessDenied": "Accès refusé",
+    "accessDeniedDesc": "Votre profil n'a pas les permissions nécessaires.",
+    "configMissing": "Configuration manquante",
+    "configMissingDesc": "Les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY ne sont pas définies dans Vercel.",
+    "configMissingHint": "Ajoutez-les dans Settings → Environment Variables puis redéployez."
+  },
+  "livemap": {
+    "table": "Tableau",
+    "feed": "Flux",
+    "vehiclesTable": "Tableau véhicules",
+    "vehiclesHidden": "Tableau véhicules masqué",
+    "mapAlerts": "Alertes carte",
+    "alerts": "Alertes",
+    "smartFocus": "Focus",
+    "blinkPoint": "Point clignotant",
+    "vehicles": "Véhicules"
+  },
+  "drivers": {
+    "common": {
+      "driver": "Chauffeur",
+      "drivers": "chauffeurs",
+      "balance": "Balance",
+      "stockRc": "Stock R.C",
+      "inactive": "Inactif",
+      "units": "UNITÉS"
+    },
+    "hero": {
+      "studio": "Drivers Studio",
+      "title": "Gestion des Chauffeurs",
+      "subtitle": "Pilotage créatif des soldes, paiements et stocks R.C sans changer la logique métier.",
+      "attention": "Attention",
+      "stable": "Stable",
+      "drivers": "Drivers",
+      "modeFocus": "Mode Focus",
+      "modeCreative": "Mode Créatif"
+    },
+    "status": {
+      "debt": "Dette",
+      "payment": "Paiement",
+      "credit": "Crédit",
+      "balanced": "Équilibré"
+    },
+    "actions": {
+      "globalReport": "Rapport Global",
+      "addDriver": "Ajouter un Chauffeur",
+      "generatingGlobal": "Génération du rapport global...",
+      "openProfile": "Ouvrir profil",
+      "reset": "Reset",
+      "exportPdf": "Exporter PDF",
+      "rcReport": "Rapport R.C",
+      "adjustRcStock": "Ajuster manuellement le Stock R.C",
+      "close": "Fermer",
+      "editStock": "Modifier le Stock",
+      "saveChanges": "Sauvegarder les changements",
+      "cancel": "Annuler",
+      "delete": "Supprimer"
+    },
+    "stats": {
+      "totalDrivers": "Total Chauffeurs",
+      "totalDebt": "Dettes Totales",
+      "totalAdvances": "Avances Totales",
+      "inDebt": "En Dette"
+    },
+    "filters": {
+      "all": "Tout",
+      "priority": "Priorité",
+      "quickSearch": "Recherche rapide dans la lane active...",
+      "hot": "Hot"
+    },
+    "commandCenter": {
+      "title": "Drivers Command Center",
+      "subtitle": "Focus sur les profils à risque et accélération des actions quotidiennes.",
+      "visible": "Visibles",
+      "alerts": "Alertes"
+    },
+    "timeline": {
+      "title": "Timeline Drivers"
+    },
+    "list": {
+      "title": "Liste des Chauffeurs",
+      "searchPlaceholder": "Rechercher un chauffeur...",
+      "status": "Statut",
+      "allStatuses": "Tous les statuts",
+      "inDebt": "En dette",
+      "inCredit": "En crédit",
+      "table": "Table",
+      "cards": "Cards"
+    },
+    "table": {
+      "driverName": "Nom du Chauffeur",
+      "advances": "Avances",
+      "state": "État",
+      "actions": "Actions",
+      "details": "Détails",
+      "downloadPdf": "Télécharger PDF",
+      "recordPayment": "Enregistrer un Paiement",
+      "rcManagement": "Gestion Bouteilles (R.C)",
+      "deleteDriver": "Supprimer le Chauffeur",
+      "deleteUnavailable": "Suppression indisponible",
+      "deleteImpossible": "Impossible de supprimer",
+      "date": "Date",
+      "type": "Type",
+      "amount": "Montant",
+      "description": "Description",
+      "bottleType": "Type de Bouteille",
+      "quantity": "Quantité"
+    },
+    "empty": {
+      "noCriticalProfile": "Aucun profil critique dans la vue actuelle.",
+      "noRecentActivity": "Aucune activité récente disponible.",
+      "noDriver": "Aucun chauffeur trouvé",
+      "noResultFor": "Aucun résultat pour",
+      "startByAdding": "Commencez par ajouter un nouveau chauffeur à votre liste.",
+      "noDriverInView": "Aucun chauffeur trouvé dans cette vue.",
+      "noTransaction": "Aucune transaction enregistrée",
+      "allReturned": "Tout est retourné (Stock vide)",
+      "noPendingBottle": "Aucune bouteille en attente"
+    },
+    "pagination": {
+      "showing": "Affichage de",
+      "of": "sur",
+      "previous": "Précédent",
+      "next": "Suivant"
+    },
+    "details": {
+      "activeDriver": "Chauffeur Actif",
+      "overview": "Vue d'ensemble",
+      "financialHistory": "Historique Financier",
+      "currentDebt": "Dette Actuelle",
+      "netBalance": "Balance Nette",
+      "creditForDriver": "Crédit en faveur du chauffeur",
+      "remainingToPay": "Reste à payer par le chauffeur",
+      "balancedSituation": "Situation équilibrée",
+      "repaymentProgress": "Progression du Remboursement",
+      "completed": "Complété",
+      "repaymentHint": "Basé sur le total des avances par rapport à la dette totale contractée.",
+      "latestTransactions": "Dernières Transactions",
+      "last50Operations": "Historique des 50 dernières opérations",
+      "rcState": "État du Stock R.C",
+      "bottlesInPossession": "Bouteilles actuellement en possession du chauffeur",
+      "detailedInventory": "Inventaire Détallé",
+      "summary": "Résumé",
+      "totalRcBottles": "Total Bouteilles R.C",
+      "totalRcHint": "Ce nombre représente le total des bouteilles pleines ou vides que le chauffeur n'a pas encore restituées au dépôt.",
+      "manageRcStock": "Gestion Stock R.C",
+      "currentTotalRc": "Total R.C Actuel"
+    },
+    "delete": {
+      "title": "Supprimer le chauffeur",
+      "description": "Cette action va supprimer définitivement ce chauffeur de la liste. Les autres données ne seront pas modifiées."
+    },
+    "pdf": {
+      "systemTitle": "SYSTÈME DE GESTION DE GAZ",
+      "rcReportTitle": "Rapport R.C - État du Stock",
+      "financialReportTitle": "Rapport Financier Chauffeur",
+      "date": "Date",
+      "driverInfo": "INFORMATIONS DU CHAUFFEUR",
+      "lastUpdate": "Dernière mise à jour",
+      "noChange": "Aucune modification",
+      "currentRcState": "ÉTAT ACTUEL DU STOCK R.C",
+      "qtyInPossession": "QUANTITÉ EN POSSESSION",
+      "totalRcBottles": "TOTAL DES BOUTEILLES R.C",
+      "rcHistoryTitle": "HISTORIQUE DES MODIFICATIONS R.C",
+      "dateUpper": "DATE",
+      "typeUpper": "TYPE",
+      "before": "AVANT",
+      "after": "APRÈS",
+      "diff": "DIFF",
+      "driverSignature": "Signature Chauffeur",
+      "managerSignature": "Signature Responsable",
+      "autoGeneratedBy": "Document généré automatiquement par CAMION Gestion v1.0",
+      "page": "Page",
+      "of": "sur",
+      "currentStatus": "Statut Actuel",
+      "balancedUpper": "ÉQUILIBRÉ",
+      "creditUpper": "EN CRÉDIT",
+      "debtUpper": "EN DETTE",
+      "financialSummary": "RÉSUMÉ FINANCIER",
+      "totalDebtUpper": "TOTAL DETTE",
+      "totalAdvancesUpper": "TOTAL AVANCES",
+      "finalBalanceUpper": "SOLDE FINAL",
+      "recentTransactionsHistory": "HISTORIQUE DES RÉCENTES TRANSACTIONS",
+      "paymentUpper": "PAIEMENT",
+      "amountUpper": "MONTANT",
+      "descriptionUpper": "DESCRIPTION"
+    }
+  },
+  "reports": {
+    "hero": {
+      "studio": "Reports Studio",
+      "title": "Pilotage intelligent des rapports",
+      "subtitle": "Interface modernisée, filtres dynamiques et génération rapide sans changer le comportement métier.",
+      "filteredTransactions": "Transactions filtrées",
+      "totalValue": "Valeur totale",
+      "dataScore": "Score données"
+    },
+    "types": {
+      "supply": "Alimentation",
+      "return": "Retour",
+      "exchange": "Échange",
+      "factoryReception": "Réception Usine",
+      "factoryInvoice": "Facture Usine",
+      "factorySettlement": "Règlement Usine",
+      "factory": "Usine"
+    },
+    "filters": {
+      "title": "Filtres Intelligents",
+      "activeFilters": "filtres actifs",
+      "periodNotDefined": "Période non définie",
+      "quickPdf": "PDF rapide",
+      "quickExcel": "Excel rapide",
+      "start": "Début",
+      "end": "Fin",
+      "type": "Type",
+      "all": "Tous",
+      "truck": "Camion",
+      "driver": "Chauffeur",
+      "reset": "Réinitialiser les filtres"
+    },
+    "badges": {
+      "drivers": "Chauffeurs",
+      "trucks": "Camions",
+      "healthyFleet": "Flotte saine"
+    },
+    "views": {
+      "executive": "Executive",
+      "operational": "Opérationnel",
+      "finance": "Finance",
+      "active": "Vue active"
+    },
+    "layout": {
+      "compact": "Compact",
+      "immersive": "Immersive"
+    },
+    "quickNav": {
+      "title": "Navigation Rapide V3",
+      "filters": "Filtres",
+      "fleet": "Flotte",
+      "kpis": "KPIs",
+      "stock": "Stock",
+      "drivers": "Chauffeurs",
+      "transactions": "Transactions",
+      "dailyReports": "Rapports Journaliers",
+      "topDebtDriver": "Chauffeur le plus exposé",
+      "ofDebt": "de dette",
+      "topCostTruck": "Camion coût maximal",
+      "ofRepairs": "de réparations",
+      "biggestTransaction": "Plus grosse transaction filtrée"
+    },
+    "fleet": {
+      "title": "Analyse Intelligente de la Flotte",
+      "healthReportPdf": "Rapport Santé PDF",
+      "totalVehicles": "Total Véhicules",
+      "criticalVehicles": "Véhicules Critiques",
+      "goodVehicles": "Véhicules en Bon État",
+      "table": {
+        "vehicle": "Véhicule",
+        "repairsCount": "Nb Réparations",
+        "totalCost": "Coût Total",
+        "health": "Santé",
+        "state": "État",
+        "advice": "Conseil"
+      },
+      "analysisHow": "Comment fonctionne l'analyse ?",
+      "analysisDescription": "L'algorithme calcule un score de santé basé sur la fréquence des pannes et les coûts cumulés. Un score inférieur à 40 indique une machine coûteuse qui devrait être remplacée pour optimiser la rentabilité."
+    },
+    "common": {
+      "search": "Rechercher...",
+      "hide": "Cacher",
+      "show": "Afficher"
+    },
+    "kpi": {
+      "noPreviousPeriod": "Aucune période précédente",
+      "vsPreviousPeriod": "vs période précédente",
+      "totalValue": "Valeur totale",
+      "supplyBs": "Alimentation (B.S)",
+      "returnBd": "Retour (B.D)",
+      "exchangeFactory": "Échange / Usine"
+    },
+    "impact": {
+      "title": "Suivi d'impact du stock",
+      "subtitle": "Analyse des pertes (R.C) et des bouteilles étrangères par chauffeur",
+      "filterByDriver": "Filtrer par chauffeur...",
+      "globalImpact": "Impact Global",
+      "foreignTotal": "Étrangères Total",
+      "rcLossesTotal": "R.C (Pertes) Total",
+      "impactedDrivers": "Chauffeurs Impactés",
+      "foreignBottles": "Bouteilles Étrangères",
+      "rcTracking": "Suivi des Restants (R.C)",
+      "units": "Unités",
+      "noForeignBottle": "Aucune bouteille étrangère détectée.",
+      "noRcLoss": "Aucun R.C (perte) détecté."
+    },
+    "stock": {
+      "title": "Analyse du stock",
+      "remainingValue": "Valeur Stock Restant",
+      "totalUnits": "Total Unités",
+      "distributedUnits": "Unités Distribuées",
+      "averageDistributionRate": "Taux de Distribution Moyen",
+      "detectedAnomalies": "Anomalies détectées",
+      "noCriticalAnomaly": "Aucune anomalie critique",
+      "table": {
+        "bottleType": "Type de Bouteille",
+        "total": "Total",
+        "distributedUnits": "Unités Distribuées",
+        "remaining": "Restant",
+        "value": "Valeur",
+        "distributionRate": "Taux de Distribution",
+        "state": "État"
+      }
+    },
+    "drivers": {
+      "title": "Analyse des chauffeurs",
+      "totalDebts": "Total Dettes",
+      "totalAdvances": "Total Acomptes",
+      "globalNetBalance": "Solde Net Global",
+      "table": {
+        "driver": "Chauffeur",
+        "cumulativeDebt": "Dette (Cumulée)",
+        "advances": "Acomptes",
+        "currentBalance": "Solde Actuel",
+        "status": "Statut",
+        "progress": "Progression"
+      }
+    },
+    "transactions": {
+      "title": "Historique des transactions",
+      "hideReference": "Cacher Référence",
+      "showReference": "Afficher Référence",
+      "sort": "Tri",
+      "sortDateDesc": "Date ↓",
+      "sortDateAsc": "Date ↑",
+      "sortValueDesc": "Valeur ↓",
+      "sortValueAsc": "Valeur ↑",
+      "limit": "Limiter",
+      "lines": "lignes",
+      "allTypes": "Tous types",
+      "amountGtZero": "Montants > 0",
+      "allAmounts": "Tous montants",
+      "searchPlaceholder": "Chercher (Chauffeur, Client, Camion...)",
+      "operations": "opérations",
+      "supplyShort": "Alim",
+      "returnShort": "Ret",
+      "exchangeShort": "Éch",
+      "displayed": "Affiché",
+      "withAmount": "Avec montant",
+      "historyHidden": "Historique masqué.",
+      "identifier": "Identifiant",
+      "noTransactionForFilters": "Aucune transaction pour ces filtres."
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "driver": "Chauffeur",
+      "client": "Client",
+      "reference": "Référence",
+      "truck": "Camion",
+      "valueMad": "Valeur (MAD)",
+      "details": "Détails",
+      "total": "Total",
+      "bottles": "Bouteilles"
+    },
+    "daily": {
+      "title": "Rapport Journalier des Chauffeurs",
+      "quickPeriod": "Période rapide",
+      "today": "Aujourd'hui",
+      "last7Days": "7 jours",
+      "month": "Mois",
+      "period": "Période",
+      "notDefined": "Non définie",
+      "unknown": "Inconnu",
+      "generating": "Génération en cours...",
+      "downloadAllReports": "Télécharger Tous les Rapports",
+      "generatingPrefix": "Génération"
+    },
+    "dailyActions": {
+      "driversDaily": "Rapport Journalier des Chauffeurs",
+      "totalVente": "Rapport Total Vente (B.D)",
+      "allogazBd": "Rapport Allogaz (B.D)",
+      "mygaz": "Rapport MYGAZ",
+      "driversHistoryBd": "Historique B.D — Camions",
+      "driverDebts": "Dettes Chauffeurs",
+      "dailyExpenses": "Notes de Frais",
+      "miscExpenses": "Dépenses Diverses",
+      "transport": "Transport",
+      "generalPdf": "Rapport Général PDF",
+      "diversesPdf": "Rapport Diverses PDF",
+      "repairsPdf": "Rapport Réparations PDF",
+      "factoryReception": "Réception Usine"
+    },
+    "pdf": {
+      "headers": {
+        "dailyExpense": "Rapport Journalier des Notes de Frais",
+        "driverDebts": "Rapport des Dettes des Chauffeurs",
+        "miscExpenses": "Rapport des Dépenses Diverses",
+        "transport": "Rapport Journalier des Dépenses de Transport",
+        "generalDaily": "Rapport Général Journalier",
+        "miscSales": "Rapport Ventes Diverses",
+        "repairs": "Rapport des Réparations",
+        "fleetHealth": "Analyse de Santé du Parc Automobile",
+        "dailyDrivers": "Rapport Journalier des Chauffeurs",
+        "dailyAllogazBd": "Rapport Journalier Allogaz - Bons d'Entrée (B.D)",
+        "totalSalesBd": "Rapport Total Vente (B.D)",
+        "foreignByDriver": "Rapport des Bouteilles Étrangères par Chauffeur",
+        "foreignHistory": "Historique — Bouteilles Étrangères",
+        "rcByDriver": "Rapport des Bouteilles Restantes (R.C) par Chauffeur",
+        "rcHistory": "Historique — Bouteilles Restantes (R.C)",
+        "mygaz": "Rapport des Paiements MYGAZ",
+        "driversBdHistory": "Historique des Bons d'Entrée (B.D) — Camions",
+        "factoryReception": "Réception Usine"
+      },
+      "labels": {
+        "period": "Période",
+        "generatedAt": "Généré le",
+        "generatedDate": "Date de génération",
+        "companyDebt": "Dette de l'entreprise",
+        "total": "Total",
+        "totalDebts": "Total des dettes",
+        "totalExpenses": "Total des dépenses",
+        "totalTransport": "Total transport",
+        "totalUpper": "TOTAL",
+        "none": "Aucun",
+        "driverFilter": "Filtre chauffeur",
+        "totalForeign": "Total étrangers",
+        "impactedDrivers": "Chauffeurs impactés",
+        "totalRc": "Total R.C",
+        "page": "Page"
+      },
+      "cards": {
+        "transactions": "Transaction",
+        "total": "Total",
+        "methods": "Méthodes",
+        "drivers": "Chauffeurs",
+        "totalDebt": "Total dette",
+        "average": "Moyenne",
+        "totalTransport": "Total transport",
+        "sources": "Sources",
+        "sections": "Sections",
+        "totalGlobal": "Total global",
+        "totalDeposit": "Total consigne",
+        "totalCost": "Coût total",
+        "units": "Unités",
+        "collection": "Encaissement",
+        "soldBottles": "Bouteilles vendues",
+        "totalSales": "Total vente",
+        "totalMygaz": "Total MYGAZ"
+      },
+      "rows": {
+        "miscExpenses": "Dépenses Diverses",
+        "transport": "Transport",
+        "driverDebts": "Dettes Chauffeurs",
+        "dailyExpenses": "Notes de Frais",
+        "mygazPayments": "Paiements MYGAZ"
+      },
+      "table": {
+        "date": "Date",
+        "time": "Heure",
+        "type": "Type",
+        "driver": "Chauffeur",
+        "truck": "Camion",
+        "client": "Client",
+        "reference": "Référence",
+        "orderNumber": "N° Bon",
+        "blRef": "Réf BL",
+        "supplier": "Fournisseur",
+        "receptionDate": "Date Réception",
+        "vehicle": "Véhicule",
+        "product": "Produit",
+        "source": "Source",
+        "note": "Note",
+        "noteShort": "Remarque",
+        "mode": "Mode",
+        "valueMad": "Valeur (MAD)",
+        "amountMad": "Montant (MAD)",
+        "amountDh": "Montant (DH)",
+        "amount": "Montant",
+        "debt": "Dette",
+        "debtDh": "Dette (DH)",
+        "cumulativeDh": "Cumul (DH)",
+        "share": "Part",
+        "designation": "Désignation",
+        "depositQty": "Quantité Consigne",
+        "unitPrice": "Prix Unitaire",
+        "totalMad": "Total (MAD)",
+        "totalCost": "Coût Total",
+        "paid": "Payé",
+        "plate": "Matricule",
+        "repairs": "Réparations",
+        "score": "Score",
+        "state": "État",
+        "recommendation": "Recommandation",
+        "totalUnits": "Total unités",
+        "chequeDh": "Chèque (DH)",
+        "cashDh": "Espèce (DH)",
+        "soldBottlesBd": "Bouteilles vendues (B.D)",
+        "totalSalesDh": "Total vente (DH)",
+        "qty": "Qté",
+        "topTypes": "Top types",
+        "totalOrder": "Total Bon",
+        "mygazAmount": "Montant MYGAZ",
+        "otherCashCheck": "Autre (Esp/Chq)"
+      },
+      "repairType": {
+        "mechanical": "Mécanique",
+        "electrical": "Électrique",
+        "garage": "Garage"
+      },
+      "health": {
+        "good": "Bonne",
+        "keepMaintenance": "Continuer l'entretien régulier",
+        "average": "Moyenne",
+        "watchRepairs": "Surveiller les prochaines réparations",
+        "critical": "Critique",
+        "considerReplace": "Envisager la vente ou le remplacement"
+      },
+      "empty": {
+        "noDailyExpense": "Aucune note de frais pour cette sélection.",
+        "noDriverDebts": "Aucun chauffeur avec des dettes.",
+        "noMiscExpenseToday": "Aucune dépense diverse pour aujourd'hui.",
+        "noTransportExpenseToday": "Aucune dépense de transport pour aujourd'hui.",
+        "noDepositSales": "Aucune vente de consigne trouvée pour cette sélection.",
+        "noRepairForDate": "Aucune réparation trouvée pour cette date.",
+        "noDataForSelection": "Aucune donnée pour cette sélection.",
+        "noForeignForSelection": "Aucune bouteille étrangère détectée pour cette sélection.",
+        "noRcForSelection": "Aucun R.C (perte) détecté pour cette sélection.",
+        "noMygazForSelection": "Aucun paiement MYGAZ trouvé pour cette sélection.",
+        "noBdForSelection": "Aucune donnée B.D pour la sélection.",
+        "noFactoryReception": "Aucune réception usine trouvée pour cette sélection."
+      }
+    }
+  },
+  "inventory": {
+    "hero": {
+      "title": "Inventaire",
+      "subtitle": "Gestion globale des stocks et suivi des bouteilles"
+    },
+    "status": {
+      "normal": "Normal",
+      "critical": "Critique",
+      "low": "Faible",
+      "medium": "Moyen",
+      "good": "Bon",
+      "empty": "Vide"
+    },
+    "actions": {
+      "resetAllStock": "Réinitialiser tout le stock",
+      "hideStats": "Masquer stats",
+      "showStats": "Afficher stats",
+      "addStock": "Ajouter Stock"
+    },
+    "filters": {
+      "search": "Rechercher un type, une capacité...",
+      "all": "Tous",
+      "stock": "Stock",
+      "distribution": "Distribution",
+      "name": "Nom"
+    },
+    "quickStats": {
+      "totalAssets": "Actifs totaux",
+      "fullStock": "Stock plein",
+      "inCirculation": "En circulation",
+      "averageDistribution": "Distribution moyenne",
+      "rotationRate7d": "Rotation Rate (7j)"
+    },
+    "alert": {
+      "criticalOn": "Alerte critique sur",
+      "bottleType": "type",
+      "ofBottle": "de bouteille",
+      "estimatedShortage": "Manque estimé",
+      "unitsToThreshold": "unités pour revenir au seuil critique configuré."
+    },
+    "mission": {
+      "title": "Mission Control Inventory",
+      "subtitle": "Tri tactique des références selon risque de rupture",
+      "intervention": "Intervention",
+      "watch": "Surveillance",
+      "stable": "Stable",
+      "autonomy": "autonomie",
+      "stableAutonomy": "Autonomie stable"
+    },
+    "empty": {
+      "noItem": "Aucun élément",
+      "title": "Stock Vides",
+      "subtitle": "Gestion des stocks de bouteilles vides",
+      "bottles": "Bouteilles vides",
+      "noCritical": "Aucune bouteille vide critique",
+      "noStock": "Aucune bouteille vide en stock",
+      "noResultForFilters": "Aucun résultat pour les filtres actifs."
+    },
+    "defective": {
+      "title": "Stock de Bouteilles Défectueuses",
+      "titleShort": "Stock Défectueux",
+      "subtitle": "Gestion des stocks de bouteilles défectueuses",
+      "bottles": "Bouteilles défectueuses",
+      "noCritical": "Aucune bouteille défectueuse critique",
+      "noStock": "Aucune bouteille défectueuse en stock",
+      "trend": {
+        "downImprovement": "↓ Amélioration",
+        "upAlert": "↑ Alerte"
+      }
+    },
+    "common": {
+      "days": "jours",
+      "units": "unités",
+      "bottles": "Bouteilles",
+      "hide": "Masquer",
+      "show": "Afficher",
+      "close": "Fermer",
+      "cancel": "Annuler",
+      "confirm": "Confirmer",
+      "delete": "Supprimer",
+      "irreversible": "Cette action est irréversible."
+    },
+    "flowPulse": {
+      "title": "Flow Pulse 8 jours",
+      "subtitle": "Intensité journalière des mouvements et focus rapide"
+    },
+    "forecast": {
+      "title": "Rupture Forecaster",
+      "subtitle": "Projection par référence et priorité de réapprovisionnement",
+      "autonomy": "Autonomie",
+      "drainPerDay": "Drain/j",
+      "refill": "Refill",
+      "risk": {
+        "urgent": "Urgent",
+        "watch": "Watch",
+        "stable": "Stable"
+      }
+    },
+    "planner": {
+      "title": "Replenishment Planner",
+      "objective": "Objectif global de recharge sur",
+      "refillRecommended": "Refill recommandé",
+      "focusGlobalPlan": "Focus plan global"
+    },
+    "driverHeatmap": {
+      "title": "Driver Pressure Heatmap 14j",
+      "subtitle": "Localise les corridors de pression et accélère le focus",
+      "noDriver": "Sans chauffeur",
+      "lane": {
+        "supply": "Sortie camion",
+        "return": "Retour terrain",
+        "foreign": "Entrée étrangère"
+      }
+    },
+    "card": {
+      "remainingFullStock": "Stock plein restant",
+      "full": "Plein",
+      "empty": "Vides",
+      "circulation": "Circulation",
+      "distributionRate": "Taux de distribution",
+      "criticalThreshold": "Seuil critique",
+      "auto": "Auto",
+      "edit": "Modifier",
+      "history": "Historique"
+    },
+    "trend": {
+      "upRecovery": "↑ Reprise",
+      "downTension": "↓ Tension",
+      "stable": "→ Stable"
+    },
+    "summary": {
+      "title": "Résumé de l'inventaire",
+      "totalGeneral": "Total général",
+      "distributed": "Distribuées",
+      "remaining": "Restantes",
+      "totalValue": "Valeur totale"
+    },
+    "impact": {
+      "title": "Suivi d'impact du stock",
+      "subtitle": "Résumé et dernières modifications",
+      "today": "Aujourd'hui",
+      "last7Days": "7 derniers jours",
+      "summaryToday": "Résumé du jour",
+      "summaryLast7Days": "Résumé des 7 derniers jours",
+      "deltaEmpty": "Δ Vides",
+      "deltaFull": "Δ Pleins",
+      "deltaDefective": "Δ Défectueuses",
+      "deltaForeign": "Δ Étrangères",
+      "recentTransactions": "Transactions récentes",
+      "operations": "opérations",
+      "noTransactionForPeriod": "Aucune transaction enregistrée pour cette période",
+      "foreignShort": "Étrangères",
+      "event": {
+        "supplyTruck": "Alimentation camion",
+        "returnBs": "B.D - Retour B.S",
+        "foreignAdd": "Ajout étrangère"
+      }
+    },
+    "table": {
+      "top": "Top",
+      "notUpdated": "non actualisé(s)",
+      "recentUpdates": "Mises à jour récentes",
+      "onlyCritical": "Seulement critiques",
+      "allLevels": "Tous niveaux",
+      "critical": "Critiques",
+      "medium": "Moyens",
+      "qty": "Qté",
+      "name": "Nom",
+      "product": "Produit",
+      "quantity": "Quantité",
+      "lastUpdate": "Dernière Mise à Jour",
+      "date": "Date",
+      "operation": "Opération",
+      "driver": "Chauffeur",
+      "bottleType": "Type de bouteille",
+      "variation": "Variation"
+    },
+    "history": {
+      "title": "Historique des mouvements",
+      "currentStock": "Stock Actuel",
+      "dateTime": "Date & Heure",
+      "operationType": "Type d'opération",
+      "stockEvolution": "Évolution Stock",
+      "noHistory": "Aucun historique",
+      "noHistoryHint": "Les mouvements de stock apparaîtront ici.",
+      "change": {
+        "addManual": "Ajout Manuel",
+        "returnBd": "Retour B.D",
+        "stockOut": "Sortie Stock",
+        "factoryReturn": "Retour Usine",
+        "factorySend": "Envoi Usine"
+      }
+    },
+    "confirmReset": {
+      "title": "Réinitialisation complète",
+      "question": "Êtes-vous sûr de vouloir réinitialiser tout le stock ?",
+      "description": "Cette action remettra toutes les quantités à zéro mais conservera les types de bouteilles standards."
+    },
+    "confirmDelete": {
+      "title": "Supprimer",
+      "question": "Êtes-vous sûr de vouloir supprimer ce type de bouteille ?",
+      "description": "Toutes les données associées à ce type seront définitivement supprimées."
+    },
+    "autopilot": {
+      "title": "Stock Autopilot",
+      "subtitle": "Presets rapides pour piloter les priorités",
+      "defenseMode": "Mode Défense",
+      "rotationMode": "Mode Rotation",
+      "balanceMode": "Mode Équilibre",
+      "activeControl": "Pilotage actif",
+      "defenseHint": "Renforcer les références critiques",
+      "rotationHint": "Accélérer la récupération terrain",
+      "balanceHint": "Vision globale stabilisée",
+      "manualHint": "Ajustement manuel en cours"
+    }
+  },
+  "factory": {
+    "pdf": {
+      "systemTitle": "SYSTÈME DE GESTION DE DISTRIBUTION",
+      "invoiceTitle": "FACTURE FOURNISSEUR",
+      "invoiceDate": "Date de Facturation",
+      "statusPaid": "PAYÉE",
+      "statusPending": "EN ATTENTE",
+      "paymentStatus": "STATUT DU PAIEMENT",
+      "supplier": "Fournisseur",
+      "blCount": "Nombre de BL",
+      "blDetails": "Détails des Bons de Livraison (BL)",
+      "blReference": "Référence BL",
+      "date": "Date",
+      "qtySent": "Qté Envoyée",
+      "qtyReceived": "Qté Reçue",
+      "difference": "Différence",
+      "bottleSummary": "Récapitulatif par Type de Bouteille",
+      "bottleType": "Type de Bouteille",
+      "totalSent": "Total Envoyé",
+      "totalReceived": "Total Reçu",
+      "unitPrice": "Prix Unitaire",
+      "amount": "Montant",
+      "grandTotalSent": "Total Général Envoyé",
+      "grandTotalReceived": "Total Général Reçu",
+      "totalAmount": "Montant Total",
+      "invoiceGeneratedBy": "Facture générée par SFT GAZ le",
+      "page": "Page",
+      "operationReportTitle": "RAPPORT D'OPÉRATION",
+      "operationDate": "Date de l'opération",
+      "statusFinished": "TERMINÉE",
+      "status": "Statut",
+      "driver": "Chauffeur",
+      "truckPlate": "Camion / Matricule",
+      "movementDetails": "Détails des Mouvements",
+      "outbound": "SORTIE",
+      "empty": "Vide",
+      "defective": "Défectueux",
+      "inbound": "ENTRÉE",
+      "full": "Plein",
+      "direction": "Direction",
+      "state": "État",
+      "quantity": "Quantité",
+      "totalBottlesSent": "Total Bouteilles Envoyées",
+      "totalBottlesReceived": "Total Bouteilles Reçues",
+      "supplierDebt": "Dette Fournisseur",
+      "debtReduction": "Réduction Dette",
+      "units": "unités",
+      "managerSignature": "Signature du Responsable",
+      "autoGeneratedBy": "Document généré automatiquement par SFT GAZ le",
+      "operationsHistoryTitle": "HISTORIQUE DES OPÉRATIONS USINE",
+      "totalOperations": "Total Opérations",
+      "finished": "Terminées",
+      "sent": "Envoyé",
+      "received": "Reçu",
+      "debtDiff": "Dette/Diff.",
+      "exportedAt": "Exporté le",
+      "of": "sur"
+    }
+  },
+  "supplyReturn": {
+    "pdf": {
+      "systemTitle": "SYSTÈME DE GESTION DE DISTRIBUTION",
+      "bsTitle": "BON DE SORTIE (B.S)",
+      "issueDate": "Date d'émission",
+      "reference": "Référence",
+      "driver": "Chauffeur",
+      "notSpecified": "Non spécifié",
+      "client": "Client",
+      "allogaz": "Allogaz",
+      "productDetails": "Détails des Produits",
+      "product": "Produit",
+      "empty": "Vides",
+      "full": "Pleines",
+      "unitPriceShort": "P.U",
+      "vat": "TVA",
+      "amount": "Montant",
+      "amountHt": "Montant HT",
+      "totalTtc": "Total TTC",
+      "driverClientSignature": "Signature du Chauffeur / Client",
+      "autoGeneratedBy": "Document généré automatiquement par SFT GAZ le",
+      "page": "Page",
+      "bdTitle": "BON D'ENTRÉE (B.D)",
+      "receptionDate": "Date de réception",
+      "bsReference": "Référence B.S",
+      "returnDetails": "Détails des Retours",
+      "foreignShort": "Étran.",
+      "defectiveShort": "Défec.",
+      "consigneShort": "Cons.",
+      "rcShort": "R.C",
+      "sales": "Ventes",
+      "legend": "LÉGENDE:",
+      "legendEmpty": "Vides: Bouteilles vides retournées",
+      "legendFull": "Pleines: Bouteilles pleines retournées",
+      "legendForeign": "Étran.: Bouteilles d'autres fournisseurs",
+      "legendDefective": "Défec.: Bouteilles endommagées",
+      "legendConsigne": "Cons.: Bouteilles vendues sans échange",
+      "legendRc": "R.C: Bouteilles non retournées (dette chauffeur)",
+      "legendSales": "Ventes: Vides + Consigne",
+      "managerSignature": "Signature du Responsable"
+    },
+    "ui": {
+      "common": {
+        "noDriver": "Sans chauffeur",
+        "noDriverCaps": "Sans Chauffeur",
+        "na": "N/A"
+      },
+      "allogaz": {
+        "details": "Détails Allogaz",
+        "label": "Allogaz",
+        "selectTruck": "Sélectionner un camion",
+        "noneAvailable": "Aucun Allogaz disponible",
+        "assignedDriver": "Chauffeur Assigné",
+        "selectDriver": "Sélectionner un chauffeur"
+      },
+      "history": {
+        "title": "Gestion des Historiques",
+        "bsFlow": "Flux B.S",
+        "bdFlow": "Flux B.D",
+        "bsVisible": "bons visibles dans l’historique",
+        "bdVisible": "retours visibles dans l’historique",
+        "pendingSettlement": "En attente règlement",
+        "unpaidBd": "bons d’entrée non réglés",
+        "pulse48h": "Pulse 48h",
+        "balancedFlow": "Flux équilibré",
+        "supplyDominant": "Sorties dominantes",
+        "returnDominant": "Retours dominants",
+        "bsRecent": "B.S récents",
+        "bdRecent": "B.D récents",
+        "bsHistoryTitle": "Historique des Bons de Sortie (B.S)",
+        "bdHistoryTitle": "Historique des Bons d'Entrée (B.D)",
+        "bons": "bons",
+        "returns": "retours",
+        "activeFilters": "Filtres actifs",
+        "resetFilters": "Reset filtres",
+        "bsFilteredFlow": "Flux B.S filtré",
+        "bdFilteredFlow": "Flux B.D filtré",
+        "cumulativeAmount": "Montant cumulé",
+        "activeReference": "Référence active",
+        "searchFocused": "Recherche ciblée",
+        "globalView": "Vue globale",
+        "search": "Recherche",
+        "searchBsPlaceholder": "N° BS, Chauffeur...",
+        "searchBdPlaceholder": "N° BD, N° BS...",
+        "period": "Période",
+        "from": "Du",
+        "to": "Au",
+        "driver": "Chauffeur",
+        "client": "Client",
+        "all": "Tous",
+        "allDrivers": "Tous les chauffeurs",
+        "allClients": "Tous les clients",
+        "bsNumber": "N° BS",
+        "bdNumber": "N° B.D",
+        "bsSource": "B.S Source",
+        "dateTime": "Date & Heure",
+        "recipient": "Destinataire",
+        "products": "Produits",
+        "driverClient": "Chauffeur/Client",
+        "totalTtc": "Total TTC",
+        "actions": "Actions",
+        "state": "État",
+        "noBsFound": "Aucun bon de sortie trouvé",
+        "noBdFound": "Aucun bon d'entrée trouvé",
+        "gasTypes": "TYPES DE GAZ",
+        "print": "Imprimer",
+        "recordReturn": "Enregistrer Retour",
+        "delete": "Supprimer",
+        "export": "Exporter",
+        "options": "Options",
+        "display": "Affichage",
+        "standardColumns": "Colonnes standards",
+        "pagination": "Pagination",
+        "perPage10": "10 par page",
+        "perPage20": "20 par page",
+        "pendingPayments": "Paiements en attente",
+        "filterState": "État filtre",
+        "paid": "Réglé",
+        "pending": "Validé",
+        "details": "Détails",
+        "settlement": "Règlement",
+        "cancel": "Annuler",
+        "date": "Date",
+        "totalAmount": "Montant Total",
+        "product": "Produit",
+        "emptyQty": "Quantité Vides",
+        "fullQty": "Quantité Pleines",
+        "unitPrice": "Prix Unitaire",
+        "amount": "Montant",
+        "downloadPdf": "Télécharger PDF",
+        "close": "Fermer",
+        "paymentDetails": "Détails du Règlement",
+        "cash": "Espèces",
+        "cheque": "Chèque",
+        "mygaz": "MYGAZ",
+        "remainingDebt": "Dette Restante",
+        "totalVoucherAmount": "Montant Total du Bon:",
+        "legend": "Légende:",
+        "empty": "Vides:",
+        "full": "Pleines:",
+        "foreign": "Étrangères:",
+        "defective": "Défectueuses:",
+        "lost": "Perdues:",
+        "sold": "Vendues:",
+        "emptyLegend": "Bouteilles vides retournées",
+        "fullLegend": "Bouteilles pleines retournées",
+        "foreignLegend": "Bouteilles d'autres fournisseurs",
+        "defectiveLegend": "Bouteilles endommagées",
+        "lostLegend": "Bouteilles non retournées",
+        "soldLegend": "Bouteilles vendues au client"
+      },
+      "payment": {
+        "title": "Règlement - B.D",
+        "subtitle": "Enregistrer le paiement pour ce bon d'entrée",
+        "bsReference": "B.S Référence",
+        "returnedProducts": "Produits retournés:",
+        "quantity": "Quantité"
+      },
+      "dialogs": {
+        "deleteBsTitle": "Êtes-vous sûr de vouloir supprimer ce bon de sortie ?",
+        "deleteBsDescription": "Cette action ne peut pas être annulée. Cette action supprimera définitivement le bon de sortie.",
+        "deleteBdTitle": "Êtes-vous sûr de vouloir supprimer ce bon de retour ?",
+        "deleteBdDescription": "Cette action ne peut pas être annulée. Cette action supprimera définitivement le bon de retour.",
+        "bsDetailsTitle": "Détails du Bon de Sortie N°",
+        "bdDetailsTitle": "Détails du Bon d'Entrée",
+        "bdNumberPrefix": "Bon d'Entrée N°"
+      }
+    }
+  },
+  "expenses": {
+    "pdf": {
+      "title": "Liste des Dépenses",
+      "type": "Type",
+      "code": "Code",
+      "date": "Date",
+      "paymentMethod": "Mode de paiement",
+      "note": "Note",
+      "amountMad": "Montant (MAD)",
+      "totalExpenses": "Total des dépenses"
+    },
+    "ui": {
+      "toast": {
+        "fillRequired": "Veuillez remplir tous les champs obligatoires",
+        "specifyExpenseType": "Veuillez préciser le type de dépense",
+        "expenseUpdated": "Dépense mise à jour avec succès",
+        "expenseAdded": "Dépense ajoutée avec succès",
+        "scenarioSaved": "Scénario enregistré",
+        "expenseDeleted": "Dépense supprimée avec succès"
+      },
+      "hero": {
+        "title": "Expense Studio",
+        "subtitle": "Interface repensée pour piloter, analyser et agir instantanément.",
+        "filteredExpenses": "Dépenses filtrées",
+        "total": "Total",
+        "average": "Moyenne"
+      },
+      "actions": {
+        "exportPdf": "Exporter PDF",
+        "newExpense": "Nouvelle Charge",
+        "reset": "Réinitialiser",
+        "update": "Mettre à jour",
+        "save": "Enregistrer",
+        "cancel": "Annuler"
+      },
+      "filters": {
+        "searchPlaceholder": "Rechercher par type, code ou note...",
+        "all": "Tous",
+        "smart": "Filtres intelligents",
+        "allDates": "Toutes les dates",
+        "last7Days": "7 jours",
+        "last30Days": "30 jours"
+      },
+      "forecast": {
+        "title": "V4 Forecast & Guardrails",
+        "scenarioPrudent": "Scénario Prudent",
+        "scenarioBalanced": "Scénario Équilibré",
+        "scenarioOffensive": "Scénario Offensif",
+        "budgetGuardrail": "Budget Guardrail",
+        "monthlyFrame": "Cadre mensuel pour piloter les dépenses.",
+        "monthlyBudgetTargetDh": "Budget mensuel cible (DH)",
+        "currentMonthExpenses": "Dépenses du mois courant",
+        "budgetConsumption": "Consommation budget",
+        "projection6Weeks": "Projection 6 semaines",
+        "runRate": "Run-rate",
+        "week": "semaine",
+        "weekLabel": "Semaine",
+        "budget": "budget",
+        "smartAlerts": "Smart Alerts",
+        "earlyWarningLab": "V4.1 Early Warning Lab",
+        "cumulativeMonthForecast": "Cumulative month forecast",
+        "vsCurrent": "vs actuel",
+        "categoryTargetPlanner": "Category target planner",
+        "selectCategory": "Select category",
+        "allCategories": "All categories",
+        "earlyWarnings": "Early warnings",
+        "whatIfLab": "V4.2 What-if Scenario Lab",
+        "variationPercent": "Variation (%)",
+        "optimized": "optimized",
+        "base": "Base",
+        "shift": "shift",
+        "optimizedValue": "Optimized",
+        "sideBySideBoard": "Side-by-side board",
+        "autoOptimizationByCategory": "Auto-optimization by category",
+        "potentialReduction": "Potential reduction",
+        "noCategorySignal": "No category signal available.",
+        "target": "Target",
+        "save": "Save"
+      },
+      "payment": {
+        "cash": "Espèce",
+        "cheque": "Chèque",
+        "bank": "Banque"
+      },
+      "sections": {
+        "paymentBreakdown": "Répartition par paiement",
+        "topCategories": "Top catégories",
+        "expenseRadar": "Radar dépenses fortes"
+      },
+      "empty": {
+        "noData": "Aucune donnée disponible.",
+        "noExpenseFound": "Aucune dépense trouvée",
+        "adjustFilters": "Vérifiez vos filtres ou ajoutez une nouvelle charge"
+      },
+      "table": {
+        "type": "Type",
+        "code": "Code",
+        "date": "Date",
+        "paymentMethod": "Mode de paiement",
+        "note": "Note",
+        "amount": "Montant",
+        "actions": "Actions",
+        "totalFilteredExpenses": "Total des charges filtrées",
+        "totalAmountVatIncluded": "Montant total TTC"
+      },
+      "confirm": {
+        "deleteExpense": "Êtes-vous sûr de vouloir supprimer cette dépense ?"
+      },
+      "dialog": {
+        "editTitle": "Modifier la Charge",
+        "newTitle": "Nouvelle Charge",
+        "editSubtitle": "Mettre à jour les informations de la charge",
+        "newSubtitle": "Enregistrer une nouvelle charge financière"
+      },
+      "form": {
+        "expenseTypeLabel": "Ajouter une dépense *",
+        "chooseType": "Choisir un type",
+        "customExpenseNameLabel": "Nom de dépense *",
+        "customExpenseNamePlaceholder": "Entrez le nom de la dépense",
+        "codeLabel": "Code *",
+        "codePlaceholder": "Code de la dépense",
+        "amountLabel": "Montant (MAD) *",
+        "paymentMethodLabel": "Mode de règlement *",
+        "choosePaymentMethod": "Choisir un mode",
+        "operationDateLabel": "Date de l'opération *",
+        "chooseDate": "Choisir une date",
+        "noteLabel": "Note / Détails (facultatif)",
+        "notePlaceholder": "Précisions sur la dépense..."
+      }
+    }
+  },
+  "clients": {
+    "pdf": {
+      "title": "FACTURE - BONS DE SORTIE",
+      "date": "Date",
+      "client": "Client",
+      "ordersCount": "Nombre de bons",
+      "bsNumber": "N° B.S",
+      "products": "Produits",
+      "amount": "Montant",
+      "grandTotal": "TOTAL GÉNÉRAL"
+    },
+    "ui": {
+      "toast": {
+        "selectAtLeastOneBs": "Veuillez sélectionner au moins un bon de sortie",
+        "noBsFound": "Aucun bon de sortie trouvé",
+        "invoiceGenerated": "Facture générée avec succès",
+        "pdfError": "Erreur lors de la génération du PDF. Veuillez réessayer.",
+        "enterClientName": "Veuillez entrer un nom de client",
+        "clientAdded": "Client ajouté avec succès",
+        "clientUpdated": "Client modifié avec succès",
+        "clientDeleted": "Client supprimé avec succès"
+      },
+      "hero": {
+        "studio": "Clients Studio",
+        "title": "Gestion des Clients",
+        "subtitle": "Une vue pilotée pour gérer vos clients, leur activité et leurs bons de sortie."
+      },
+      "actions": {
+        "addClient": "Ajouter un client",
+        "add": "Ajouter",
+        "history": "Historique",
+        "focus": "Focus",
+        "open": "Ouvrir",
+        "generateInvoicePdf": "Générer Facture PDF",
+        "resetFilters": "Réinitialiser les filtres",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "ordersHistoryTitle": "Historique des Bons"
+      },
+      "dialog": {
+        "addTitle": "Ajouter un client",
+        "editTitle": "Modifier le client"
+      },
+      "form": {
+        "clientName": "Nom du client",
+        "clientNamePlaceholder": "Ex: Restaurant Al Amal",
+        "clientNameSimplePlaceholder": "Nom du client"
+      },
+      "stats": {
+        "totalClients": "Total Clients",
+        "activeClients": "Clients Actifs",
+        "globalVolume": "Volume Global",
+        "topClient": "Top Client"
+      },
+      "common": {
+        "none": "Aucun",
+        "noneFemale": "Aucune",
+        "ordersShort": "bons",
+        "orders": "Bons",
+        "lastActivity": "Dernière activité",
+        "last": "Dernier"
+      },
+      "commandDeck": {
+        "title": "Clients Command Deck",
+        "subtitle": "Pilotage rapide des segments clients avec accès direct aux profils.",
+        "shortcuts": "Alt+1 Cards · Alt+2 Compact · Alt+K Search"
+      },
+      "filters": {
+        "pulse": "Pulse Filter",
+        "all": "Tous",
+        "active": "Actifs",
+        "inactive": "Inactifs",
+        "currentDisplay": "Affichage actuel",
+        "clientWord": "client",
+        "searchClientPlaceholder": "Rechercher un client...",
+        "activity": "Activité",
+        "name": "Nom"
+      },
+      "radar": {
+        "title": "Radar"
+      },
+      "sections": {
+        "clientList": "Liste des clients"
+      },
+      "views": {
+        "cards": "Cards",
+        "compact": "Compact"
+      },
+      "empty": {
+        "noClientToDisplay": "Aucun client à afficher.",
+        "noClientRegistered": "Aucun client enregistré",
+        "addFirstClient": "Commencez par ajouter votre premier client",
+        "noClientFound": "Aucun client trouvé",
+        "tryAnotherSearch": "Essayez un autre terme de recherche",
+        "noBsForClient": "Aucun bon de sortie trouvé pour ce client"
+      },
+      "status": {
+        "active": "Actif",
+        "new": "Nouveau"
+      },
+      "historyDialog": {
+        "title": "Historique des Bons de Sortie",
+        "searchByBs": "Rechercher par N° B.S",
+        "bsPlaceholder": "N° Bon de sortie...",
+        "startDate": "Date Début",
+        "endDate": "Date Fin"
+      },
+      "table": {
+        "date": "Date",
+        "bsNumber": "N° B.S",
+        "products": "Produits",
+        "amount": "Montant"
+      },
+      "deleteDialog": {
+        "title": "Êtes-vous sûr de vouloir supprimer ce client ?",
+        "description": "Cette action ne peut pas être annulée. Cela supprimera définitivement le client."
+      }
+    }
+  },
+  "repairs": {
+    "ui": {
+      "toast": {
+        "error": "Erreur",
+        "fillRequired": "Veuillez remplir tous les champs obligatoires",
+        "paidExceedsTotal": "Le montant payé ne peut pas être supérieur au coût total",
+        "success": "Succès",
+        "repairUpdated": "Réparation mise à jour avec succès",
+        "repairAdded": "Réparation ajoutée avec succès",
+        "repairDeleted": "Réparation supprimée",
+        "repairDeletedSuccess": "La réparation a été supprimée avec succès."
+      },
+      "placeholder": {
+        "searchByVehicleOrRemark": "Rechercher par véhicule ou remarque...",
+        "repairType": "Type de réparation",
+        "period": "Période",
+        "paymentStatus": "Statut paiement",
+        "injectExample": "Ex: 15000",
+        "selectVehicle": "Sélectionner un véhicule",
+        "amountZero": "0.00",
+        "repairDetails": "Détails de la réparation, pièces changées..."
+      },
+      "label": {
+        "amountToInject": "Montant à injecter (MAD)",
+        "vehicle": "Véhicule",
+        "repairType": "Type de Réparation",
+        "date": "Date",
+        "paymentMethod": "Mode de Paiement",
+        "totalCostMad": "Coût Total (MAD)",
+        "paidAmountMad": "Montant Payé (MAD)",
+        "targetDebtFinal": "Cible de dette finale",
+        "remainingDebt": "Reste à payer (Dette) :",
+        "descriptionRemarks": "Description / Remarques"
+      },
+      "confirm": {
+        "deleteRepair": "Voulez-vous vraiment supprimer cette réparation ?"
+      },
+      "dialog": {
+        "editTitle": "Modifier la Réparation",
+        "newTitle": "Nouvelle Réparation",
+        "editSubtitle": "Mettre à jour les détails de l'opération",
+        "newSubtitle": "Enregistrer une nouvelle opération de maintenance"
+      },
+      "actions": {
+        "cancel": "Annuler",
+        "saveChanges": "Enregistrer les modifications",
+        "addRepair": "Ajouter la réparation",
+        "export": "Exporter",
+        "edit": "Modifier",
+        "delete": "Supprimer"
+      },
+      "table": {
+        "date": "Date",
+        "vehicle": "Véhicule",
+        "type": "Type",
+        "cost": "Coût total",
+        "paid": "Payé",
+        "debt": "Dette",
+        "actions": "Actions"
+      },
+      "empty": {
+        "noRepairs": "Aucune réparation trouvée"
+      }
+    }
+  },
+  "trucks": {
+    "ui": {
+      "toast": {
+        "macroStabilize": "Macro stabilisation",
+        "noActionNeededScope": "Aucune action nécessaire pour ce scope.",
+        "macroStabilizeStarted": "Macro stabilisation lancée",
+        "macroRecovery": "Macro récupération",
+        "noTruckToReactivate": "Aucun camion à réactiver.",
+        "macroRecoveryStarted": "Macro récupération lancée",
+        "trucksReactivated": "camion(s) réactivé(s)",
+        "macroAudit": "Macro audit",
+        "noHistoryCurrentScope": "Aucun historique disponible sur le scope actuel.",
+        "containment": "Confinement",
+        "noHighRiskContainment": "Aucun camion à haut risque à contenir.",
+        "containmentExecuted": "Confinement exécuté",
+        "rebalance": "Rééquilibrage",
+        "noTruckReadyRecovery": "Aucun camion prêt pour la récupération.",
+        "rebalanceExecuted": "Rééquilibrage exécuté",
+        "forecastFocus": "Focus prévisionnel",
+        "noTruckCurrentPerimeter": "Aucun camion disponible dans le périmètre actuel.",
+        "trucksDeleted": "Camions supprimés",
+        "allTrucksDeleted": "Tous les camions ont été supprimés.",
+        "suggestionApplied": "Suggestion appliquée",
+        "trucksSetToRest": "camion(s) mis en repos",
+        "driversDissociated": "chauffeur(s) dissocié(s)",
+        "setToRest": "Mis en repos",
+        "reactivated": "Réactivés",
+        "driversDissociatedTitle": "Chauffeurs dissociés",
+        "trucksCount": "camion(s)",
+        "truckDeleted": "Camion supprimé",
+        "wasDeleted": "a été supprimé.",
+        "driverUpdated": "Chauffeur mis à jour",
+        "assignmentSuccessOtherRest": "Assignation réussie. L'autre véhicule a été mis en repos.",
+        "invalidDeleteCodeTitle": "Code invalide",
+        "invalidDeleteCodeDescription": "Le code de confirmation est incorrect."
+      },
+      "placeholder": {
+        "quickCommand": "Commande rapide par matricule ou chauffeur...",
+        "searchTruckOrDriver": "Rechercher par matricule ou chauffeur...",
+        "historyFilter": "Filtre: Historique camion",
+        "deleteAllCode": "Entrez le code de confirmation",
+        "sortBy": "Trier par",
+        "changeDriver": "Changer chauffeur"
+      },
+      "forecast": {
+        "actionAssignDriver": "Assigner chauffeur",
+        "actionReactivate": "Réactiver",
+        "actionInspection": "Inspection",
+        "actionMonitor": "Surveiller",
+        "delay": "Délai",
+        "withoutUpdate": "sans mise à jour"
+      },
+      "presets": {
+        "balanced": "Équilibré",
+        "safety": "Sécurité",
+        "dispatch": "Expédition"
+      },
+      "overview": {
+        "totalFleet": "Total Flotte",
+        "registeredVehicles": "Véhicules enregistrés",
+        "volume": "Volume",
+        "drivers": "Chauffeurs",
+        "crewMembers": "Membres d'équipage",
+        "staff": "Staff",
+        "atRest": "En Repos",
+        "inactiveVehicles": "Véhicules inactifs",
+        "risk": "Risque"
+      },
+      "display": {
+        "cardStyle": "Style des cartes",
+        "classic": "Classique",
+        "cinematic": "Cinématique"
+      },
+      "sections": {
+        "commandCenter": "Centre de Commande Camions",
+        "commandCenterShortcuts": "Alt+1 Tableau · Alt+2 Cartes · Alt+3 Sécurité · Alt+4 Prévision · Alt+K Recherche",
+        "tacticalRadar": "Radar Tactique",
+        "predictiveRiskBoard": "Tableau de Risque Prédictif",
+        "forecastOrchestrator": "Orchestrateur Prévisionnel",
+        "commandMacros": "Macros de Commande",
+        "assignmentPulse": "Pouls des Assignations",
+        "criticalQueue": "File Critique",
+        "criticalQueueSubtitle": "Top camions nécessitant une action immédiate",
+        "activityMap": "Carte d'Activité",
+        "smartSuggestions": "Suggestions Intelligentes"
+      },
+      "stats": {
+        "visible": "Visibles",
+        "active": "Actifs",
+        "inactive": "Inactifs",
+        "withoutDriver": "Sans chauffeur",
+        "critical": "Critiques",
+        "trucks": "camions"
+      },
+      "views": {
+        "table": "Tableau",
+        "cards": "Cartes"
+      },
+      "filters": {
+        "all": "Tout"
+      },
+      "risk": {
+        "high": "Élevé",
+        "risk": "Risque",
+        "mediumPlural": "moyens",
+        "activeAtRisk": "actifs à risque"
+      },
+      "time": {
+        "last7Days": "7 derniers jours"
+      },
+      "label": {
+        "active": "Actif",
+        "inactive": "Inactif",
+        "noDriver": "Sans chauffeur",
+        "scope": "Périmètre",
+        "resume": "Reprise",
+        "quickAction": "Action rapide"
+      },
+      "actions": {
+        "cancel": "Annuler",
+        "setToRest": "Mettre en repos",
+        "reactivate": "Réactiver",
+        "dissociateDriver": "Dissocier chauffeur",
+        "delete": "Supprimer",
+        "history": "Historique",
+        "downloadPdf": "Télécharger PDF",
+        "close": "Fermer",
+        "confirm": "Confirmer",
+        "print": "Imprimer",
+        "deleteAll": "Supprimer tout",
+        "reset": "Réinitialiser",
+        "containment": "Confinement",
+        "rebalance": "Rééquilibrer",
+        "focus": "Cibler",
+        "stabilize": "Stabiliser",
+        "recovery": "Récupération",
+        "auditTrail": "Piste d'audit",
+        "viewCritical": "Voir critiques",
+        "historyShort": "Hist",
+        "rest": "Repos",
+        "exportCsv": "Export CSV",
+        "select": "Sélectionner"
+      },
+      "selection": {
+        "selectedTrucks": "camions sélectionnés"
+      },
+      "table": {
+        "registration": "Matricule",
+        "driver": "Chauffeur",
+        "status": "Statut",
+        "lastActivity": "Dernière activité",
+        "restReason": "Repos (raison)",
+        "plannedReturn": "Retour prévu",
+        "date": "Date",
+        "note": "Note",
+        "type": "Type",
+        "priority": "Priorité",
+        "actions": "Actions",
+        "assignment": "Assignation"
+      },
+      "export": {
+        "csvFileName": "camions.csv"
+      },
+      "pdf": {
+        "assignmentHistory": "Historique d'assignation",
+        "generatedAt": "Généré le",
+        "previousDriver": "Ancien chauffeur",
+        "newDriver": "Nouveau chauffeur",
+        "filePrefix": "historique_assignation"
+      },
+      "common": {
+        "unassigned": "Non assigné"
+      },
+      "truckTypes": {
+        "camion": "Camion",
+        "remorque": "Remorque",
+        "allogaz": "Allogaz"
+      },
+      "priority": {
+        "critical": "Critique",
+        "watch": "Surveillance",
+        "stable": "Stable"
+      },
+      "confirm": {
+        "deleteAll": "Supprimer tous les camions ? Cette action est irréversible.",
+        "deleteTruckPrefix": "Supprimer le camion",
+        "deleteAllCodeTitle": "Confirmation par code",
+        "deleteAllCodeDescription": "Pour supprimer tous les camions, saisissez le code de confirmation demandé."
+      },
+      "dialog": {
+        "assignmentHistory": "Historique d'assignation",
+        "confirmChangeTitle": "Confirmer le changement",
+        "confirmChangeDescription": "Ce chauffeur est déjà assigné à un autre camion actif. Si vous confirmez, l'autre camion sera automatiquement mis en repos."
+      },
+      "empty": {
+        "noHistory": "Aucun historique disponible",
+        "noTruckFound": "Aucun camion trouvé",
+        "adjustSearch": "Essayez de modifier vos critères de recherche"
+      }
+    }
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "description": "Désolé, la page que vous recherchez n'existe pas ou a été déplacée.",
+    "backHome": "Retour à l'accueil"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "overview": "Vue d'ensemble",
+    "refresh": "Actualiser",
+    "newOperation": "Nouvelle Opération",
+    "stockValue": "Valeur stock",
+    "expenses": "Dépenses",
+    "stockAlerts": "Alertes stock",
+    "metrics": {
+      "totalStock": "Stock Total",
+      "totalRevenue": "Revenu Total",
+      "activeTrucks": "Camions Actifs",
+      "driverDebts": "Dettes Chauffeurs"
+    },
+    "piloting": {
+      "title": "Centre de Pilotage 360",
+      "subtitle": "Vue pratique connectée aux sections opérationnelles, finance et rapports",
+      "driverPayments": "Canal Paiements Chauffeurs",
+      "manualRevenue": "Canal Revenus Manuels",
+      "financeFlow": "Canal Flux Financiers"
+    },
+    "executivePulse": {
+      "title": "Pulse Exécutif",
+      "subtitle": "Lecture rapide inter-sections",
+      "fleetAvailability": "Disponibilité flotte",
+      "expenseRatio": "Ratio Dépenses / Revenus",
+      "debtRatio": "Ratio Dettes / Revenus",
+      "legacyExpenses": "Dépenses legacy",
+      "financeExpenses": "Dépenses financières",
+      "netBalance": "Balance nette",
+      "stockHealthScore": "Score Santé Stock",
+      "netBalanceHint": "Balance estimée (Revenus - Dépenses)"
+    },
+    "quickActions": {
+      "title": "Actions Rapides",
+      "subtitle": "Accédez rapidement aux fonctions essentielles",
+      "newSale": "Nouvelle Vente",
+      "expense": "Dépense",
+      "fuel": "Carburant",
+      "repair": "Réparation"
+    },
+    "stock": {
+      "title": "État des Stocks",
+      "subtitle": "Niveau actuel par type de bouteille",
+      "manage": "Gérer le stock",
+      "manageOpen": "Ouvrir la gestion du stock",
+      "all": "Tous",
+      "critique": "Critique",
+      "faible": "Faible",
+      "moyen": "Moyen",
+      "bon": "Bon",
+      "normal": "Normal",
+      "displayed": "Affichés",
+      "sortByRemaining": "Trier par restant",
+      "coverage": "couverture",
+      "current": "Actuel",
+      "remaining": "Restant",
+      "distributed": "Distribué",
+      "healthy": "Sain"
+    },
+    "activity": {
+      "title": "Activité Récente",
+      "displayed": "Affiché",
+      "all": "Tout",
+      "finance": "Finance",
+      "operations": "Opérations",
+      "maintenance": "Maintenance",
+      "stock": "Stock",
+      "operation": "Opération",
+      "transaction": "Transaction",
+      "truckSupply": "Alimentation Camion",
+      "truckReturn": "Retour Camion",
+      "exchange": "Échange Bouteilles",
+      "driverPayment": "Paiement Chauffeur",
+      "driverDebt": "Dette Chauffeur",
+      "factory": "Usine",
+      "expense": "Dépense",
+      "repair": "Réparation",
+      "encaissement": "Encaissement",
+      "versement": "Versement",
+      "retrait": "Retrait",
+      "depense": "Dépense",
+      "reparation": "Réparation",
+      "revenue": "Recette",
+      "refShort": "Réf",
+      "emptyStock": "Stock Vides",
+      "units": "unités"
+    },
+    "performance": {
+      "title": "Performance Système",
+      "distribution": "Distribution",
+      "fleet": "Flotte",
+      "active": "actifs",
+      "fuelOps": "opérations",
+      "fuel": "Carburant"
+    },
+    "priorities": {
+      "title": "Priorités Terrain",
+      "subtitle": "Points critiques exploitables depuis les autres sections",
+      "inventory": "Inventaire",
+      "critiques": "Critiques",
+      "faibles": "Faibles",
+      "viewAll": "Voir tout",
+      "noAlert": "Aucune alerte critique",
+      "allGood": "Tous les stocks sont dans des niveaux acceptables."
+    },
+    "pulse": {
+      "supplyOps": "opérations",
+      "repairs": "réparations",
+      "financeFlux": "flux",
+      "signals": "signaux récents",
+      "supplyReturn": "Supply & Retour",
+      "maintenance": "Maintenance",
+      "finance": "Finance",
+      "reports": "Rapports"
+    },
+    "distributionStatus": {
+      "optimum": "Optimum",
+      "controlled": "Sous contrôle",
+      "tension": "Sous tension"
+    }
+  },
+  "fuel": {
+    "tabFuel": "Carburant",
+    "tabOil": "Huile",
+    "title": "Gestion du Carburant",
+    "subtitle": "Ravitaillements, consommations, stock et performance en pilotage adaptatif.",
+    "creative": "Creative",
+    "controlRoom": "Control Room",
+    "version": "Version créative",
+    "signalLabel": "Signal",
+    "openAction": "Ouvrir l'action",
+    "recommendedAction": "Action rapide recommandée",
+    "newPurchase": "Nouveau ravitaillement",
+    "newConsumption": "Nouvelle consommation",
+    "drain": "Vidanger",
+    "stock": "Stock",
+    "weeklyFlow": "Flux 7j",
+    "weeklyPurchase": "Achat 7j",
+    "avgConsumption": "Conso moy.",
+    "fuelLevel": "Niveau du carburant",
+    "tankLevel": "Niveau de la Citerne",
+    "tankAnimation": "Animation dynamique du liquide",
+    "availableStock": "Stock disponible",
+    "totalCapacity": "Capacité totale",
+    "purchases": "Ravitaillements",
+    "consumptions": "Consommations",
+    "drains": "Vidanges",
+    "totalPurchasedAmount": "Montant total achats",
+    "totalDrainedAmount": "Montant total vidanges",
+    "status": {
+      "critique": "Critique",
+      "moyen": "Moyen",
+      "optimal": "Optimal"
+    },
+    "signalTypes": {
+      "surveillance": "Surveillance renforcée",
+      "vigilance": "Zone de vigilance",
+      "optimal": "Rythme optimal"
+    },
+    "quickAction": {
+      "purchase": "Lancer un ravitaillement",
+      "purchaseHint": "Niveau faible, réapprovisionnement conseillé.",
+      "consumption": "Enregistrer une consommation",
+      "consumptionHint": "Performance élevée, suivez les prochains trajets.",
+      "drainHint": "Impact notable des vidanges cette semaine.",
+      "defaultHint": "Maintenez la cadence d'analyse des trajets."
+    },
+    "controlStats": {
+      "activeAlerts": "Alertes actives",
+      "weeklyFlow": "Flux 7 jours",
+      "avgConsumption": "Consommation moyenne",
+      "globalSignal": "Signal global"
+    },
+    "forecast": {
+      "title": "Pulse Prévisionnel",
+      "subtitle": "Projection dynamique des flux et du risque opérationnel",
+      "window7": "Fenêtre 7 jours",
+      "window14": "Fenêtre 14 jours",
+      "window30": "Fenêtre 30 jours",
+      "avgDailyFlow": "Flux moyen / jour",
+      "windowBalance": "Balance fenêtre",
+      "daysToCritical": "Jours avant critique",
+      "riskScore": "Score risque",
+      "stable": "Stable",
+      "risk": {
+        "high": "Risque élevé",
+        "medium": "Risque modéré",
+        "low": "Risque faible"
+      },
+      "purchases": "achats",
+      "consumptions": "consommations",
+      "drains": "vidanges"
+    },
+    "performance": {
+      "title": "Performance par Chauffeur",
+      "subtitle": "Consommation L/100km par chauffeur",
+      "allDrivers": "Tous les chauffeurs",
+      "lPer100": "L/100km",
+      "noData": "Aucune donnée de consommation disponible."
+    },
+    "heatmap": {
+      "title": "Heatmap de Performance",
+      "subtitle": "Classement des chauffeurs par consommation",
+      "rank": "Rang",
+      "driver": "Chauffeur",
+      "liters": "Litres",
+      "km": "Km",
+      "lPer100": "L/100km"
+    },
+    "temporal": {
+      "title": "Score Temporel Chauffeurs",
+      "subtitle": "Évolution de performance sur la fenêtre de prévision",
+      "driver": "Chauffeur",
+      "recentLP100": "L/100 récent",
+      "baselineLP100": "L/100 référence",
+      "delta": "Delta",
+      "trend": {
+        "up": "Hausse",
+        "down": "Baisse",
+        "stable": "Stable"
+      }
+    },
+    "thresholds": {
+      "title": "Seuils de Performance",
+      "subtitle": "Ajustez les limites pour calibrer les badges de performance.",
+      "greenMax": "Vert (max)",
+      "yellowMax": "Jaune (max)"
+    },
+    "table": {
+      "date": "Date",
+      "quantity": "Quantité (L)",
+      "price": "Prix (MAD)",
+      "paymentMethod": "Paiement",
+      "driver": "Chauffeur",
+      "truck": "Camion",
+      "mileage": "Kilométrage",
+      "noData": "Aucune donnée.",
+      "history": "Historique"
+    },
+    "dialog": {
+      "purchaseTitle": "Nouveau Ravitaillement",
+      "consumptionTitle": "Nouvelle Consommation",
+      "drainTitle": "Nouvelle Vidange",
+      "date": "Date",
+      "quantity": "Quantité (L)",
+      "price": "Prix total (MAD)",
+      "paymentMethod": "Mode de paiement",
+      "selectPayment": "Sélectionner",
+      "cash": "Espèces",
+      "cheque": "Chèque",
+      "bank": "Banque",
+      "driver": "Chauffeur",
+      "selectDriver": "Sélectionner un chauffeur",
+      "truck": "Camion",
+      "selectTruck": "Sélectionner un camion",
+      "mileage": "Kilométrage (km)",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "errorQuantityPrice": "Veuillez saisir une quantité et un prix valides.",
+      "errorDriverTruck": "Veuillez compléter chauffeur, camion et quantité.",
+      "successPurchase": "Ravitaillement enregistré.",
+      "successConsumption": "Consommation enregistrée.",
+      "successDrain": "Vidange enregistrée."
+    }
+  },
+  "revenue": {
+    "title": "Gestion de Transfert",
+    "subtitle": "Suivi des flux financiers, transferts et opérations de caisse",
+    "bankTransfer": "Transfert Bancaire",
+    "cashOperation": "Opération de Caisse",
+    "accounts": {
+      "espece": "Espèce",
+      "cheque": "Chèque",
+      "banque": "Banque",
+      "autre": "Autre",
+      "especeAvail": "Disponible en caisse",
+      "banqueAvail": "Solde bancaire actuel",
+      "chequeAvail": "Chèques en attente"
+    },
+    "cards": {
+      "espece": "Solde Espèce",
+      "cheque": "Solde Chèque",
+      "banque": "Solde Banque",
+      "debt": "Dettes Chauffeurs",
+      "expenses": "Total Dépenses",
+      "total": "Flux Global"
+    },
+    "actions": {
+      "newTransfer": "Nouveau Transfert",
+      "newCashOp": "Opération de Caisse",
+      "exportPdf": "Exporter PDF"
+    },
+    "transferTypes": {
+      "versement_espece": "Versement Espèce → Banque",
+      "remise_cheques": "Remise Chèques → Banque",
+      "retrait_bancaire": "Retrait Bancaire → Espèce"
+    },
+    "filters": {
+      "title": "Filtres",
+      "startDate": "Date début",
+      "endDate": "Date fin",
+      "type": "Type",
+      "account": "Compte",
+      "amountMin": "Montant min",
+      "amountMax": "Montant max",
+      "all": "Tous",
+      "transfer": "Transfert",
+      "versement": "Versement",
+      "retrait": "Retrait",
+      "depense": "Dépense",
+      "priority": {
+        "all": "Toutes priorités",
+        "high": "Haute",
+        "medium": "Moyenne",
+        "low": "Faible"
+      }
+    },
+    "window": {
+      "7j": "7 jours",
+      "30j": "30 jours",
+      "90j": "90 jours",
+      "all": "Tout"
+    },
+    "intelligence": {
+      "title": "Tableau de Bord Intelligence",
+      "subtitle": "Analyse dynamique du flux financier",
+      "totalIn": "Entrées totales",
+      "totalOut": "Sorties totales",
+      "netFlow": "Flux net",
+      "pendingOps": "Opérations en attente",
+      "focusPending": "Focus En Attente",
+      "focusInflow": "Focus Entrées",
+      "focusOutflow": "Focus Sorties",
+      "reset": "Réinitialiser"
+    },
+    "forecast": {
+      "title": "Prévision Comptes",
+      "subtitle": "Autonomie estimée par compte",
+      "daysLeft": "jours",
+      "dailyDrain": "Drain/j",
+      "noOutflow": "Aucune sortie",
+      "risk": {
+        "high": "Risque élevé",
+        "medium": "Risque moyen",
+        "low": "Stable"
+      }
+    },
+    "heatmap": {
+      "title": "Flux Hebdomadaire",
+      "subtitle": "Intensité des flux par semaine (8 semaines)"
+    },
+    "whatif": {
+      "title": "Simulation What-If",
+      "subtitle": "Projetez l'impact de scénarios financiers",
+      "dailyIn": "Entrée journalière supplémentaire (DH)",
+      "dailyOut": "Sortie journalière supplémentaire (DH)",
+      "horizon": "Horizon (jours)",
+      "currentLiquidity": "Liquidité actuelle",
+      "projectedLiquidity": "Liquidité projetée",
+      "runway": "Autonomie estimée",
+      "days": "jours",
+      "infinite": "Stable",
+      "risk": {
+        "high": "Risque élevé",
+        "medium": "Risque modéré",
+        "low": "Stable"
+      }
+    },
+    "anomalies": {
+      "title": "Anomalies Détectées",
+      "subtitle": "Opérations statistiquement inhabituelles",
+      "all": "Toutes",
+      "positive": "Positives",
+      "negative": "Négatives",
+      "noAnomaly": "Aucune anomalie détectée.",
+      "score": "Score"
+    },
+    "autopilot": {
+      "title": "Autopilot Financier",
+      "protect": "Protéger",
+      "accelerate": "Accélérer",
+      "balance": "Équilibrer"
+    },
+    "missionBoard": {
+      "title": "Mission Board",
+      "high": "Haute Priorité",
+      "medium": "Priorité Moyenne",
+      "low": "Faible Priorité",
+      "empty": "Aucune opération"
+    },
+    "table": {
+      "date": "Date",
+      "type": "Type",
+      "description": "Description",
+      "amount": "Montant",
+      "accounts": "Compte(s)",
+      "status": "Statut",
+      "actions": "Actions",
+      "pending": "En attente",
+      "validated": "Validé",
+      "transfert": "Transfert",
+      "noOp": "Aucune opération trouvée."
+    },
+    "history": {
+      "title": "Historique Complet",
+      "subtitle": "Toutes les transactions financières"
+    },
+    "dialog": {
+      "transferTitle": "Nouveau Transfert Bancaire",
+      "cashTitle": "Nouvelle Opération de Caisse",
+      "editTransferTitle": "Modifier le Transfert",
+      "editCashTitle": "Modifier l'Opération",
+      "type": "Type de transfert",
+      "amount": "Montant (MAD)",
+      "description": "Description",
+      "date": "Date",
+      "name": "Libellé",
+      "cashType": "Type d'opération",
+      "cashAccount": "Compte affecté",
+      "accountDetails": "Détails du compte",
+      "versement": "Versement (entrée)",
+      "retrait": "Retrait (sortie)",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "update": "Mettre à jour",
+      "errorAmount": "Veuillez saisir un montant valide",
+      "errorName": "Veuillez renseigner le libellé et un montant valide",
+      "successTransfer": "Transfert enregistré et validé",
+      "successCash": "Opération de caisse enregistrée (en attente de validation)",
+      "successUpdate": "mis à jour",
+      "successDelete": "Opération supprimée"
+    },
+    "exportTitle": "Gestion de Transfert - Export (filtres appliqués)"
+  },
+  "defectiveStock": {
+    "title": "Stock Défectueux",
+    "subtitle": "Pilotage des bouteilles retournées, contrôle des volumes et suivi des références.",
+    "units": "unités",
+    "activeTypes": "types actifs",
+    "today": "aujourd'hui",
+    "view": "Vue",
+    "addEntry": "Ajouter une entrée",
+    "criticalAction": "Action type critique",
+    "stats": {
+      "total": "Total Défectueux",
+      "impactedTypes": "Types Impactés",
+      "historizedEntries": "Entrées Historisées"
+    },
+    "alertBoard": {
+      "title": "Board d'Alerte",
+      "rollingDays": "7 jours glissants",
+      "trend7j": "Tendance 7J",
+      "vsPrevious": "vs période précédente",
+      "priorityType": "Type Prioritaire",
+      "noType": "Aucun",
+      "unit": "unité",
+      "units": "unités",
+      "quickActions": "Actions Rapides",
+      "addOnPriority": "Ajouter sur type prioritaire",
+      "switchTo7Days": "Basculer vue 7 jours",
+      "entriesOnView": "entrée(s) sur la vue active",
+      "noAnomaly": "Aucune anomalie détectée sur la période sélectionnée."
+    },
+    "studio": {
+      "title": "Studio de Décision",
+      "presetStabilisation": "Preset Stabilisation",
+      "presetInvestigation": "Preset Investigation",
+      "presetSurveillance": "Preset Surveillance",
+      "simulator": "Simulateur d'impact",
+      "simulatedQty": "Quantité simulée à ajouter",
+      "applyOnFocus": "Appliquer sur type focus",
+      "focusType": "Type focus",
+      "projectedShare": "Part projetée",
+      "projectedRisk": "Risque projeté",
+      "none": "Aucun",
+      "shortcuts": "Raccourcis Décisionnels",
+      "treatTop": "Traiter top anomalie",
+      "treat2": "Traiter anomalie #2",
+      "focusToday": "Focus aujourd'hui"
+    },
+    "radar": {
+      "title": "Radar Hebdomadaire",
+      "stability": "Stabilité"
+    },
+    "piloting": {
+      "title": "Pilotage par Type",
+      "entries": "entrée(s)",
+      "lastEntry": "Dernière entrée",
+      "noEntry": "Aucune",
+      "add": "Ajouter",
+      "noBottleType": "Aucun type de bouteille configuré. Veuillez en ajouter un d'abord.",
+      "risk": {
+        "high": "Risque élevé",
+        "medium": "Risque moyen",
+        "low": "Risque faible"
+      }
+    },
+    "history": {
+      "title": "Historique des Entrées",
+      "all": "Tout",
+      "today": "Aujourd'hui",
+      "week": "7 jours",
+      "month": "Ce mois",
+      "search": "Rechercher par type ou référence...",
+      "date": "Date",
+      "bdRef": "B.D Référence",
+      "bottleType": "Type de Bouteille",
+      "quantity": "Quantité",
+      "noResult": "Aucune entrée ne correspond au filtre actif."
+    },
+    "period": {
+      "today": "Aujourd'hui",
+      "week": "7 derniers jours",
+      "month": "Ce mois",
+      "all": "Toutes les périodes"
+    },
+    "stability": {
+      "stable": "Stable",
+      "watch": "À surveiller",
+      "unstable": "Instable"
+    },
+    "recommendations": {
+      "trendUp": "Hausse détectée: prioriser le contrôle retour sur les 48h.",
+      "concentration": "Concentration sur",
+      "planAction": "planifier une action ciblée.",
+      "highVariability": "Variabilité élevée: déclencher un point opérationnel quotidien.",
+      "controlled": "Signal maîtrisé: maintenir le rythme actuel de suivi."
+    }
+  }
+}

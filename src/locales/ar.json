@@ -1,0 +1,2072 @@
+{
+  "brand": "SFT GAZ",
+  "loading": "جارٍ التحميل...",
+  "sidebar": {
+    "navigation": "التنقل",
+    "tagline": "إدارة التوزيع"
+  },
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "inventory": "المخزون",
+    "trucks": "الشاحنات",
+    "drivers": "السائقون",
+    "clients": "العملاء",
+    "factory": "المورّدون",
+    "supplyReturn": "التوزيع",
+    "petitCamion": "ألوجاز",
+    "exchanges": "التبادلات",
+    "defectiveStock": "المخزون التالف",
+    "fuelManagement": "إدارة الوقود والزيت",
+    "repairs": "إدارة الإصلاحات",
+    "expenses": "المصروفات",
+    "liveMap": "الخريطة المباشرة",
+    "revenue": "الإيرادات",
+    "reports": "التقارير",
+    "settings": "الإعدادات"
+  },
+  "login": {
+    "title": "تسجيل الدخول",
+    "description": "أدخل بياناتك للوصول إلى لوحة التحكم",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "submit": "تسجيل الدخول",
+    "submitting": "جارٍ تسجيل الدخول..."
+  },
+  "language": {
+    "french": "Français",
+    "arabic": "العربية"
+  },
+  "layout": {
+    "systemTitle": "نظام توزيع الغاز",
+    "cardClassic": "كلاسيكي",
+    "cardCinematic": "سينمائي"
+  },
+  "app": {
+    "accessDenied": "تم رفض الوصول",
+    "accessDeniedDesc": "حسابك لا يملك الصلاحيات اللازمة.",
+    "configMissing": "إعدادات مفقودة",
+    "configMissingDesc": "متغيرا VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY غير معرفين في Vercel.",
+    "configMissingHint": "أضفهما في Settings → Environment Variables ثم أعد النشر."
+  },
+  "livemap": {
+    "table": "الجدول",
+    "feed": "التدفق",
+    "vehiclesTable": "جدول المركبات",
+    "vehiclesHidden": "جدول المركبات مخفي",
+    "mapAlerts": "تنبيهات الخريطة",
+    "alerts": "تنبيهات",
+    "smartFocus": "التركيز",
+    "blinkPoint": "نقطة وميض",
+    "vehicles": "المركبات"
+  },
+  "drivers": {
+    "common": {
+      "driver": "سائق",
+      "drivers": "سائقًا",
+      "balance": "الرصيد",
+      "stockRc": "مخزون R.C",
+      "inactive": "غير نشط",
+      "units": "وحدات"
+    },
+    "hero": {
+      "studio": "استوديو السائقين",
+      "title": "إدارة السائقين",
+      "subtitle": "إدارة إبداعية للأرصدة والمدفوعات ومخزون R.C دون تغيير منطق العمل.",
+      "attention": "انتباه",
+      "stable": "مستقر",
+      "drivers": "السائقون",
+      "modeFocus": "وضع التركيز",
+      "modeCreative": "الوضع الإبداعي"
+    },
+    "status": {
+      "debt": "مديونية",
+      "payment": "دفع",
+      "credit": "دائن",
+      "balanced": "متوازن"
+    },
+    "actions": {
+      "globalReport": "تقرير شامل",
+      "addDriver": "إضافة سائق",
+      "generatingGlobal": "جارٍ توليد التقرير الشامل...",
+      "openProfile": "فتح الملف",
+      "reset": "إعادة ضبط",
+      "exportPdf": "تصدير PDF",
+      "rcReport": "تقرير R.C",
+      "adjustRcStock": "تعديل مخزون R.C يدويًا",
+      "close": "إغلاق",
+      "editStock": "تعديل المخزون",
+      "saveChanges": "حفظ التغييرات",
+      "cancel": "إلغاء",
+      "delete": "حذف"
+    },
+    "stats": {
+      "totalDrivers": "إجمالي السائقين",
+      "totalDebt": "إجمالي الديون",
+      "totalAdvances": "إجمالي السلف",
+      "inDebt": "عليهم ديون"
+    },
+    "filters": {
+      "all": "الكل",
+      "priority": "الأولوية",
+      "quickSearch": "بحث سريع داخل المسار النشط...",
+      "hot": "عاجل"
+    },
+    "commandCenter": {
+      "title": "مركز قيادة السائقين",
+      "subtitle": "تركيز على الملفات عالية المخاطر وتسريع الإجراءات اليومية.",
+      "visible": "مرئي",
+      "alerts": "تنبيهات"
+    },
+    "timeline": {
+      "title": "الخط الزمني للسائقين"
+    },
+    "list": {
+      "title": "قائمة السائقين",
+      "searchPlaceholder": "ابحث عن سائق...",
+      "status": "الحالة",
+      "allStatuses": "كل الحالات",
+      "inDebt": "مدين",
+      "inCredit": "دائن",
+      "table": "جدول",
+      "cards": "بطاقات"
+    },
+    "table": {
+      "driverName": "اسم السائق",
+      "advances": "السلف",
+      "state": "الحالة",
+      "actions": "الإجراءات",
+      "details": "التفاصيل",
+      "downloadPdf": "تنزيل PDF",
+      "recordPayment": "تسجيل دفعة",
+      "rcManagement": "إدارة القنينات (R.C)",
+      "deleteDriver": "حذف السائق",
+      "deleteUnavailable": "الحذف غير متاح",
+      "deleteImpossible": "لا يمكن الحذف",
+      "date": "التاريخ",
+      "type": "النوع",
+      "amount": "المبلغ",
+      "description": "الوصف",
+      "bottleType": "نوع القنينة",
+      "quantity": "الكمية"
+    },
+    "empty": {
+      "noCriticalProfile": "لا توجد ملفات حرجة في العرض الحالي.",
+      "noRecentActivity": "لا يوجد نشاط حديث متاح.",
+      "noDriver": "لم يتم العثور على سائق",
+      "noResultFor": "لا توجد نتائج لـ",
+      "startByAdding": "ابدأ بإضافة سائق جديد إلى قائمتك.",
+      "noDriverInView": "لا يوجد سائق في هذا العرض.",
+      "noTransaction": "لا توجد معاملات مسجلة",
+      "allReturned": "تم إرجاع الكل (مخزون فارغ)",
+      "noPendingBottle": "لا توجد قنينات معلقة"
+    },
+    "pagination": {
+      "showing": "عرض",
+      "of": "من أصل",
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "details": {
+      "activeDriver": "سائق نشط",
+      "overview": "نظرة عامة",
+      "financialHistory": "السجل المالي",
+      "currentDebt": "الدين الحالي",
+      "netBalance": "صافي الرصيد",
+      "creditForDriver": "رصيد لصالح السائق",
+      "remainingToPay": "متبقٍ على السائق دفعه",
+      "balancedSituation": "وضع متوازن",
+      "repaymentProgress": "تقدم السداد",
+      "completed": "مكتمل",
+      "repaymentHint": "مبني على مجموع السلف مقارنة بإجمالي الدين المتراكم.",
+      "latestTransactions": "آخر المعاملات",
+      "last50Operations": "سجل آخر 50 عملية",
+      "rcState": "حالة مخزون R.C",
+      "bottlesInPossession": "القنينات الموجودة حاليًا لدى السائق",
+      "detailedInventory": "جرد تفصيلي",
+      "summary": "ملخص",
+      "totalRcBottles": "إجمالي قنينات R.C",
+      "totalRcHint": "هذا الرقم يمثل إجمالي القنينات المملوءة أو الفارغة التي لم يُرجعها السائق بعد إلى المستودع.",
+      "manageRcStock": "إدارة مخزون R.C",
+      "currentTotalRc": "إجمالي R.C الحالي"
+    },
+    "delete": {
+      "title": "حذف السائق",
+      "description": "سيتم حذف هذا السائق نهائيًا من القائمة. لن يتم تعديل البيانات الأخرى."
+    },
+    "pdf": {
+      "systemTitle": "نظام إدارة الغاز",
+      "rcReportTitle": "تقرير R.C - حالة المخزون",
+      "financialReportTitle": "التقرير المالي للسائق",
+      "date": "التاريخ",
+      "driverInfo": "معلومات السائق",
+      "lastUpdate": "آخر تحديث",
+      "noChange": "لا توجد تعديلات",
+      "currentRcState": "الحالة الحالية لمخزون R.C",
+      "qtyInPossession": "الكمية بحوزته",
+      "totalRcBottles": "إجمالي قنينات R.C",
+      "rcHistoryTitle": "سجل تعديلات R.C",
+      "dateUpper": "التاريخ",
+      "typeUpper": "النوع",
+      "before": "قبل",
+      "after": "بعد",
+      "diff": "الفرق",
+      "driverSignature": "توقيع السائق",
+      "managerSignature": "توقيع المسؤول",
+      "autoGeneratedBy": "تم إنشاء المستند تلقائيًا بواسطة CAMION Gestion v1.0",
+      "page": "صفحة",
+      "of": "من",
+      "currentStatus": "الحالة الحالية",
+      "balancedUpper": "متوازن",
+      "creditUpper": "دائن",
+      "debtUpper": "مديون",
+      "financialSummary": "الملخص المالي",
+      "totalDebtUpper": "إجمالي الدين",
+      "totalAdvancesUpper": "إجمالي السلف",
+      "finalBalanceUpper": "الرصيد النهائي",
+      "recentTransactionsHistory": "سجل أحدث المعاملات",
+      "paymentUpper": "دفع",
+      "amountUpper": "المبلغ",
+      "descriptionUpper": "الوصف"
+    }
+  },
+  "reports": {
+    "hero": {
+      "studio": "استوديو التقارير",
+      "title": "قيادة ذكية للتقارير",
+      "subtitle": "واجهة مطوّرة مع فلاتر ديناميكية وتوليد سريع دون تغيير سلوك الأعمال.",
+      "filteredTransactions": "المعاملات المفلترة",
+      "totalValue": "القيمة الإجمالية",
+      "dataScore": "مؤشر جودة البيانات"
+    },
+    "types": {
+      "supply": "تزويد",
+      "return": "إرجاع",
+      "exchange": "تبادل",
+      "factoryReception": "استلام المصنع",
+      "factoryInvoice": "فاتورة المصنع",
+      "factorySettlement": "تسوية المصنع",
+      "factory": "مصنع"
+    },
+    "filters": {
+      "title": "فلاتر ذكية",
+      "activeFilters": "فلتر نشط",
+      "periodNotDefined": "الفترة غير محددة",
+      "quickPdf": "PDF سريع",
+      "quickExcel": "Excel سريع",
+      "start": "البداية",
+      "end": "النهاية",
+      "type": "النوع",
+      "all": "الكل",
+      "truck": "الشاحنة",
+      "driver": "السائق",
+      "reset": "إعادة تعيين الفلاتر"
+    },
+    "badges": {
+      "drivers": "السائقون",
+      "trucks": "الشاحنات",
+      "healthyFleet": "أسطول سليم"
+    },
+    "views": {
+      "executive": "تنفيذي",
+      "operational": "تشغيلي",
+      "finance": "مالي",
+      "active": "العرض النشط"
+    },
+    "layout": {
+      "compact": "مضغوط",
+      "immersive": "غامر"
+    },
+    "quickNav": {
+      "title": "تنقل سريع V3",
+      "filters": "الفلاتر",
+      "fleet": "الأسطول",
+      "kpis": "مؤشرات الأداء",
+      "stock": "المخزون",
+      "drivers": "السائقون",
+      "transactions": "المعاملات",
+      "dailyReports": "التقارير اليومية",
+      "topDebtDriver": "أكثر سائق مديونية",
+      "ofDebt": "دين",
+      "topCostTruck": "أعلى شاحنة تكلفة",
+      "ofRepairs": "إصلاحات",
+      "biggestTransaction": "أكبر معاملة مفلترة"
+    },
+    "fleet": {
+      "title": "تحليل ذكي للأسطول",
+      "healthReportPdf": "تقرير صحة PDF",
+      "totalVehicles": "إجمالي المركبات",
+      "criticalVehicles": "مركبات حرجة",
+      "goodVehicles": "مركبات بحالة جيدة",
+      "table": {
+        "vehicle": "المركبة",
+        "repairsCount": "عدد الإصلاحات",
+        "totalCost": "إجمالي التكلفة",
+        "health": "الصحة",
+        "state": "الحالة",
+        "advice": "التوصية"
+      },
+      "analysisHow": "كيف يعمل التحليل؟",
+      "analysisDescription": "تقوم الخوارزمية بحساب مؤشر صحة اعتمادًا على تكرار الأعطال والتكاليف التراكمية. إذا كان المؤشر أقل من 40 فهذا يعني أن المركبة مكلفة ويُفضّل استبدالها لتحسين الربحية."
+    },
+    "common": {
+      "search": "بحث...",
+      "hide": "إخفاء",
+      "show": "إظهار"
+    },
+    "kpi": {
+      "noPreviousPeriod": "لا توجد فترة سابقة",
+      "vsPreviousPeriod": "مقارنة بالفترة السابقة",
+      "totalValue": "القيمة الإجمالية",
+      "supplyBs": "التزويد (B.S)",
+      "returnBd": "الإرجاع (B.D)",
+      "exchangeFactory": "تبادل / مصنع"
+    },
+    "impact": {
+      "title": "متابعة أثر المخزون",
+      "subtitle": "تحليل خسائر (R.C) والقنينات الأجنبية حسب السائق",
+      "filterByDriver": "تصفية حسب السائق...",
+      "globalImpact": "الأثر الإجمالي",
+      "foreignTotal": "إجمالي الأجنبي",
+      "rcLossesTotal": "إجمالي خسائر R.C",
+      "impactedDrivers": "السائقون المتأثرون",
+      "foreignBottles": "قنينات أجنبية",
+      "rcTracking": "متابعة المتبقي (R.C)",
+      "units": "وحدات",
+      "noForeignBottle": "لم يتم اكتشاف أي قنينة أجنبية.",
+      "noRcLoss": "لم يتم اكتشاف أي خسارة R.C."
+    },
+    "stock": {
+      "title": "تحليل المخزون",
+      "remainingValue": "قيمة المخزون المتبقي",
+      "totalUnits": "إجمالي الوحدات",
+      "distributedUnits": "الوحدات الموزعة",
+      "averageDistributionRate": "متوسط معدل التوزيع",
+      "detectedAnomalies": "شذوذات مكتشفة",
+      "noCriticalAnomaly": "لا توجد شذوذات حرجة",
+      "table": {
+        "bottleType": "نوع القنينة",
+        "total": "الإجمالي",
+        "distributedUnits": "الوحدات الموزعة",
+        "remaining": "المتبقي",
+        "value": "القيمة",
+        "distributionRate": "معدل التوزيع",
+        "state": "الحالة"
+      }
+    },
+    "drivers": {
+      "title": "تحليل السائقين",
+      "totalDebts": "إجمالي الديون",
+      "totalAdvances": "إجمالي السلف",
+      "globalNetBalance": "صافي الرصيد العام",
+      "table": {
+        "driver": "السائق",
+        "cumulativeDebt": "الدين (تراكمي)",
+        "advances": "السلف",
+        "currentBalance": "الرصيد الحالي",
+        "status": "الحالة",
+        "progress": "التقدم"
+      }
+    },
+    "transactions": {
+      "title": "سجل المعاملات",
+      "hideReference": "إخفاء المرجع",
+      "showReference": "إظهار المرجع",
+      "sort": "الترتيب",
+      "sortDateDesc": "التاريخ ↓",
+      "sortDateAsc": "التاريخ ↑",
+      "sortValueDesc": "القيمة ↓",
+      "sortValueAsc": "القيمة ↑",
+      "limit": "الحد",
+      "lines": "سطر",
+      "allTypes": "كل الأنواع",
+      "amountGtZero": "المبالغ > 0",
+      "allAmounts": "كل المبالغ",
+      "searchPlaceholder": "بحث (سائق، عميل، شاحنة...)",
+      "operations": "عملية",
+      "supplyShort": "تزويد",
+      "returnShort": "إرجاع",
+      "exchangeShort": "تبادل",
+      "displayed": "المعروض",
+      "withAmount": "بقيمة",
+      "historyHidden": "السجل مخفي.",
+      "identifier": "المعرف",
+      "noTransactionForFilters": "لا توجد معاملات لهذه الفلاتر."
+    },
+    "table": {
+      "date": "التاريخ",
+      "type": "النوع",
+      "driver": "السائق",
+      "client": "العميل",
+      "reference": "المرجع",
+      "truck": "الشاحنة",
+      "valueMad": "القيمة (MAD)",
+      "details": "التفاصيل",
+      "total": "الإجمالي",
+      "bottles": "القنينات"
+    },
+    "daily": {
+      "title": "التقرير اليومي للسائقين",
+      "quickPeriod": "فترة سريعة",
+      "today": "اليوم",
+      "last7Days": "7 أيام",
+      "month": "الشهر",
+      "period": "الفترة",
+      "notDefined": "غير محددة",
+      "unknown": "غير معروف",
+      "generating": "جارٍ التوليد...",
+      "downloadAllReports": "تنزيل كل التقارير",
+      "generatingPrefix": "توليد"
+    },
+    "dailyActions": {
+      "driversDaily": "التقرير اليومي للسائقين",
+      "totalVente": "تقرير إجمالي البيع (B.D)",
+      "allogazBd": "تقرير Allogaz (B.D)",
+      "mygaz": "تقرير MYGAZ",
+      "driversHistoryBd": "سجل B.D — الشاحنات",
+      "driverDebts": "ديون السائقين",
+      "dailyExpenses": "مذكرات المصاريف",
+      "miscExpenses": "مصاريف متنوعة",
+      "transport": "النقل",
+      "generalPdf": "التقرير العام PDF",
+      "diversesPdf": "تقرير المتنوع PDF",
+      "repairsPdf": "تقرير الإصلاحات PDF",
+      "factoryReception": "استلام المصنع"
+    },
+    "pdf": {
+      "headers": {
+        "dailyExpense": "التقرير اليومي لمذكرات المصاريف",
+        "driverDebts": "تقرير ديون السائقين",
+        "miscExpenses": "تقرير المصاريف المتنوعة",
+        "transport": "التقرير اليومي لمصاريف النقل",
+        "generalDaily": "التقرير العام اليومي",
+        "miscSales": "تقرير المبيعات المتنوعة",
+        "repairs": "تقرير الإصلاحات",
+        "fleetHealth": "تحليل صحة أسطول المركبات",
+        "dailyDrivers": "التقرير اليومي للسائقين",
+        "dailyAllogazBd": "التقرير اليومي Allogaz - سندات الإدخال (B.D)",
+        "totalSalesBd": "تقرير إجمالي البيع (B.D)",
+        "foreignByDriver": "تقرير القنينات الأجنبية حسب السائق",
+        "foreignHistory": "السجل — القنينات الأجنبية",
+        "rcByDriver": "تقرير القنينات المتبقية (R.C) حسب السائق",
+        "rcHistory": "السجل — القنينات المتبقية (R.C)",
+        "mygaz": "تقرير مدفوعات MYGAZ",
+        "driversBdHistory": "سجل سندات الإدخال (B.D) — الشاحنات",
+        "factoryReception": "استلام المصنع"
+      },
+      "labels": {
+        "period": "الفترة",
+        "generatedAt": "تاريخ الإنشاء",
+        "generatedDate": "تاريخ الإنشاء",
+        "companyDebt": "دين الشركة",
+        "total": "الإجمالي",
+        "totalDebts": "إجمالي الديون",
+        "totalExpenses": "إجمالي المصاريف",
+        "totalTransport": "إجمالي النقل",
+        "totalUpper": "الإجمالي",
+        "none": "لا يوجد",
+        "driverFilter": "فلتر السائق",
+        "totalForeign": "إجمالي الأجنبي",
+        "impactedDrivers": "السائقون المتأثرون",
+        "totalRc": "إجمالي R.C",
+        "page": "صفحة"
+      },
+      "cards": {
+        "transactions": "المعاملات",
+        "total": "الإجمالي",
+        "methods": "طرق الدفع",
+        "drivers": "السائقون",
+        "totalDebt": "إجمالي الدين",
+        "average": "المتوسط",
+        "totalTransport": "إجمالي النقل",
+        "sources": "المصادر",
+        "sections": "الأقسام",
+        "totalGlobal": "الإجمالي العام",
+        "totalDeposit": "إجمالي الوديعة",
+        "totalCost": "إجمالي التكلفة",
+        "units": "الوحدات",
+        "collection": "التحصيل",
+        "soldBottles": "القنينات المباعة",
+        "totalSales": "إجمالي البيع",
+        "totalMygaz": "إجمالي MYGAZ"
+      },
+      "rows": {
+        "miscExpenses": "مصاريف متنوعة",
+        "transport": "النقل",
+        "driverDebts": "ديون السائقين",
+        "dailyExpenses": "مذكرات المصاريف",
+        "mygazPayments": "مدفوعات MYGAZ"
+      },
+      "table": {
+        "date": "التاريخ",
+        "time": "الوقت",
+        "type": "النوع",
+        "driver": "السائق",
+        "truck": "الشاحنة",
+        "client": "العميل",
+        "reference": "المرجع",
+        "orderNumber": "رقم السند",
+        "blRef": "مرجع BL",
+        "supplier": "المورد",
+        "receptionDate": "تاريخ الاستلام",
+        "vehicle": "المركبة",
+        "product": "المنتج",
+        "source": "المصدر",
+        "note": "ملاحظة",
+        "noteShort": "ملاحظة",
+        "mode": "الطريقة",
+        "valueMad": "القيمة (MAD)",
+        "amountMad": "المبلغ (MAD)",
+        "amountDh": "المبلغ (DH)",
+        "amount": "المبلغ",
+        "debt": "الدين",
+        "debtDh": "الدين (DH)",
+        "cumulativeDh": "التراكمي (DH)",
+        "share": "النسبة",
+        "designation": "البيان",
+        "depositQty": "كمية الوديعة",
+        "unitPrice": "سعر الوحدة",
+        "totalMad": "الإجمالي (MAD)",
+        "totalCost": "إجمالي التكلفة",
+        "paid": "المدفوع",
+        "plate": "رقم اللوحة",
+        "repairs": "الإصلاحات",
+        "score": "المؤشر",
+        "state": "الحالة",
+        "recommendation": "التوصية",
+        "totalUnits": "إجمالي الوحدات",
+        "chequeDh": "شيك (DH)",
+        "cashDh": "نقدًا (DH)",
+        "soldBottlesBd": "القنينات المباعة (B.D)",
+        "totalSalesDh": "إجمالي البيع (DH)",
+        "qty": "الكمية",
+        "topTypes": "أعلى الأنواع",
+        "totalOrder": "إجمالي السند",
+        "mygazAmount": "مبلغ MYGAZ",
+        "otherCashCheck": "أخرى (نقد/شيك)"
+      },
+      "repairType": {
+        "mechanical": "ميكانيكي",
+        "electrical": "كهربائي",
+        "garage": "مرآب"
+      },
+      "health": {
+        "good": "جيدة",
+        "keepMaintenance": "الاستمرار في الصيانة المنتظمة",
+        "average": "متوسطة",
+        "watchRepairs": "مراقبة الإصلاحات القادمة",
+        "critical": "حرجة",
+        "considerReplace": "النظر في البيع أو الاستبدال"
+      },
+      "empty": {
+        "noDailyExpense": "لا توجد مذكرة مصاريف لهذا التحديد.",
+        "noDriverDebts": "لا يوجد سائقون لديهم ديون.",
+        "noMiscExpenseToday": "لا توجد مصاريف متنوعة لهذا اليوم.",
+        "noTransportExpenseToday": "لا توجد مصاريف نقل لهذا اليوم.",
+        "noDepositSales": "لم يتم العثور على مبيعات وديعة لهذا التحديد.",
+        "noRepairForDate": "لم يتم العثور على إصلاحات لهذا التاريخ.",
+        "noDataForSelection": "لا توجد بيانات لهذا التحديد.",
+        "noForeignForSelection": "لم يتم اكتشاف قنينات أجنبية لهذا التحديد.",
+        "noRcForSelection": "لم يتم اكتشاف R.C (خسارة) لهذا التحديد.",
+        "noMygazForSelection": "لم يتم العثور على مدفوعات MYGAZ لهذا التحديد.",
+        "noBdForSelection": "لا توجد بيانات B.D لهذا التحديد.",
+        "noFactoryReception": "لم يتم العثور على استلام مصنع لهذا التحديد."
+      }
+    }
+  },
+  "inventory": {
+    "hero": {
+      "title": "المخزون",
+      "subtitle": "إدارة شاملة للمخزون وتتبع القنينات"
+    },
+    "status": {
+      "normal": "طبيعي",
+      "critical": "حرج",
+      "low": "منخفض",
+      "medium": "متوسط",
+      "good": "جيد",
+      "empty": "فارغ"
+    },
+    "actions": {
+      "resetAllStock": "إعادة تعيين كامل المخزون",
+      "hideStats": "إخفاء الإحصائيات",
+      "showStats": "إظهار الإحصائيات",
+      "addStock": "إضافة مخزون"
+    },
+    "filters": {
+      "search": "ابحث عن نوع أو سعة...",
+      "all": "الكل",
+      "stock": "المخزون",
+      "distribution": "التوزيع",
+      "name": "الاسم"
+    },
+    "quickStats": {
+      "totalAssets": "إجمالي الأصول",
+      "fullStock": "مخزون ممتلئ",
+      "inCirculation": "قيد التداول",
+      "averageDistribution": "متوسط التوزيع",
+      "rotationRate7d": "معدل الدوران (7 أيام)"
+    },
+    "alert": {
+      "criticalOn": "تنبيه حرج على",
+      "bottleType": "نوع",
+      "ofBottle": "قنينة",
+      "estimatedShortage": "العجز التقديري",
+      "unitsToThreshold": "وحدة للعودة إلى الحد الحرج المحدد."
+    },
+    "mission": {
+      "title": "مركز تحكم المخزون",
+      "subtitle": "فرز تكتيكي للمرجعيات حسب خطر النفاد",
+      "intervention": "تدخل",
+      "watch": "مراقبة",
+      "stable": "مستقر",
+      "autonomy": "استقلالية",
+      "stableAutonomy": "استقلالية مستقرة"
+    },
+    "empty": {
+      "noItem": "لا توجد عناصر",
+      "title": "مخزون الفارغ",
+      "subtitle": "إدارة مخزون القنينات الفارغة",
+      "bottles": "قنينات فارغة",
+      "noCritical": "لا توجد قنينات فارغة حرجة",
+      "noStock": "لا توجد قنينات فارغة في المخزون",
+      "noResultForFilters": "لا توجد نتائج للفلاتر النشطة."
+    },
+    "defective": {
+      "title": "مخزون القنينات التالفة",
+      "titleShort": "مخزون تالف",
+      "subtitle": "إدارة مخزون القنينات التالفة",
+      "bottles": "قنينات تالفة",
+      "noCritical": "لا توجد قنينات تالفة حرجة",
+      "noStock": "لا توجد قنينات تالفة في المخزون",
+      "trend": {
+        "downImprovement": "↓ تحسّن",
+        "upAlert": "↑ إنذار"
+      }
+    },
+    "common": {
+      "days": "أيام",
+      "units": "وحدات",
+      "bottles": "قنينات",
+      "hide": "إخفاء",
+      "show": "إظهار",
+      "close": "إغلاق",
+      "cancel": "إلغاء",
+      "confirm": "تأكيد",
+      "delete": "حذف",
+      "irreversible": "هذا الإجراء غير قابل للتراجع."
+    },
+    "flowPulse": {
+      "title": "نبض التدفق 8 أيام",
+      "subtitle": "شدة يومية للحركات وتركيز سريع"
+    },
+    "forecast": {
+      "title": "متنبئ النفاد",
+      "subtitle": "توقع حسب المرجع وأولوية إعادة التزويد",
+      "autonomy": "الاستقلالية",
+      "drainPerDay": "السحب/يوم",
+      "refill": "إعادة تعبئة",
+      "risk": {
+        "urgent": "عاجل",
+        "watch": "مراقبة",
+        "stable": "مستقر"
+      }
+    },
+    "planner": {
+      "title": "مخطط إعادة التزويد",
+      "objective": "الهدف الإجمالي لإعادة الشحن خلال",
+      "refillRecommended": "إعادة تعبئة موصى بها",
+      "focusGlobalPlan": "تركيز على الخطة العامة"
+    },
+    "driverHeatmap": {
+      "title": "خريطة ضغط السائقين 14ي",
+      "subtitle": "تحدد ممرات الضغط وتسرّع التركيز",
+      "noDriver": "بدون سائق",
+      "lane": {
+        "supply": "خروج الشاحنة",
+        "return": "رجوع ميداني",
+        "foreign": "دخول أجنبي"
+      }
+    },
+    "card": {
+      "remainingFullStock": "المخزون الممتلئ المتبقي",
+      "full": "ممتلئ",
+      "empty": "فارغ",
+      "circulation": "التداول",
+      "distributionRate": "معدل التوزيع",
+      "criticalThreshold": "الحد الحرج",
+      "auto": "تلقائي",
+      "edit": "تعديل",
+      "history": "السجل"
+    },
+    "trend": {
+      "upRecovery": "↑ تعافٍ",
+      "downTension": "↓ ضغط",
+      "stable": "→ مستقر"
+    },
+    "summary": {
+      "title": "ملخص المخزون",
+      "totalGeneral": "الإجمالي العام",
+      "distributed": "موزعة",
+      "remaining": "متبقية",
+      "totalValue": "القيمة الإجمالية"
+    },
+    "impact": {
+      "title": "متابعة أثر المخزون",
+      "subtitle": "ملخص وآخر التعديلات",
+      "today": "اليوم",
+      "last7Days": "آخر 7 أيام",
+      "summaryToday": "ملخص اليوم",
+      "summaryLast7Days": "ملخص آخر 7 أيام",
+      "deltaEmpty": "Δ فارغ",
+      "deltaFull": "Δ ممتلئ",
+      "deltaDefective": "Δ تالف",
+      "deltaForeign": "Δ أجنبي",
+      "recentTransactions": "المعاملات الأخيرة",
+      "operations": "عمليات",
+      "noTransactionForPeriod": "لا توجد معاملات مسجلة لهذه الفترة",
+      "foreignShort": "أجنبي",
+      "event": {
+        "supplyTruck": "تزويد الشاحنة",
+        "returnBs": "B.D - رجوع B.S",
+        "foreignAdd": "إضافة أجنبية"
+      }
+    },
+    "table": {
+      "top": "الأعلى",
+      "notUpdated": "غير محدّث",
+      "recentUpdates": "تحديثات حديثة",
+      "onlyCritical": "الحرج فقط",
+      "allLevels": "كل المستويات",
+      "critical": "حرج",
+      "medium": "متوسط",
+      "qty": "كمية",
+      "name": "الاسم",
+      "product": "المنتج",
+      "quantity": "الكمية",
+      "lastUpdate": "آخر تحديث",
+      "date": "التاريخ",
+      "operation": "العملية",
+      "driver": "السائق",
+      "bottleType": "نوع القنينة",
+      "variation": "التغير"
+    },
+    "history": {
+      "title": "سجل الحركات",
+      "currentStock": "المخزون الحالي",
+      "dateTime": "التاريخ والوقت",
+      "operationType": "نوع العملية",
+      "stockEvolution": "تطور المخزون",
+      "noHistory": "لا يوجد سجل",
+      "noHistoryHint": "ستظهر حركات المخزون هنا.",
+      "change": {
+        "addManual": "إضافة يدوية",
+        "returnBd": "إرجاع B.D",
+        "stockOut": "خروج من المخزون",
+        "factoryReturn": "إرجاع من المصنع",
+        "factorySend": "إرسال إلى المصنع"
+      }
+    },
+    "confirmReset": {
+      "title": "إعادة تعيين كاملة",
+      "question": "هل أنت متأكد من إعادة تعيين كل المخزون؟",
+      "description": "سيعيد هذا الإجراء كل الكميات إلى الصفر مع الاحتفاظ بأنواع القنينات القياسية."
+    },
+    "confirmDelete": {
+      "title": "حذف",
+      "question": "هل أنت متأكد من حذف هذا النوع من القنينات؟",
+      "description": "سيتم حذف كل البيانات المرتبطة بهذا النوع نهائيًا."
+    },
+    "autopilot": {
+      "title": "القيادة الآلية للمخزون",
+      "subtitle": "إعدادات سريعة لإدارة الأولويات",
+      "defenseMode": "وضع الدفاع",
+      "rotationMode": "وضع الدوران",
+      "balanceMode": "وضع التوازن",
+      "activeControl": "التحكم النشط",
+      "defenseHint": "تعزيز المرجعيات الحرجة",
+      "rotationHint": "تسريع الاسترجاع الميداني",
+      "balanceHint": "رؤية شاملة مستقرة",
+      "manualHint": "تعديل يدوي جارٍ"
+    }
+  },
+  "factory": {
+    "pdf": {
+      "systemTitle": "نظام إدارة التوزيع",
+      "invoiceTitle": "فاتورة المورّد",
+      "invoiceDate": "تاريخ الفاتورة",
+      "statusPaid": "مدفوعة",
+      "statusPending": "قيد الانتظار",
+      "paymentStatus": "حالة الدفع",
+      "supplier": "المورّد",
+      "blCount": "عدد BL",
+      "blDetails": "تفاصيل سندات التسليم (BL)",
+      "blReference": "مرجع BL",
+      "date": "التاريخ",
+      "qtySent": "الكمية المرسلة",
+      "qtyReceived": "الكمية المستلمة",
+      "difference": "الفرق",
+      "bottleSummary": "ملخص حسب نوع القنينة",
+      "bottleType": "نوع القنينة",
+      "totalSent": "إجمالي المرسل",
+      "totalReceived": "إجمالي المستلم",
+      "unitPrice": "سعر الوحدة",
+      "amount": "المبلغ",
+      "grandTotalSent": "الإجمالي العام المرسل",
+      "grandTotalReceived": "الإجمالي العام المستلم",
+      "totalAmount": "المبلغ الإجمالي",
+      "invoiceGeneratedBy": "تم إنشاء الفاتورة بواسطة SFT GAZ في",
+      "page": "صفحة",
+      "operationReportTitle": "تقرير العملية",
+      "operationDate": "تاريخ العملية",
+      "statusFinished": "مكتملة",
+      "status": "الحالة",
+      "driver": "السائق",
+      "truckPlate": "الشاحنة / الترقيم",
+      "movementDetails": "تفاصيل الحركات",
+      "outbound": "خروج",
+      "empty": "فارغ",
+      "defective": "معيب",
+      "inbound": "دخول",
+      "full": "ممتلئ",
+      "direction": "الاتجاه",
+      "state": "الحالة",
+      "quantity": "الكمية",
+      "totalBottlesSent": "إجمالي القنينات المرسلة",
+      "totalBottlesReceived": "إجمالي القنينات المستلمة",
+      "supplierDebt": "دين المورّد",
+      "debtReduction": "تخفيض الدين",
+      "units": "وحدة",
+      "managerSignature": "توقيع المسؤول",
+      "autoGeneratedBy": "تم إنشاء المستند تلقائيًا بواسطة SFT GAZ في",
+      "operationsHistoryTitle": "سجل عمليات المصنع",
+      "totalOperations": "إجمالي العمليات",
+      "finished": "المكتملة",
+      "sent": "مرسل",
+      "received": "مستلم",
+      "debtDiff": "الدين/الفرق",
+      "exportedAt": "تم التصدير في",
+      "of": "من"
+    }
+  },
+  "supplyReturn": {
+    "pdf": {
+      "systemTitle": "نظام إدارة التوزيع",
+      "bsTitle": "سند الخروج (B.S)",
+      "issueDate": "تاريخ الإصدار",
+      "reference": "المرجع",
+      "driver": "السائق",
+      "notSpecified": "غير محدد",
+      "client": "الزبون",
+      "allogaz": "ألوغاز",
+      "productDetails": "تفاصيل المنتجات",
+      "product": "المنتج",
+      "empty": "فارغة",
+      "full": "ممتلئة",
+      "unitPriceShort": "س.و",
+      "vat": "الضريبة",
+      "amount": "المبلغ",
+      "amountHt": "المبلغ دون ضريبة",
+      "totalTtc": "الإجمالي شامل الضريبة",
+      "driverClientSignature": "توقيع السائق / الزبون",
+      "autoGeneratedBy": "تم إنشاء المستند تلقائيًا بواسطة SFT GAZ في",
+      "page": "صفحة",
+      "bdTitle": "سند الإدخال (B.D)",
+      "receptionDate": "تاريخ الاستلام",
+      "bsReference": "مرجع B.S",
+      "returnDetails": "تفاصيل الإرجاع",
+      "foreignShort": "أجن.",
+      "defectiveShort": "معيب.",
+      "consigneShort": "رهن.",
+      "rcShort": "R.C",
+      "sales": "مبيعات",
+      "legend": "الشرح:",
+      "legendEmpty": "فارغة: قنينات فارغة مُرجعة",
+      "legendFull": "ممتلئة: قنينات ممتلئة مُرجعة",
+      "legendForeign": "أجن.: قنينات لمورّدين آخرين",
+      "legendDefective": "معيب.: قنينات متضررة",
+      "legendConsigne": "رهن.: قنينات مباعة بدون تبادل",
+      "legendRc": "R.C: قنينات غير مُرجعة (دين السائق)",
+      "legendSales": "مبيعات: فارغة + رهن",
+      "managerSignature": "توقيع المسؤول"
+    },
+    "ui": {
+      "common": {
+        "noDriver": "بدون سائق",
+        "noDriverCaps": "بدون سائق",
+        "na": "غير متاح"
+      },
+      "allogaz": {
+        "details": "تفاصيل ألوغاز",
+        "label": "ألوغاز",
+        "selectTruck": "اختر شاحنة",
+        "noneAvailable": "لا يوجد ألوغاز متاح",
+        "assignedDriver": "السائق المعيّن",
+        "selectDriver": "اختر سائقًا"
+      },
+      "history": {
+        "title": "إدارة السجلات",
+        "bsFlow": "تدفق B.S",
+        "bdFlow": "تدفق B.D",
+        "bsVisible": "سندات ظاهرة في السجل",
+        "bdVisible": "مرتجعات ظاهرة في السجل",
+        "pendingSettlement": "في انتظار التسوية",
+        "unpaidBd": "سندات دخول غير مسددة",
+        "pulse48h": "نبض 48 ساعة",
+        "balancedFlow": "تدفق متوازن",
+        "supplyDominant": "الصادرات مهيمنة",
+        "returnDominant": "المرتجعات مهيمنة",
+        "bsRecent": "B.S حديثة",
+        "bdRecent": "B.D حديثة",
+        "bsHistoryTitle": "سجل سندات الخروج (B.S)",
+        "bdHistoryTitle": "سجل سندات الدخول (B.D)",
+        "bons": "سندات",
+        "returns": "مرتجعات",
+        "activeFilters": "فلاتر نشطة",
+        "resetFilters": "إعادة الفلاتر",
+        "bsFilteredFlow": "تدفق B.S المفلتر",
+        "bdFilteredFlow": "تدفق B.D المفلتر",
+        "cumulativeAmount": "المبلغ التراكمي",
+        "activeReference": "المرجع النشط",
+        "searchFocused": "بحث موجه",
+        "globalView": "عرض عام",
+        "search": "بحث",
+        "searchBsPlaceholder": "رقم BS، السائق...",
+        "searchBdPlaceholder": "رقم BD، رقم BS...",
+        "period": "الفترة",
+        "from": "من",
+        "to": "إلى",
+        "driver": "السائق",
+        "client": "الزبون",
+        "all": "الكل",
+        "allDrivers": "كل السائقين",
+        "allClients": "كل الزبائن",
+        "bsNumber": "رقم BS",
+        "bdNumber": "رقم B.D",
+        "bsSource": "مصدر B.S",
+        "dateTime": "التاريخ والوقت",
+        "recipient": "المستلم",
+        "products": "المنتجات",
+        "driverClient": "السائق/الزبون",
+        "totalTtc": "الإجمالي TTC",
+        "actions": "الإجراءات",
+        "state": "الحالة",
+        "noBsFound": "لم يتم العثور على سند خروج",
+        "noBdFound": "لم يتم العثور على سند دخول",
+        "gasTypes": "أنواع الغاز",
+        "print": "طباعة",
+        "recordReturn": "تسجيل الإرجاع",
+        "delete": "حذف",
+        "export": "تصدير",
+        "options": "خيارات",
+        "display": "العرض",
+        "standardColumns": "الأعمدة القياسية",
+        "pagination": "ترقيم الصفحات",
+        "perPage10": "10 لكل صفحة",
+        "perPage20": "20 لكل صفحة",
+        "pendingPayments": "مدفوعات معلّقة",
+        "filterState": "حالة الفلتر",
+        "paid": "مدفوع",
+        "pending": "قيد الانتظار",
+        "details": "تفاصيل",
+        "settlement": "تسوية",
+        "cancel": "إلغاء",
+        "date": "التاريخ",
+        "totalAmount": "المبلغ الإجمالي",
+        "product": "المنتج",
+        "emptyQty": "كمية الفارغ",
+        "fullQty": "كمية الممتلئ",
+        "unitPrice": "سعر الوحدة",
+        "amount": "المبلغ",
+        "downloadPdf": "تنزيل PDF",
+        "close": "إغلاق",
+        "paymentDetails": "تفاصيل التسوية",
+        "cash": "نقدًا",
+        "cheque": "شيك",
+        "mygaz": "MYGAZ",
+        "remainingDebt": "الدين المتبقي",
+        "totalVoucherAmount": "إجمالي مبلغ السند:",
+        "legend": "الشرح:",
+        "empty": "الفارغ:",
+        "full": "الممتلئ:",
+        "foreign": "الأجنبي:",
+        "defective": "التالف:",
+        "lost": "المفقود:",
+        "sold": "المباع:",
+        "emptyLegend": "قنينات فارغة مُعادة",
+        "fullLegend": "قنينات ممتلئة مُعادة",
+        "foreignLegend": "قنينات من مزودين آخرين",
+        "defectiveLegend": "قنينات متضررة",
+        "lostLegend": "قنينات غير مُعادة",
+        "soldLegend": "قنينات مباعة للزبون"
+      },
+      "payment": {
+        "title": "تسوية - B.D",
+        "subtitle": "تسجيل الدفع لهذا السند",
+        "bsReference": "مرجع B.S",
+        "returnedProducts": "المنتجات المُعادة:",
+        "quantity": "الكمية"
+      },
+      "dialogs": {
+        "deleteBsTitle": "هل أنت متأكد من حذف سند الخروج هذا؟",
+        "deleteBsDescription": "لا يمكن التراجع عن هذا الإجراء. سيتم حذف سند الخروج نهائيًا.",
+        "deleteBdTitle": "هل أنت متأكد من حذف سند الإرجاع هذا؟",
+        "deleteBdDescription": "لا يمكن التراجع عن هذا الإجراء. سيتم حذف سند الإرجاع نهائيًا.",
+        "bsDetailsTitle": "تفاصيل سند الخروج رقم",
+        "bdDetailsTitle": "تفاصيل سند الدخول",
+        "bdNumberPrefix": "سند الدخول رقم"
+      }
+    }
+  },
+  "expenses": {
+    "pdf": {
+      "title": "قائمة المصاريف",
+      "type": "النوع",
+      "code": "الرمز",
+      "date": "التاريخ",
+      "paymentMethod": "طريقة الدفع",
+      "note": "ملاحظة",
+      "amountMad": "المبلغ (MAD)",
+      "totalExpenses": "إجمالي المصاريف"
+    },
+    "ui": {
+      "toast": {
+        "fillRequired": "يرجى ملء جميع الحقول الإلزامية",
+        "specifyExpenseType": "يرجى تحديد نوع المصروف",
+        "expenseUpdated": "تم تحديث المصروف بنجاح",
+        "expenseAdded": "تمت إضافة المصروف بنجاح",
+        "scenarioSaved": "تم حفظ السيناريو",
+        "expenseDeleted": "تم حذف المصروف بنجاح"
+      },
+      "hero": {
+        "title": "استوديو المصاريف",
+        "subtitle": "واجهة محسّنة للمتابعة والتحليل واتخاذ القرار بسرعة.",
+        "filteredExpenses": "المصاريف المفلترة",
+        "total": "الإجمالي",
+        "average": "المتوسط"
+      },
+      "actions": {
+        "exportPdf": "تصدير PDF",
+        "newExpense": "مصروف جديد",
+        "reset": "إعادة تعيين",
+        "update": "تحديث",
+        "save": "حفظ",
+        "cancel": "إلغاء"
+      },
+      "filters": {
+        "searchPlaceholder": "ابحث حسب النوع أو الرمز أو الملاحظة...",
+        "all": "الكل",
+        "smart": "فلاتر ذكية",
+        "allDates": "كل التواريخ",
+        "last7Days": "آخر 7 أيام",
+        "last30Days": "آخر 30 يومًا"
+      },
+      "forecast": {
+        "title": "توقعات V4 والضوابط",
+        "scenarioPrudent": "سيناريو حذر",
+        "scenarioBalanced": "سيناريو متوازن",
+        "scenarioOffensive": "سيناريو هجومي",
+        "budgetGuardrail": "ضابط الميزانية",
+        "monthlyFrame": "إطار شهري للتحكم في المصاريف.",
+        "monthlyBudgetTargetDh": "الميزانية الشهرية المستهدفة (DH)",
+        "currentMonthExpenses": "مصاريف الشهر الحالي",
+        "budgetConsumption": "استهلاك الميزانية",
+        "projection6Weeks": "توقع 6 أسابيع",
+        "runRate": "معدل التشغيل",
+        "week": "أسبوع",
+        "weekLabel": "الأسبوع",
+        "budget": "الميزانية",
+        "smartAlerts": "تنبيهات ذكية",
+        "earlyWarningLab": "مختبر الإنذار المبكر V4.1",
+        "cumulativeMonthForecast": "التوقع التراكمي للشهر",
+        "vsCurrent": "مقارنة بالحالي",
+        "categoryTargetPlanner": "مخطط هدف الفئة",
+        "selectCategory": "اختر الفئة",
+        "allCategories": "كل الفئات",
+        "earlyWarnings": "الإنذارات المبكرة",
+        "whatIfLab": "مختبر سيناريو ماذا لو V4.2",
+        "variationPercent": "نسبة التغيير (%)",
+        "optimized": "محسّن",
+        "base": "الأساس",
+        "shift": "التغيير",
+        "optimizedValue": "القيمة المحسنة",
+        "sideBySideBoard": "لوحة مقارنة جانبية",
+        "autoOptimizationByCategory": "تحسين تلقائي حسب الفئة",
+        "potentialReduction": "التخفيض المحتمل",
+        "noCategorySignal": "لا توجد إشارات متاحة للفئات.",
+        "target": "الهدف",
+        "save": "توفير"
+      },
+      "payment": {
+        "cash": "نقدًا",
+        "cheque": "شيك",
+        "bank": "بنكي"
+      },
+      "sections": {
+        "paymentBreakdown": "توزيع طرق الدفع",
+        "topCategories": "أعلى الفئات",
+        "expenseRadar": "رادار المصاريف المرتفعة"
+      },
+      "empty": {
+        "noData": "لا توجد بيانات متاحة.",
+        "noExpenseFound": "لم يتم العثور على مصاريف",
+        "adjustFilters": "تحقق من الفلاتر أو أضف مصروفًا جديدًا"
+      },
+      "table": {
+        "type": "النوع",
+        "code": "الرمز",
+        "date": "التاريخ",
+        "paymentMethod": "طريقة الدفع",
+        "note": "ملاحظة",
+        "amount": "المبلغ",
+        "actions": "الإجراءات",
+        "totalFilteredExpenses": "إجمالي المصاريف المفلترة",
+        "totalAmountVatIncluded": "الإجمالي شامل الضريبة"
+      },
+      "confirm": {
+        "deleteExpense": "هل أنت متأكد من حذف هذا المصروف؟"
+      },
+      "dialog": {
+        "editTitle": "تعديل المصروف",
+        "newTitle": "مصروف جديد",
+        "editSubtitle": "تحديث معلومات المصروف",
+        "newSubtitle": "تسجيل مصروف مالي جديد"
+      },
+      "form": {
+        "expenseTypeLabel": "إضافة مصروف *",
+        "chooseType": "اختر النوع",
+        "customExpenseNameLabel": "اسم المصروف *",
+        "customExpenseNamePlaceholder": "أدخل اسم المصروف",
+        "codeLabel": "الرمز *",
+        "codePlaceholder": "رمز المصروف",
+        "amountLabel": "المبلغ (MAD) *",
+        "paymentMethodLabel": "طريقة الأداء *",
+        "choosePaymentMethod": "اختر طريقة",
+        "operationDateLabel": "تاريخ العملية *",
+        "chooseDate": "اختر تاريخًا",
+        "noteLabel": "ملاحظة / تفاصيل (اختياري)",
+        "notePlaceholder": "تفاصيل إضافية حول المصروف..."
+      }
+    }
+  },
+  "clients": {
+    "pdf": {
+      "title": "فاتورة - سندات الخروج",
+      "date": "التاريخ",
+      "client": "الزبون",
+      "ordersCount": "عدد السندات",
+      "bsNumber": "رقم B.S",
+      "products": "المنتجات",
+      "amount": "المبلغ",
+      "grandTotal": "الإجمالي العام"
+    },
+    "ui": {
+      "toast": {
+        "selectAtLeastOneBs": "يرجى اختيار سند خروج واحد على الأقل",
+        "noBsFound": "لم يتم العثور على سند خروج",
+        "invoiceGenerated": "تم إنشاء الفاتورة بنجاح",
+        "pdfError": "حدث خطأ أثناء إنشاء PDF. يرجى المحاولة مجددًا.",
+        "enterClientName": "يرجى إدخال اسم الزبون",
+        "clientAdded": "تمت إضافة الزبون بنجاح",
+        "clientUpdated": "تم تعديل الزبون بنجاح",
+        "clientDeleted": "تم حذف الزبون بنجاح"
+      },
+      "hero": {
+        "studio": "استوديو الزبائن",
+        "title": "إدارة الزبائن",
+        "subtitle": "واجهة متابعة لإدارة الزبائن ونشاطهم وسندات الخروج."
+      },
+      "actions": {
+        "addClient": "إضافة زبون",
+        "add": "إضافة",
+        "history": "السجل",
+        "focus": "تركيز",
+        "open": "فتح",
+        "generateInvoicePdf": "إنشاء فاتورة PDF",
+        "resetFilters": "إعادة تعيين الفلاتر",
+        "save": "حفظ",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "ordersHistoryTitle": "سجل السندات"
+      },
+      "dialog": {
+        "addTitle": "إضافة زبون",
+        "editTitle": "تعديل الزبون"
+      },
+      "form": {
+        "clientName": "اسم الزبون",
+        "clientNamePlaceholder": "مثال: مطعم الأمل",
+        "clientNameSimplePlaceholder": "اسم الزبون"
+      },
+      "stats": {
+        "totalClients": "إجمالي الزبائن",
+        "activeClients": "الزبائن النشطون",
+        "globalVolume": "الحجم الإجمالي",
+        "topClient": "أفضل زبون"
+      },
+      "common": {
+        "none": "لا يوجد",
+        "noneFemale": "لا توجد",
+        "ordersShort": "سندات",
+        "orders": "سندات",
+        "lastActivity": "آخر نشاط",
+        "last": "الأخير"
+      },
+      "commandDeck": {
+        "title": "لوحة قيادة الزبائن",
+        "subtitle": "تحكم سريع في شرائح الزبائن مع وصول مباشر للملفات.",
+        "shortcuts": "Alt+1 بطاقات · Alt+2 مضغوط · Alt+K بحث"
+      },
+      "filters": {
+        "pulse": "فلتر النشاط",
+        "all": "الكل",
+        "active": "نشطون",
+        "inactive": "غير نشطين",
+        "currentDisplay": "العرض الحالي",
+        "clientWord": "زبون",
+        "searchClientPlaceholder": "ابحث عن زبون...",
+        "activity": "النشاط",
+        "name": "الاسم"
+      },
+      "radar": {
+        "title": "رادار"
+      },
+      "sections": {
+        "clientList": "قائمة الزبائن"
+      },
+      "views": {
+        "cards": "بطاقات",
+        "compact": "مضغوط"
+      },
+      "empty": {
+        "noClientToDisplay": "لا يوجد زبون للعرض.",
+        "noClientRegistered": "لا يوجد زبون مسجل",
+        "addFirstClient": "ابدأ بإضافة أول زبون لديك",
+        "noClientFound": "لم يتم العثور على زبون",
+        "tryAnotherSearch": "جرّب عبارة بحث أخرى",
+        "noBsForClient": "لا توجد سندات خروج لهذا الزبون"
+      },
+      "status": {
+        "active": "نشط",
+        "new": "جديد"
+      },
+      "historyDialog": {
+        "title": "سجل سندات الخروج",
+        "searchByBs": "البحث برقم B.S",
+        "bsPlaceholder": "رقم سند الخروج...",
+        "startDate": "تاريخ البداية",
+        "endDate": "تاريخ النهاية"
+      },
+      "table": {
+        "date": "التاريخ",
+        "bsNumber": "رقم B.S",
+        "products": "المنتجات",
+        "amount": "المبلغ"
+      },
+      "deleteDialog": {
+        "title": "هل أنت متأكد من حذف هذا الزبون؟",
+        "description": "لا يمكن التراجع عن هذا الإجراء. سيتم حذف الزبون نهائيًا."
+      }
+    }
+  },
+  "repairs": {
+    "ui": {
+      "toast": {
+        "error": "خطأ",
+        "fillRequired": "يرجى ملء جميع الحقول الإلزامية",
+        "paidExceedsTotal": "لا يمكن أن يكون المبلغ المدفوع أكبر من التكلفة الإجمالية",
+        "success": "نجاح",
+        "repairUpdated": "تم تحديث الإصلاح بنجاح",
+        "repairAdded": "تمت إضافة الإصلاح بنجاح",
+        "repairDeleted": "تم حذف الإصلاح",
+        "repairDeletedSuccess": "تم حذف الإصلاح بنجاح."
+      },
+      "placeholder": {
+        "searchByVehicleOrRemark": "ابحث حسب المركبة أو الملاحظة...",
+        "repairType": "نوع الإصلاح",
+        "period": "الفترة",
+        "paymentStatus": "حالة الدفع",
+        "injectExample": "مثال: 15000",
+        "selectVehicle": "اختر مركبة",
+        "amountZero": "0.00",
+        "repairDetails": "تفاصيل الإصلاح والقطع التي تم تغييرها..."
+      },
+      "label": {
+        "amountToInject": "المبلغ المراد ضخه (MAD)",
+        "vehicle": "المركبة",
+        "repairType": "نوع الإصلاح",
+        "date": "التاريخ",
+        "paymentMethod": "طريقة الدفع",
+        "totalCostMad": "التكلفة الإجمالية (MAD)",
+        "paidAmountMad": "المبلغ المدفوع (MAD)",
+        "targetDebtFinal": "الهدف النهائي للدين",
+        "remainingDebt": "المتبقي للدفع (الدين):",
+        "descriptionRemarks": "الوصف / الملاحظات"
+      },
+      "confirm": {
+        "deleteRepair": "هل تريد فعلًا حذف هذا الإصلاح؟"
+      },
+      "dialog": {
+        "editTitle": "تعديل الإصلاح",
+        "newTitle": "إصلاح جديد",
+        "editSubtitle": "تحديث تفاصيل العملية",
+        "newSubtitle": "تسجيل عملية صيانة جديدة"
+      },
+      "actions": {
+        "cancel": "إلغاء",
+        "saveChanges": "حفظ التعديلات",
+        "addRepair": "إضافة الإصلاح",
+        "export": "تصدير",
+        "edit": "تعديل",
+        "delete": "حذف"
+      },
+      "table": {
+        "date": "التاريخ",
+        "vehicle": "المركبة",
+        "type": "النوع",
+        "cost": "التكلفة الكلية",
+        "paid": "المدفوع",
+        "debt": "الدين",
+        "actions": "الإجراءات"
+      },
+      "empty": {
+        "noRepairs": "لم يتم العثور على إصلاحات"
+      }
+    }
+  },
+  "trucks": {
+    "ui": {
+      "toast": {
+        "macroStabilize": "ماكرو الاستقرار",
+        "noActionNeededScope": "لا توجد إجراءات مطلوبة ضمن هذا النطاق.",
+        "macroStabilizeStarted": "تم تشغيل ماكرو الاستقرار",
+        "macroRecovery": "ماكرو الاسترجاع",
+        "noTruckToReactivate": "لا توجد شاحنات لإعادة التفعيل.",
+        "macroRecoveryStarted": "تم تشغيل ماكرو الاسترجاع",
+        "trucksReactivated": "شاحنة/شاحنات أعيد تفعيلها",
+        "macroAudit": "ماكرو التدقيق",
+        "noHistoryCurrentScope": "لا يوجد سجل متاح ضمن النطاق الحالي.",
+        "containment": "الاحتواء",
+        "noHighRiskContainment": "لا توجد شاحنات عالية المخاطر للاحتواء.",
+        "containmentExecuted": "تم تنفيذ الاحتواء",
+        "rebalance": "إعادة التوازن",
+        "noTruckReadyRecovery": "لا توجد شاحنات جاهزة للاسترجاع.",
+        "rebalanceExecuted": "تم تنفيذ إعادة التوازن",
+        "forecastFocus": "تركيز توقعي",
+        "noTruckCurrentPerimeter": "لا توجد شاحنات متاحة ضمن النطاق الحالي.",
+        "trucksDeleted": "تم حذف الشاحنات",
+        "allTrucksDeleted": "تم حذف جميع الشاحنات.",
+        "suggestionApplied": "تم تطبيق الاقتراح",
+        "trucksSetToRest": "شاحنة/شاحنات تم وضعها في التوقف",
+        "driversDissociated": "سائق/سائقون تم فك ربطهم",
+        "setToRest": "وضع في التوقف",
+        "reactivated": "أعيد تفعيلها",
+        "driversDissociatedTitle": "فك ربط السائقين",
+        "trucksCount": "شاحنة/شاحنات",
+        "truckDeleted": "تم حذف الشاحنة",
+        "wasDeleted": "تم حذفها.",
+        "driverUpdated": "تم تحديث السائق",
+        "assignmentSuccessOtherRest": "تم الإسناد بنجاح. تم وضع المركبة الأخرى في التوقف.",
+        "invalidDeleteCodeTitle": "رمز غير صالح",
+        "invalidDeleteCodeDescription": "رمز التأكيد غير صحيح."
+      },
+      "placeholder": {
+        "quickCommand": "أمر سريع حسب رقم الشاحنة أو السائق...",
+        "searchTruckOrDriver": "ابحث حسب رقم الشاحنة أو السائق...",
+        "historyFilter": "فلتر: سجل الشاحنة",
+        "deleteAllCode": "أدخل رمز التأكيد",
+        "sortBy": "ترتيب حسب",
+        "changeDriver": "تغيير السائق"
+      },
+      "forecast": {
+        "actionAssignDriver": "إسناد سائق",
+        "actionReactivate": "إعادة التفعيل",
+        "actionInspection": "فحص",
+        "actionMonitor": "مراقبة",
+        "delay": "المهلة",
+        "withoutUpdate": "بدون تحديث"
+      },
+      "presets": {
+        "balanced": "متوازن",
+        "safety": "الأمن",
+        "dispatch": "الإرسال"
+      },
+      "overview": {
+        "totalFleet": "إجمالي الأسطول",
+        "registeredVehicles": "مركبات مسجلة",
+        "volume": "الحجم",
+        "drivers": "السائقون",
+        "crewMembers": "أفراد الطاقم",
+        "staff": "الطاقم",
+        "atRest": "في التوقف",
+        "inactiveVehicles": "مركبات غير نشطة",
+        "risk": "المخاطر"
+      },
+      "display": {
+        "cardStyle": "نمط البطاقات",
+        "classic": "كلاسيكي",
+        "cinematic": "سينمائي"
+      },
+      "sections": {
+        "commandCenter": "مركز قيادة الشاحنات",
+        "commandCenterShortcuts": "Alt+1 جدول · Alt+2 بطاقات · Alt+3 أمان · Alt+4 توقع · Alt+K بحث",
+        "tacticalRadar": "الرادار التكتيكي",
+        "predictiveRiskBoard": "لوحة المخاطر التنبؤية",
+        "forecastOrchestrator": "منسق التوقعات",
+        "commandMacros": "ماكرو الأوامر",
+        "assignmentPulse": "نبض الإسنادات",
+        "criticalQueue": "قائمة حرجة",
+        "criticalQueueSubtitle": "أعلى الشاحنات التي تحتاج تدخلاً فوريًا",
+        "activityMap": "خريطة النشاط",
+        "smartSuggestions": "اقتراحات ذكية"
+      },
+      "stats": {
+        "visible": "المرئية",
+        "active": "نشطة",
+        "inactive": "غير نشطة",
+        "withoutDriver": "بدون سائق",
+        "critical": "حرجة",
+        "trucks": "شاحنات"
+      },
+      "views": {
+        "table": "جدول",
+        "cards": "بطاقات"
+      },
+      "filters": {
+        "all": "الكل"
+      },
+      "risk": {
+        "high": "مرتفع",
+        "risk": "الخطر",
+        "mediumPlural": "متوسطة",
+        "activeAtRisk": "نشطة مع مخاطر"
+      },
+      "time": {
+        "last7Days": "آخر 7 أيام"
+      },
+      "label": {
+        "active": "نشط",
+        "inactive": "غير نشط",
+        "noDriver": "بدون سائق",
+        "scope": "النطاق",
+        "resume": "استئناف",
+        "quickAction": "إجراء سريع"
+      },
+      "actions": {
+        "cancel": "إلغاء",
+        "setToRest": "وضع في التوقف",
+        "reactivate": "إعادة التفعيل",
+        "dissociateDriver": "فك ربط السائق",
+        "delete": "حذف",
+        "history": "السجل",
+        "downloadPdf": "تنزيل PDF",
+        "close": "إغلاق",
+        "confirm": "تأكيد",
+        "print": "طباعة",
+        "deleteAll": "حذف الكل",
+        "reset": "إعادة تعيين",
+        "containment": "احتواء",
+        "rebalance": "إعادة التوازن",
+        "focus": "تركيز",
+        "stabilize": "تثبيت",
+        "recovery": "استرجاع",
+        "auditTrail": "مسار التدقيق",
+        "viewCritical": "عرض الحرجة",
+        "historyShort": "سجل",
+        "rest": "توقف",
+        "exportCsv": "تصدير CSV",
+        "select": "اختيار"
+      },
+      "selection": {
+        "selectedTrucks": "شاحنات محددة"
+      },
+      "table": {
+        "registration": "رقم اللوحة",
+        "driver": "السائق",
+        "status": "الحالة",
+        "lastActivity": "آخر نشاط",
+        "restReason": "التوقف (السبب)",
+        "plannedReturn": "عودة متوقعة",
+        "date": "التاريخ",
+        "note": "ملاحظة",
+        "type": "النوع",
+        "priority": "الأولوية",
+        "actions": "الإجراءات",
+        "assignment": "الإسناد"
+      },
+      "export": {
+        "csvFileName": "trucks.csv"
+      },
+      "pdf": {
+        "assignmentHistory": "سجل الإسناد",
+        "generatedAt": "تم الإنشاء في",
+        "previousDriver": "السائق السابق",
+        "newDriver": "السائق الجديد",
+        "filePrefix": "assignment_history"
+      },
+      "common": {
+        "unassigned": "غير مسند"
+      },
+      "truckTypes": {
+        "camion": "شاحنة",
+        "remorque": "مقطورة",
+        "allogaz": "ألوغاز"
+      },
+      "priority": {
+        "critical": "حرج",
+        "watch": "مراقبة",
+        "stable": "مستقر"
+      },
+      "confirm": {
+        "deleteAll": "حذف جميع الشاحنات؟ هذا الإجراء غير قابل للتراجع.",
+        "deleteTruckPrefix": "حذف الشاحنة",
+        "deleteAllCodeTitle": "تأكيد عبر الرمز",
+        "deleteAllCodeDescription": "لحذف جميع الشاحنات، أدخل رمز التأكيد المطلوب."
+      },
+      "dialog": {
+        "assignmentHistory": "سجل الإسناد",
+        "confirmChangeTitle": "تأكيد التغيير",
+        "confirmChangeDescription": "هذا السائق مُسنَد بالفعل إلى شاحنة نشطة أخرى. إذا أكدت، سيتم وضع الشاحنة الأخرى تلقائيًا في التوقف."
+      },
+      "empty": {
+        "noHistory": "لا يوجد سجل متاح",
+        "noTruckFound": "لم يتم العثور على شاحنة",
+        "adjustSearch": "حاول تعديل معايير البحث"
+      }
+    }
+  },
+  "notFound": {
+    "title": "الصفحة غير موجودة",
+    "description": "عذرًا، الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+    "backHome": "العودة إلى الرئيسية"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "overview": "نظرة عامة",
+    "refresh": "تحديث",
+    "newOperation": "عملية جديدة",
+    "stockValue": "قيمة المخزون",
+    "expenses": "المصروفات",
+    "stockAlerts": "تنبيهات المخزون",
+    "metrics": {
+      "totalStock": "إجمالي المخزون",
+      "totalRevenue": "إجمالي الإيرادات",
+      "activeTrucks": "الشاحنات النشطة",
+      "driverDebts": "ديون السائقين"
+    },
+    "piloting": {
+      "title": "مركز التحكم 360",
+      "subtitle": "عرض عملي متصل بالأقسام التشغيلية والمالية والتقارير",
+      "driverPayments": "قناة مدفوعات السائقين",
+      "manualRevenue": "قناة الإيرادات اليدوية",
+      "financeFlow": "قناة التدفقات المالية"
+    },
+    "executivePulse": {
+      "title": "النبض التنفيذي",
+      "subtitle": "قراءة سريعة بين الأقسام",
+      "fleetAvailability": "توفر الأسطول",
+      "expenseRatio": "نسبة المصروفات / الإيرادات",
+      "debtRatio": "نسبة الديون / الإيرادات",
+      "legacyExpenses": "مصروفات قديمة",
+      "financeExpenses": "مصروفات مالية",
+      "netBalance": "الرصيد الصافي",
+      "stockHealthScore": "مؤشر صحة المخزون",
+      "netBalanceHint": "الرصيد التقديري (الإيرادات - المصروفات)"
+    },
+    "quickActions": {
+      "title": "إجراءات سريعة",
+      "subtitle": "الوصول السريع إلى الوظائف الأساسية",
+      "newSale": "بيع جديد",
+      "expense": "مصروف",
+      "fuel": "وقود",
+      "repair": "إصلاح"
+    },
+    "stock": {
+      "title": "حالة المخزون",
+      "subtitle": "المستوى الحالي حسب نوع الأسطوانة",
+      "manage": "إدارة المخزون",
+      "manageOpen": "فتح إدارة المخزون",
+      "all": "الكل",
+      "critique": "حرج",
+      "faible": "منخفض",
+      "moyen": "متوسط",
+      "bon": "جيد",
+      "normal": "عادي",
+      "displayed": "المعروض",
+      "sortByRemaining": "ترتيب حسب المتبقي",
+      "coverage": "تغطية",
+      "current": "الحالي",
+      "remaining": "المتبقي",
+      "distributed": "موزع",
+      "healthy": "سليم"
+    },
+    "activity": {
+      "title": "النشاط الأخير",
+      "displayed": "المعروض",
+      "all": "الكل",
+      "finance": "المالية",
+      "operations": "العمليات",
+      "maintenance": "الصيانة",
+      "stock": "المخزون",
+      "operation": "عملية",
+      "transaction": "معاملة",
+      "truckSupply": "تغذية الشاحنة",
+      "truckReturn": "إعادة الشاحنة",
+      "exchange": "تبادل الأسطوانات",
+      "driverPayment": "دفع السائق",
+      "driverDebt": "دين السائق",
+      "factory": "المصنع",
+      "expense": "مصروف",
+      "repair": "إصلاح",
+      "encaissement": "تحصيل",
+      "versement": "إيداع",
+      "retrait": "سحب",
+      "depense": "مصروف",
+      "reparation": "إصلاح",
+      "revenue": "إيراد",
+      "refShort": "مرجع",
+      "emptyStock": "مخزون الفارغ",
+      "units": "وحدات"
+    },
+    "performance": {
+      "title": "أداء النظام",
+      "distribution": "التوزيع",
+      "fleet": "الأسطول",
+      "active": "نشط",
+      "fuelOps": "عمليات",
+      "fuel": "الوقود"
+    },
+    "priorities": {
+      "title": "الأولويات الميدانية",
+      "subtitle": "نقاط حرجة قابلة للتصرف من الأقسام الأخرى",
+      "inventory": "المخزون",
+      "critiques": "حرج",
+      "faibles": "منخفض",
+      "viewAll": "عرض الكل",
+      "noAlert": "لا تنبيهات حرجة",
+      "allGood": "جميع المخزونات في مستويات مقبولة."
+    },
+    "pulse": {
+      "supplyOps": "عمليات",
+      "repairs": "إصلاحات",
+      "financeFlux": "تدفق",
+      "signals": "إشارات حديثة",
+      "supplyReturn": "التوريد والإعادة",
+      "maintenance": "الصيانة",
+      "finance": "المالية",
+      "reports": "التقارير"
+    },
+    "distributionStatus": {
+      "optimum": "مثالي",
+      "controlled": "تحت السيطرة",
+      "tension": "تحت ضغط"
+    }
+  },
+  "fuel": {
+    "tabFuel": "الوقود",
+    "tabOil": "الزيت",
+    "title": "إدارة الوقود",
+    "subtitle": "التزود، الاستهلاك، المخزون والأداء في نظام التحكم التكيفي.",
+    "creative": "إبداعي",
+    "controlRoom": "غرفة التحكم",
+    "version": "النسخة الإبداعية",
+    "signalLabel": "الإشارة",
+    "openAction": "فتح الإجراء",
+    "recommendedAction": "الإجراء السريع الموصى به",
+    "newPurchase": "تزود جديد",
+    "newConsumption": "استهلاك جديد",
+    "drain": "تصريف",
+    "stock": "المخزون",
+    "weeklyFlow": "تدفق 7 أيام",
+    "weeklyPurchase": "شراء 7 أيام",
+    "avgConsumption": "متوسط الاستهلاك",
+    "fuelLevel": "مستوى الوقود",
+    "tankLevel": "مستوى الخزان",
+    "tankAnimation": "رسوم متحركة للسائل",
+    "availableStock": "المخزون المتاح",
+    "totalCapacity": "السعة الإجمالية",
+    "purchases": "عمليات التزود",
+    "consumptions": "الاستهلاكات",
+    "drains": "التصريفات",
+    "totalPurchasedAmount": "إجمالي مبلغ الشراء",
+    "totalDrainedAmount": "إجمالي مبلغ التصريف",
+    "status": {
+      "critique": "حرج",
+      "moyen": "متوسط",
+      "optimal": "مثالي"
+    },
+    "signalTypes": {
+      "surveillance": "مراقبة مشددة",
+      "vigilance": "منطقة يقظة",
+      "optimal": "إيقاع مثالي"
+    },
+    "quickAction": {
+      "purchase": "بدء التزود",
+      "purchaseHint": "المستوى منخفض، يُنصح بإعادة التزود.",
+      "consumption": "تسجيل استهلاك",
+      "consumptionHint": "أداء مرتفع، تتبع الرحلات القادمة.",
+      "drainHint": "تأثير ملحوظ للتصريفات هذا الأسبوع.",
+      "defaultHint": "حافظ على وتيرة تحليل الرحلات."
+    },
+    "controlStats": {
+      "activeAlerts": "التنبيهات النشطة",
+      "weeklyFlow": "تدفق 7 أيام",
+      "avgConsumption": "متوسط الاستهلاك",
+      "globalSignal": "الإشارة العامة"
+    },
+    "forecast": {
+      "title": "النبض التنبؤي",
+      "subtitle": "إسقاط ديناميكي للتدفقات والمخاطر التشغيلية",
+      "window7": "نافذة 7 أيام",
+      "window14": "نافذة 14 يومًا",
+      "window30": "نافذة 30 يومًا",
+      "avgDailyFlow": "متوسط التدفق / يوم",
+      "windowBalance": "رصيد النافذة",
+      "daysToCritical": "أيام حتى الحرجة",
+      "riskScore": "مؤشر الخطر",
+      "stable": "مستقر",
+      "risk": {
+        "high": "خطر مرتفع",
+        "medium": "خطر متوسط",
+        "low": "خطر منخفض"
+      },
+      "purchases": "شراء",
+      "consumptions": "استهلاك",
+      "drains": "تصريف"
+    },
+    "performance": {
+      "title": "الأداء حسب السائق",
+      "subtitle": "الاستهلاك لكل 100 كم حسب السائق",
+      "allDrivers": "جميع السائقين",
+      "lPer100": "ل/100كم",
+      "noData": "لا توجد بيانات استهلاك."
+    },
+    "heatmap": {
+      "title": "خريطة الحرارة للأداء",
+      "subtitle": "تصنيف السائقين حسب الاستهلاك",
+      "rank": "الترتيب",
+      "driver": "السائق",
+      "liters": "لترات",
+      "km": "كم",
+      "lPer100": "ل/100كم"
+    },
+    "temporal": {
+      "title": "درجة السائق الزمنية",
+      "subtitle": "تطور الأداء خلال نافذة التنبؤ",
+      "driver": "السائق",
+      "recentLP100": "ل/100 حديث",
+      "baselineLP100": "ل/100 مرجعي",
+      "delta": "الفارق",
+      "trend": {
+        "up": "ارتفاع",
+        "down": "انخفاض",
+        "stable": "مستقر"
+      }
+    },
+    "thresholds": {
+      "title": "عتبات الأداء",
+      "subtitle": "اضبط الحدود لمعايرة شارات الأداء.",
+      "greenMax": "أخضر (حد أقصى)",
+      "yellowMax": "أصفر (حد أقصى)"
+    },
+    "table": {
+      "date": "التاريخ",
+      "quantity": "الكمية (ل)",
+      "price": "السعر (درهم)",
+      "paymentMethod": "طريقة الدفع",
+      "driver": "السائق",
+      "truck": "الشاحنة",
+      "mileage": "المسافة",
+      "noData": "لا توجد بيانات.",
+      "history": "السجل"
+    },
+    "dialog": {
+      "purchaseTitle": "تزود جديد",
+      "consumptionTitle": "استهلاك جديد",
+      "drainTitle": "تصريف جديد",
+      "date": "التاريخ",
+      "quantity": "الكمية (لتر)",
+      "price": "السعر الإجمالي (درهم)",
+      "paymentMethod": "طريقة الدفع",
+      "selectPayment": "اختر",
+      "cash": "نقدًا",
+      "cheque": "شيك",
+      "bank": "بنك",
+      "driver": "السائق",
+      "selectDriver": "اختر سائقًا",
+      "truck": "الشاحنة",
+      "selectTruck": "اختر شاحنة",
+      "mileage": "المسافة (كم)",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "errorQuantityPrice": "يرجى إدخال كمية وسعر صحيحين.",
+      "errorDriverTruck": "يرجى إكمال السائق والشاحنة والكمية.",
+      "successPurchase": "تم تسجيل التزود.",
+      "successConsumption": "تم تسجيل الاستهلاك.",
+      "successDrain": "تم تسجيل التصريف."
+    }
+  },
+  "revenue": {
+    "title": "إدارة التحويلات",
+    "subtitle": "تتبع التدفقات المالية والتحويلات وعمليات الصندوق",
+    "bankTransfer": "تحويل بنكي",
+    "cashOperation": "عملية صندوق",
+    "accounts": {
+      "espece": "نقدًا",
+      "cheque": "شيك",
+      "banque": "بنك",
+      "autre": "أخرى",
+      "especeAvail": "متاح في الصندوق",
+      "banqueAvail": "الرصيد البنكي الحالي",
+      "chequeAvail": "شيكات قيد الانتظار"
+    },
+    "cards": {
+      "espece": "رصيد النقد",
+      "cheque": "رصيد الشيكات",
+      "banque": "رصيد البنك",
+      "debt": "ديون السائقين",
+      "expenses": "إجمالي المصروفات",
+      "total": "التدفق الإجمالي"
+    },
+    "actions": {
+      "newTransfer": "تحويل جديد",
+      "newCashOp": "عملية صندوق",
+      "exportPdf": "تصدير PDF"
+    },
+    "transferTypes": {
+      "versement_espece": "إيداع نقدي ← بنك",
+      "remise_cheques": "تسليم شيكات ← بنك",
+      "retrait_bancaire": "سحب بنكي ← نقد"
+    },
+    "filters": {
+      "title": "تصفية",
+      "startDate": "تاريخ البداية",
+      "endDate": "تاريخ النهاية",
+      "type": "النوع",
+      "account": "الحساب",
+      "amountMin": "المبلغ الأدنى",
+      "amountMax": "المبلغ الأقصى",
+      "all": "الكل",
+      "transfer": "تحويل",
+      "versement": "إيداع",
+      "retrait": "سحب",
+      "depense": "مصروف",
+      "priority": {
+        "all": "جميع الأولويات",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      }
+    },
+    "window": {
+      "7j": "7 أيام",
+      "30j": "30 يومًا",
+      "90j": "90 يومًا",
+      "all": "الكل"
+    },
+    "intelligence": {
+      "title": "لوحة الذكاء المالي",
+      "subtitle": "تحليل ديناميكي للتدفق المالي",
+      "totalIn": "إجمالي الوارد",
+      "totalOut": "إجمالي الصادر",
+      "netFlow": "التدفق الصافي",
+      "pendingOps": "عمليات معلقة",
+      "focusPending": "تركيز على المعلقة",
+      "focusInflow": "تركيز الوارد",
+      "focusOutflow": "تركيز الصادر",
+      "reset": "إعادة تعيين"
+    },
+    "forecast": {
+      "title": "توقع الحسابات",
+      "subtitle": "الاستقلالية المقدرة لكل حساب",
+      "daysLeft": "أيام",
+      "dailyDrain": "صرف يومي",
+      "noOutflow": "لا صرف",
+      "risk": {
+        "high": "خطر مرتفع",
+        "medium": "خطر متوسط",
+        "low": "مستقر"
+      }
+    },
+    "heatmap": {
+      "title": "التدفق الأسبوعي",
+      "subtitle": "كثافة التدفقات حسب أسبوع (8 أسابيع)"
+    },
+    "whatif": {
+      "title": "محاكاة السيناريوهات",
+      "subtitle": "افرض تأثير السيناريوهات المالية",
+      "dailyIn": "إضافة يومية (درهم)",
+      "dailyOut": "صرف يومي إضافي (درهم)",
+      "horizon": "الأفق (أيام)",
+      "currentLiquidity": "السيولة الحالية",
+      "projectedLiquidity": "السيولة المتوقعة",
+      "runway": "الاستقلالية المقدرة",
+      "days": "أيام",
+      "infinite": "مستقر",
+      "risk": {
+        "high": "خطر مرتفع",
+        "medium": "خطر متوسط",
+        "low": "مستقر"
+      }
+    },
+    "anomalies": {
+      "title": "الشذوذات المكتشفة",
+      "subtitle": "عمليات غير اعتيادية إحصائيًا",
+      "all": "الكل",
+      "positive": "إيجابية",
+      "negative": "سلبية",
+      "noAnomaly": "لم يتم اكتشاف أي شذوذ.",
+      "score": "الدرجة"
+    },
+    "autopilot": {
+      "title": "الطيار الآلي المالي",
+      "protect": "حماية",
+      "accelerate": "تسريع",
+      "balance": "توازن"
+    },
+    "missionBoard": {
+      "title": "لوحة المهام",
+      "high": "أولوية عالية",
+      "medium": "أولوية متوسطة",
+      "low": "أولوية منخفضة",
+      "empty": "لا توجد عمليات"
+    },
+    "table": {
+      "date": "التاريخ",
+      "type": "النوع",
+      "description": "الوصف",
+      "amount": "المبلغ",
+      "accounts": "الحساب(ات)",
+      "status": "الحالة",
+      "actions": "إجراءات",
+      "pending": "معلق",
+      "validated": "مُصادق",
+      "transfert": "تحويل",
+      "noOp": "لم يتم العثور على أي عملية."
+    },
+    "history": {
+      "title": "السجل الكامل",
+      "subtitle": "جميع المعاملات المالية"
+    },
+    "dialog": {
+      "transferTitle": "تحويل بنكي جديد",
+      "cashTitle": "عملية صندوق جديدة",
+      "editTransferTitle": "تعديل التحويل",
+      "editCashTitle": "تعديل العملية",
+      "type": "نوع التحويل",
+      "amount": "المبلغ (درهم)",
+      "description": "الوصف",
+      "date": "التاريخ",
+      "name": "التسمية",
+      "cashType": "نوع العملية",
+      "cashAccount": "الحساب المعني",
+      "accountDetails": "تفاصيل الحساب",
+      "versement": "إيداع (وارد)",
+      "retrait": "سحب (صادر)",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "update": "تحديث",
+      "errorAmount": "يرجى إدخال مبلغ صحيح",
+      "errorName": "يرجى إدخال التسمية ومبلغ صحيح",
+      "successTransfer": "تم تسجيل التحويل والتحقق منه",
+      "successCash": "تم تسجيل عملية الصندوق (في انتظار التحقق)",
+      "successUpdate": "تم التحديث",
+      "successDelete": "تم حذف العملية"
+    },
+    "exportTitle": "إدارة التحويلات - تصدير (مع الفلاتر المطبقة)"
+  },
+  "defectiveStock": {
+    "title": "المخزون التالف",
+    "subtitle": "إدارة الأسطوانات المُعادة، مراقبة الكميات وتتبع المراجع.",
+    "units": "وحدات",
+    "activeTypes": "أنواع نشطة",
+    "today": "اليوم",
+    "view": "عرض",
+    "addEntry": "إضافة إدخال",
+    "criticalAction": "إجراء النوع الحرج",
+    "stats": {
+      "total": "إجمالي التالف",
+      "impactedTypes": "الأنواع المتأثرة",
+      "historizedEntries": "الإدخالات المسجلة"
+    },
+    "alertBoard": {
+      "title": "لوحة التنبيهات",
+      "rollingDays": "7 أيام متحركة",
+      "trend7j": "اتجاه 7 أيام",
+      "vsPrevious": "مقابل الفترة السابقة",
+      "priorityType": "النوع ذو الأولوية",
+      "noType": "لا يوجد",
+      "unit": "وحدة",
+      "units": "وحدات",
+      "quickActions": "إجراءات سريعة",
+      "addOnPriority": "إضافة على النوع ذو الأولوية",
+      "switchTo7Days": "التبديل إلى عرض 7 أيام",
+      "entriesOnView": "إدخال(ات) في العرض الحالي",
+      "noAnomaly": "لم يُكتشف أي شذوذ في الفترة المحددة."
+    },
+    "studio": {
+      "title": "استوديو القرار",
+      "presetStabilisation": "إعداد الاستقرار",
+      "presetInvestigation": "إعداد التحقيق",
+      "presetSurveillance": "إعداد المراقبة",
+      "simulator": "محاكي التأثير",
+      "simulatedQty": "الكمية المحاكاة للإضافة",
+      "applyOnFocus": "تطبيق على النوع المحوري",
+      "focusType": "النوع المحوري",
+      "projectedShare": "الحصة المتوقعة",
+      "projectedRisk": "الخطر المتوقع",
+      "none": "لا يوجد",
+      "shortcuts": "اختصارات القرار",
+      "treatTop": "معالجة الشذوذ الأول",
+      "treat2": "معالجة الشذوذ #2",
+      "focusToday": "تركيز على اليوم"
+    },
+    "radar": {
+      "title": "الرادار الأسبوعي",
+      "stability": "الاستقرار"
+    },
+    "piloting": {
+      "title": "التحكم حسب النوع",
+      "entries": "إدخال(ات)",
+      "lastEntry": "آخر إدخال",
+      "noEntry": "لا يوجد",
+      "add": "إضافة",
+      "noBottleType": "لا يوجد نوع أسطوانة مُكوَّن. يرجى إضافة واحد أولاً.",
+      "risk": {
+        "high": "خطر مرتفع",
+        "medium": "خطر متوسط",
+        "low": "خطر منخفض"
+      }
+    },
+    "history": {
+      "title": "سجل الإدخالات",
+      "all": "الكل",
+      "today": "اليوم",
+      "week": "7 أيام",
+      "month": "هذا الشهر",
+      "search": "البحث حسب النوع أو المرجع...",
+      "date": "التاريخ",
+      "bdRef": "مرجع B.D",
+      "bottleType": "نوع الأسطوانة",
+      "quantity": "الكمية",
+      "noResult": "لا يوجد إدخال يطابق الفلتر الحالي."
+    },
+    "period": {
+      "today": "اليوم",
+      "week": "آخر 7 أيام",
+      "month": "هذا الشهر",
+      "all": "جميع الفترات"
+    },
+    "stability": {
+      "stable": "مستقر",
+      "watch": "يستحق المراقبة",
+      "unstable": "غير مستقر"
+    },
+    "recommendations": {
+      "trendUp": "اتجاه تصاعدي: إعطاء الأولوية لفحص الإعادة خلال 48 ساعة.",
+      "concentration": "تركيز على",
+      "planAction": "التخطيط لإجراء مستهدف.",
+      "highVariability": "تقلب مرتفع: تفعيل نقطة تشغيلية يومية.",
+      "controlled": "الإشارة تحت السيطرة: الحفاظ على وتيرة المتابعة الحالية."
+    }
+  }
+}
