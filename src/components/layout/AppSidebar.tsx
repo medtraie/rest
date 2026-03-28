@@ -16,6 +16,7 @@ import {
   Wrench,
   SlidersHorizontal,
   Route,
+  Calculator,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
@@ -55,9 +56,11 @@ const menuItems: MenuItem[] = [
   { title: "fuelManagement", url: "/fuel-management", icon: Fuel, permission: "fuel-management" },
   { title: "repairs", url: "/repairs", icon: Wrench, permission: "repairs" },
   { title: "expenses", url: "/expenses", icon: Wallet, permission: "expenses" },
+  { title: "depensesCopt", url: "/depenses-copt", icon: PackagePlus, permission: "depenses-copt" },
   { title: "liveMap", url: "/live-map", icon: MapPin, permission: "live-map" },
   { title: "revenue", url: "/revenue", icon: HandCoins, permission: "revenue" },
   { title: "reports", url: "/reports", icon: FileText, permission: "reports" },
+  { title: "accounting", url: "/accounting", icon: Calculator, permission: "accounting" },
   { title: "settings", url: "/settings", icon: SlidersHorizontal, permission: "settings" },
 ];
 

@@ -97,10 +97,12 @@ export type PermissionKey =
   | "fuel-management"
   | "repairs"
   | "expenses"
+  | "depenses-copt"
   | "revenue"
   | "reports"
   | "live-map"
-  | "settings";
+  | "settings"
+  | "accounting";
 
 type Role = {
   id: string;
@@ -128,9 +130,11 @@ const permissionCatalog: Array<{ key: PermissionKey; label: string }> = [
   { key: "fuel-management", label: "Gestion Carburant & Huile" },
   { key: "repairs", label: "Gestion des Réparations" },
   { key: "expenses", label: "Dépenses Diverses" },
+  { key: "depenses-copt", label: "Dépenses Copt" },
   { key: "revenue", label: "Recette" },
   { key: "reports", label: "Rapports" },
   { key: "live-map", label: "Carte Live" },
+  { key: "accounting", label: "Comptabilité" },
   { key: "settings", label: "Paramètres" },
 ];
 
@@ -153,6 +157,7 @@ const defaultRoles: Role[] = [
       "fuel-management",
       "repairs",
       "expenses",
+      "depenses-copt",
       "revenue",
       "reports",
       "live-map",

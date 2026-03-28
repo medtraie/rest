@@ -19,9 +19,11 @@
     "fuelManagement": "Gestion Carburant & Huile",
     "repairs": "Gestion des Réparations",
     "expenses": "Dépenses Diverses",
+    "depensesCopt": "Dépenses Copt",
     "liveMap": "Carte Live",
     "revenue": "Recette",
     "reports": "Rapports",
+    "accounting": "Comptabilité",
     "settings": "Paramètres"
   },
   "login": {
@@ -2067,6 +2069,100 @@
       "planAction": "planifier une action ciblée.",
       "highVariability": "Variabilité élevée: déclencher un point opérationnel quotidien.",
       "controlled": "Signal maîtrisé: maintenir le rythme actuel de suivi."
+    }
+  },
+  "accounting": {
+    "title": "Comptabilité Générale",
+    "subtitle": "Plan Comptable Général Marocain (PCGM)",
+    "exportSaisie": "Exporter les écritures",
+    "newEntry": "Nouvelle Écriture",
+    "tabs": {
+      "dashboard": "Tableau de bord",
+      "journal": "Journal Général",
+      "ledger": "Grand Livre",
+      "balance": "Balance",
+      "cpc": "CPC & Bilan",
+      "tva": "Déclaration TVA",
+      "plan": "Plan Comptable",
+      "exercices": "Exercices"
+    },
+    "exercice": "Exercice",
+    "plan": {
+      "title": "Plan Comptable Marocain",
+      "desc": "Classes 1 à 7 du PCGM",
+      "newAccount": "Nouveau compte comptable",
+      "newGazClass": "Nouvelle Classe Gaz",
+      "newGazClassDesc": "Créer une classe sectorielle dédiée au gaz",
+      "gazTitle": "Classes sectorielles Gaz",
+      "gazDesc": "Classes internes dédiées à la gestion et distribution du gaz"
+    },
+    "classes": {
+      "c1": "Classe 1: Comptes de financement permanent",
+      "c2": "Classe 2: Comptes d'actif immobilisé",
+      "c3": "Classe 3: Comptes d'actif circulant (hors trésorerie)",
+      "c4": "Classe 4: Comptes de passif circulant (hors trésorerie)",
+      "c5": "Classe 5: Comptes de trésorerie",
+      "c6": "Classe 6: Comptes de charges",
+      "c7": "Classe 7: Comptes de produits"
+    },
+    "actions": {
+      "saved": "Enregistré avec succès",
+      "exported": "Exportation réussie",
+      "cancel": "Annuler",
+      "save": "Enregistrer"
+    },
+    "newEntryModal": {
+      "title": "Saisie d'une nouvelle écriture",
+      "desc": "Entrez les détails de la transaction comptable."
+    },
+    "kpi": {
+      "revenue": "Chiffre d'Affaires",
+      "expenses": "Charges (Cl 6)",
+      "result": "Résultat Net",
+      "treasury": "Trésorerie Actif"
+    },
+    "vsLastMonth": "vs mois précédent",
+    "estimated": "Estimation courante",
+    "dashboard": {
+      "recentEntries": "Dernières Écritures Comptables",
+      "tvaSummary": "Aperçu TVA"
+    },
+    "date": "Date",
+    "account": "Compte",
+    "label": "Libellé",
+    "debit": "Débit",
+    "credit": "Crédit",
+    "tva": {
+      "prepare": "Préparer la déclaration"
+    },
+    "search": "Rechercher...",
+    "journal": {
+      "desc": "Saisie et consultation des écritures comptables",
+      "empty": "Sélectionnez un journal (Achats, Ventes, Banque, OD)"
+    },
+    "ledger": {
+      "desc": "Détail des mouvements par compte comptable"
+    },
+    "balance": {
+      "desc": "Balance des comptes à 6 colonnes"
+    },
+    "cpc": {
+      "desc": "Génération automatique des états financiers selon le PCGM"
+    },
+    "exercices": {
+      "desc": "Gestion des exercices et périodes de clôture",
+      "new": "Nouvel Exercice",
+      "newDesc": "Créer un nouvel exercice comptable",
+      "code": "Code",
+      "startDate": "Date début",
+      "endDate": "Date fin",
+      "period": "Période",
+      "status": "Statut",
+      "actions": "Actions",
+      "open": "Ouvert",
+      "closed": "Clôturé",
+      "close": "Clôturer",
+      "reopen": "Réouvrir"
     }
   }
 }

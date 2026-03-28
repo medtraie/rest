@@ -19,6 +19,7 @@ import SupplyReturn from "./pages/SupplyReturn";
 import Clients from "./pages/Clients";
 import DefectiveStock from "./pages/DefectiveStock";
 import Expenses from "./pages/Expenses";
+import DepensesCopt from "./pages/DepensesCopt";
 import Revenue from "./pages/Revenue";
 import Reports from "./pages/Reports";
 import FuelManagement from "./pages/FuelManagement";
@@ -26,6 +27,7 @@ import PetitCamion from "./pages/PetitCamion";
 import Repairs from "./pages/Repairs";
 import Settings from "./pages/Settings";
 import LiveMap from "./pages/LiveMap";
+import Accounting from "./pages/Accounting";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { supabase } from "./lib/supabaseClient";
@@ -115,8 +117,10 @@ const RoutesWithAuth = ({ session }: { session: Session | null }) => {
     { permission: "fuel-management", path: "/fuel-management" },
     { permission: "repairs", path: "/repairs" },
     { permission: "expenses", path: "/expenses" },
+    { permission: "depenses-copt", path: "/depenses-copt" },
     { permission: "revenue", path: "/revenue" },
     { permission: "reports", path: "/reports" },
+    { permission: "accounting", path: "/accounting" },
     { permission: "settings", path: "/settings" },
   ];
 
@@ -136,6 +140,7 @@ const RoutesWithAuth = ({ session }: { session: Session | null }) => {
         <Route path="/clients" element={<ProtectedRoute permission="clients" element={<Clients />} fallback={fallbackPath} />} />
         <Route path="/defective-stock" element={<ProtectedRoute permission="defective-stock" element={<DefectiveStock />} fallback={fallbackPath} />} />
         <Route path="/expenses" element={<ProtectedRoute permission="expenses" element={<Expenses />} fallback={fallbackPath} />} />
+        <Route path="/depenses-copt" element={<ProtectedRoute permission="depenses-copt" element={<DepensesCopt />} fallback={fallbackPath} />} />
         <Route path="/revenue" element={<ProtectedRoute permission="revenue" element={<Revenue />} fallback={fallbackPath} />} />
         <Route path="/reports" element={<ProtectedRoute permission="reports" element={<Reports />} fallback={fallbackPath} />} />
         <Route path="/fuel-management" element={<ProtectedRoute permission="fuel-management" element={<FuelManagement />} fallback={fallbackPath} />} />
@@ -144,6 +149,7 @@ const RoutesWithAuth = ({ session }: { session: Session | null }) => {
         <Route path="/repairs" element={<ProtectedRoute permission="repairs" element={<Repairs />} fallback={fallbackPath} />} />
         <Route path="/settings" element={<ProtectedRoute permission="settings" element={<Settings />} fallback={fallbackPath} />} />
         <Route path="/live-map" element={<ProtectedRoute permission="live-map" element={<LiveMap />} fallback={fallbackPath} />} />
+        <Route path="/accounting" element={<ProtectedRoute permission="accounting" element={<Accounting />} fallback={fallbackPath} />} />
         <Route path="/access-denied" element={<AccessDenied />} />
         <Route path="*" element={<NotFound />} />
       </Route>
