@@ -1192,6 +1192,31 @@ const SupplyReturn = () => {
     setPaymentMygazAmount('');
     setSelectedReturnOrderForPayment(null);
   };
+  const getReturnPaymentInfo = (order: any) => {
+    if (!order) return null;
+    let parsed: any = null;
+    if (order.note) {
+      if (typeof order.note === 'string') {
+        try {
+          parsed = JSON.parse(order.note);
+        } catch {
+          parsed = null;
+        }
+      } else if (typeof order.note === 'object') {
+        parsed = order.note;
+      }
+    }
+    const cash = Number(parsed?.cash ?? order.paymentCash ?? order.payment_cash ?? 0);
+    const check = Number(parsed?.check ?? order.paymentCheque ?? order.payment_cheque ?? 0);
+    const mygaz = Number(parsed?.mygaz ?? order.paymentMygaz ?? order.payment_mygaz ?? 0);
+    const debt = Number(parsed?.debt ?? order.paymentDebt ?? order.payment_debt ?? 0);
+    const total = Number(parsed?.total ?? order.paymentTotal ?? order.payment_total ?? 0);
+    const subtotal = Number(parsed?.subtotal ?? order.paymentSubtotal ?? order.payment_subtotal ?? 0);
+    const taxAmount = Number(parsed?.taxAmount ?? order.paymentTaxAmount ?? order.payment_tax_amount ?? 0);
+    const hasAny = [cash, check, mygaz, debt, total, subtotal, taxAmount].some((v) => Number(v) > 0);
+    if (!hasAny) return null;
+    return { cash, check, mygaz, debt, total, subtotal, taxAmount };
+  };
 
   const handlePrintBD = (order: any) => {
     try {
@@ -1315,9 +1340,32 @@ const SupplyReturn = () => {
       });
 
       const finalY = (doc as any).lastAutoTable.finalY || 120;
+      let cursorY = finalY + 10;
+      const paymentInfo = getReturnPaymentInfo(order);
+      if (paymentInfo) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 41, 59);
+        doc.text(tsr('paymentTitle', 'Règlement du Retour'), 14, cursorY);
+        cursorY += 6;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`${tsr('paymentCash', 'Espèces')}: ${(Number(paymentInfo.cash) || 0).toFixed(2)} DH`, 14, cursorY);
+        cursorY += 4;
+        doc.text(`${tsr('paymentCheque', 'Chèque')}: ${(Number(paymentInfo.check) || 0).toFixed(2)} DH`, 14, cursorY);
+        cursorY += 4;
+        doc.text(`${tsr('paymentMygaz', 'MYGAZ')}: ${(Number(paymentInfo.mygaz) || 0).toFixed(2)} DH`, 14, cursorY);
+        cursorY += 4;
+        doc.text(`${tsr('paymentDebt', 'Dette Restante')}: ${(Number(paymentInfo.debt) || 0).toFixed(2)} DH`, 14, cursorY);
+        cursorY += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${tsr('paymentTotal', 'Montant Total du Bon')}: ${(Number(paymentInfo.total) || 0).toFixed(2)} DH`, 14, cursorY);
+        cursorY += 6;
+      }
 
-      // Legend Section
-      const legendY = finalY + 10;
+      const legendY = cursorY + 4;
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
@@ -2015,51 +2063,53 @@ const SupplyReturn = () => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-[300px] p-2 rounded-2xl shadow-2xl border-slate-100" align="start">
-                      <div className="mb-2">
-                        <Input
-                          value={bottleTypeQuery}
-                          onChange={(e) => setBottleTypeQuery(e.target.value)}
-                          placeholder={tr('Rechercher un produit...', 'ابحث عن منتج...')}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="max-h-72 overflow-auto pr-1">
-                        {filteredBottleTypes.map(bt => {
-                          const checked = selectedBottleTypeIds.has(bt.id);
-                          return (
-                            <label key={bt.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50">
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => {
-                                  setSelectedBottleTypeIds(prev => {
-                                    const next = new Set(prev);
-                                    if (v) next.add(bt.id); else next.delete(bt.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                              <span className="text-sm">{bt.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {selectedBottleTypeIds.size > 0 && (
-                        <div className="mt-2 flex justify-between">
-                          <div className="flex flex-wrap gap-1">
-                            {[...selectedBottleTypeIds].slice(0, 3).map(id => {
-                              const name = sortedBottleTypes.find(b => b.id === id)?.name;
-                              if (!name) return null;
-                              return <Badge key={id} variant="secondary">{name}</Badge>;
-                            })}
-                            {selectedBottleTypeIds.size > 3 && (
-                              <Badge variant="outline">+{selectedBottleTypeIds.size - 3}</Badge>
-                            )}
-                          </div>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedBottleTypeIds(new Set())}>
-                            {tr('Réinitialiser', 'إعادة تعيين')}
-                          </Button>
+                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+                        <div className="mb-2">
+                          <Input
+                            value={bottleTypeQuery}
+                            onChange={(e) => setBottleTypeQuery(e.target.value)}
+                            placeholder={tr('Rechercher un produit...', 'ابحث عن منتج...')}
+                            className="h-8"
+                          />
                         </div>
-                      )}
+                        <div className="max-h-72 overflow-auto pr-1">
+                          {filteredBottleTypes.map(bt => {
+                            const checked = selectedBottleTypeIds.has(bt.id);
+                            return (
+                              <label key={bt.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all hover:bg-indigo-50/60 hover:shadow-sm hover:-translate-y-0.5">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => {
+                                    setSelectedBottleTypeIds(prev => {
+                                      const next = new Set(prev);
+                                      if (v) next.add(bt.id); else next.delete(bt.id);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                <span className="text-sm">{bt.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {selectedBottleTypeIds.size > 0 && (
+                          <div className="mt-2 flex justify-between">
+                            <div className="flex flex-wrap gap-1">
+                              {[...selectedBottleTypeIds].slice(0, 3).map(id => {
+                                const name = sortedBottleTypes.find(b => b.id === id)?.name;
+                                if (!name) return null;
+                                return <Badge key={id} variant="secondary">{name}</Badge>;
+                              })}
+                              {selectedBottleTypeIds.size > 3 && (
+                                <Badge variant="outline">+{selectedBottleTypeIds.size - 3}</Badge>
+                              )}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedBottleTypeIds(new Set())}>
+                              {tr('Réinitialiser', 'إعادة تعيين')}
+                            </Button>
+                          </div>
+                        )}
+                      </motion.div>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -2976,44 +3026,38 @@ const SupplyReturn = () => {
 
               {/* Payment Info Section if available in note */}
               {(() => {
-                try {
-                  const paymentInfo = JSON.parse(selectedReturnOrder.note);
-                  if (paymentInfo && (paymentInfo.cash || paymentInfo.check || paymentInfo.mygaz || paymentInfo.debt)) {
-                    return (
-                      <div className="mt-6 p-4 bg-muted/30 rounded-lg border">
-                        <h4 className="font-semibold mb-3 flex items-center gap-2">
-                          <DollarSign className="w-4 h-4" />
-                          {tsu('history.paymentDetails', 'Détails du Règlement')}
-                        </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="p-2 bg-background rounded border">
-                            <p className="text-xs text-muted-foreground">{tsu('history.cash', 'Espèces')}</p>
-                            <p className="font-bold text-green-600">{(Number(paymentInfo.cash) || 0).toFixed(2)} DH</p>
-                          </div>
-                          <div className="p-2 bg-background rounded border">
-                            <p className="text-xs text-muted-foreground">{tsu('history.cheque', 'Chèque')}</p>
-                            <p className="font-bold text-blue-600">{(Number(paymentInfo.check) || 0).toFixed(2)} DH</p>
-                          </div>
-                          <div className="p-2 bg-background rounded border">
-                            <p className="text-xs text-muted-foreground">{tsu('history.mygaz', 'MYGAZ')}</p>
-                            <p className="font-bold text-blue-800">{(Number(paymentInfo.mygaz) || 0).toFixed(2)} DH</p>
-                          </div>
-                          <div className="p-2 bg-background rounded border">
-                            <p className="text-xs text-muted-foreground">{tsu('history.remainingDebt', 'Dette Restante')}</p>
-                            <p className="font-bold text-red-600">{(Number(paymentInfo.debt) || 0).toFixed(2)} DH</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                          <span className="text-sm font-medium">{tsu('history.totalVoucherAmount', 'Montant Total du Bon:')}</span>
-                          <span className="text-lg font-bold">{(Number(paymentInfo.total) || 0).toFixed(2)} DH</span>
-                        </div>
+                const paymentInfo = getReturnPaymentInfo(selectedReturnOrder);
+                if (!paymentInfo) return null;
+                return (
+                  <div className="mt-6 p-4 bg-muted/30 rounded-lg border">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      {tsu('history.paymentDetails', 'Détails du Règlement')}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{tsu('history.cash', 'Espèces')}</p>
+                        <p className="font-bold text-green-600">{(Number(paymentInfo.cash) || 0).toFixed(2)} DH</p>
                       </div>
-                    );
-                  }
-                } catch (e) {
-                  return null;
-                }
-                return null;
+                      <div className="p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{tsu('history.cheque', 'Chèque')}</p>
+                        <p className="font-bold text-blue-600">{(Number(paymentInfo.check) || 0).toFixed(2)} DH</p>
+                      </div>
+                      <div className="p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{tsu('history.mygaz', 'MYGAZ')}</p>
+                        <p className="font-bold text-blue-800">{(Number(paymentInfo.mygaz) || 0).toFixed(2)} DH</p>
+                      </div>
+                      <div className="p-2 bg-background rounded border">
+                        <p className="text-xs text-muted-foreground">{tsu('history.remainingDebt', 'Dette Restante')}</p>
+                        <p className="font-bold text-red-600">{(Number(paymentInfo.debt) || 0).toFixed(2)} DH</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                      <span className="text-sm font-medium">{tsu('history.totalVoucherAmount', 'Montant Total du Bon:')}</span>
+                      <span className="text-lg font-bold">{(Number(paymentInfo.total) || 0).toFixed(2)} DH</span>
+                    </div>
+                  </div>
+                );
               })()}
 
               <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
