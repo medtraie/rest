@@ -34,7 +34,8 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -96,6 +97,7 @@ interface Invoice {
   totalReceived: number;
   totalAmount: number;
   status: 'pending' | 'paid';
+  paymentMethod?: 'banque' | 'none';
 }
 
 interface SupplierDebt {
@@ -746,6 +748,7 @@ const Factory = () => {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [originalInvoiceId, setOriginalInvoiceId] = useState<string | null>(null);
   const [showEditInvoice, setShowEditInvoice] = useState(false);
+  const [invoicePaymentMethod, setInvoicePaymentMethod] = useState<'banque' | 'none'>('none');
 
   // Opération actuelle
   const [currentOperation, setCurrentOperation] = useState<Partial<FactoryOperation>>({});
@@ -901,6 +904,34 @@ const Factory = () => {
     const grouped = invoices.map(inv => ({ ...inv, source: 'invoice' as const }));
     return [...grouped, ...standalone].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [invoices, factoryOperations, bottleTypes]);
+  const selectedInvoiceOps = useMemo(
+    () =>
+      factoryOperations.filter(op =>
+        op.blReference &&
+        selectedBLsForInvoice.includes(op.blReference) &&
+        (!selectedSupplierForInvoice || op.supplierId === selectedSupplierForInvoice)
+      ),
+    [factoryOperations, selectedBLsForInvoice, selectedSupplierForInvoice]
+  );
+  const selectedInvoiceTotals = useMemo(() => {
+    const totalSentSelected = selectedInvoiceOps.reduce(
+      (sum, op) => sum + (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0),
+      0
+    );
+    const totalReceivedSelected = selectedInvoiceOps.reduce(
+      (sum, op) => sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0),
+      0
+    );
+    const totalAmountSelected = selectedInvoiceOps.reduce((sum, op) => {
+      const amountOp = (op.receivedBottles || []).reduce((s, b) => {
+        const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
+        const price = bt?.purchasePrice || 0;
+        return s + price * b.quantity;
+      }, 0);
+      return sum + amountOp;
+    }, 0);
+    return { totalSentSelected, totalReceivedSelected, totalAmountSelected };
+  }, [selectedInvoiceOps, bottleTypes]);
   const openInvoiceFromOperation = (operation: FactoryOperation) => {
     if (!operation.supplierId || !operation.blReference) {
       alert(tr('Veuillez sélectionner un fournisseur et un BL valide', 'يرجى اختيار مورّد وBL صالح'));
@@ -1369,60 +1400,56 @@ const Factory = () => {
       return;
     }
 
-    const selectedOps = factoryOperations.filter(op => 
-      op.blReference && selectedBLsForInvoice.includes(op.blReference)
-    );
-
-    const totalSent = selectedOps.reduce((sum, op) => 
-      sum + (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0), 0
-    );
-
-    const totalReceived = selectedOps.reduce((sum, op) => 
-      sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0), 0
-    );
-    
-    const totalAmount = selectedOps.reduce((sum, op) => {
-      const amountOp = (op.receivedBottles || []).reduce((s, b) => {
-        const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
-        const price = bt?.purchasePrice || 0;
-        return s + price * b.quantity;
-      }, 0);
-      return sum + amountOp;
-    }, 0);
+    const { totalSentSelected, totalReceivedSelected, totalAmountSelected } = selectedInvoiceTotals;
+    const status = invoicePaymentMethod === 'banque' ? 'paid' : 'pending';
 
     const newInvoice: Invoice = {
       id: `INV-${Date.now()}`,
       supplierId: selectedSupplierForInvoice,
       date: new Date().toISOString(),
       blReferences: selectedBLsForInvoice,
-      totalSent,
-      totalReceived,
-      totalAmount,
-      status: 'pending'
+      totalSent: totalSentSelected,
+      totalReceived: totalReceivedSelected,
+      totalAmount: totalAmountSelected,
+      status,
+      paymentMethod: invoicePaymentMethod
     };
 
     const created = await supabaseService.create<Invoice>('factory_invoices', newInvoice);
-    if (created) {
-      setInvoices(prev => [created, ...prev]);
-      
-      // Add to global transactions
-      addTransaction({
-        type: 'factory_invoice',
-        date: newInvoice.date,
-        supplierId: newInvoice.supplierId,
-        totalValue: newInvoice.totalAmount,
-        reference: newInvoice.id,
-        description: `Facture Usine - ${newInvoice.blReferences?.length || 0} BLs`,
-        details: {
-          blReferences: newInvoice.blReferences,
-          totalSent: newInvoice.totalSent,
-          totalReceived: newInvoice.totalReceived
-        }
+    const finalInvoice = created || newInvoice;
+    
+    setInvoices(prev => [finalInvoice, ...prev]);
+    
+    // Add to global transactions
+    addTransaction({
+      type: 'factory_invoice',
+      date: finalInvoice.date,
+      supplierId: finalInvoice.supplierId,
+      totalValue: finalInvoice.totalAmount,
+      reference: finalInvoice.id,
+      description: `Facture Usine - ${finalInvoice.blReferences?.length || 0} BLs`,
+      details: {
+        blReferences: finalInvoice.blReferences,
+        totalSent: finalInvoice.totalSent,
+        totalReceived: finalInvoice.totalReceived
+      }
+    });
+    
+    if (status === 'paid' && (finalInvoice.totalAmount || 0) > 0) {
+      await addCashOperation({
+        date: new Date().toISOString(),
+        name: `Paiement Facture ${finalInvoice.id}`,
+        amount: finalInvoice.totalAmount || 0,
+        type: 'retrait',
+        accountAffected: 'banque',
+        status: 'validated',
       });
     }
+
     setShowInvoiceForm(false);
     setSelectedBLsForInvoice([]);
     setSelectedSupplierForInvoice(null);
+    setInvoicePaymentMethod('none');
     setHistoryTab('invoices');
     alert('Facture créée avec succès !');
   };
@@ -2419,7 +2446,14 @@ const Factory = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => deleteSupplier(supplier.id)}
+                          onClick={() => {
+                            const code = window.prompt(tr("Veuillez entrer le code de sécurité pour supprimer ce fournisseur :", "يرجى إدخال رمز الأمان لحذف هذا المورد :"));
+                            if (code === "SFTGAZ25") {
+                              deleteSupplier(supplier.id);
+                            } else if (code !== null) {
+                              alert(tr("Code incorrect. Suppression annulée.", "رمز غير صحيح. تم إلغاء الحذف."));
+                            }
+                          }}
                           className="rounded-xl border-slate-200 hover:bg-white hover:text-rose-600 hover:border-rose-200"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -2572,6 +2606,38 @@ const Factory = () => {
                 </div>
               )}
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-[10px] font-bold text-indigo-600 uppercase">{tr('Groupée / Non', 'مجمعة / غير مجمعة')}</p>
+                <p className="text-lg font-black text-indigo-900 mt-1">
+                  {selectedBLsForInvoice.length > 1 ? tr('Groupée', 'مجمعة') : tr('Non groupée', 'غير مجمعة')}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase">{tr('Total (Env/Rec)', 'الإجمالي (مرسل/مستلم)')}</p>
+                <p className="text-lg font-black text-emerald-900 mt-1">
+                  {selectedInvoiceTotals.totalSentSelected} / {selectedInvoiceTotals.totalReceivedSelected}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-[10px] font-bold text-slate-500 uppercase">{tr('Total', 'الإجمالي')}</p>
+                <p className="text-lg font-black text-slate-900 mt-1">
+                  {Number(selectedInvoiceTotals.totalAmountSelected || 0).toFixed(3)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-bold text-slate-700">{tr('Paiement (Banque)', 'الدفع (بنكي)')}</Label>
+              <Select value={invoicePaymentMethod} onValueChange={(value: 'banque' | 'none') => setInvoicePaymentMethod(value)}>
+                <SelectTrigger className="h-12 border-slate-200 rounded-xl bg-slate-50">
+                  <SelectValue placeholder={tr('Choisir...', 'اختر...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{tr('Non payé', 'غير مدفوع')}</SelectItem>
+                  <SelectItem value="banque">{tr('Banque', 'بنكي')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-4">
@@ -2580,6 +2646,7 @@ const Factory = () => {
               onClick={() => {
                 setShowInvoiceForm(false);
                 setSelectedBLsForInvoice([]);
+                setInvoicePaymentMethod('none');
               }}
               className="h-12 px-6 border-slate-200 hover:bg-white text-slate-600 rounded-xl font-bold transition-all"
             >

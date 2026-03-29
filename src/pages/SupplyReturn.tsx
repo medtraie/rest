@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
 
-import { Package, FileText, Plus, Printer, Download, Search, Calendar, RotateCcw, Trash2, Edit, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileSpreadsheet, Loader2, Settings, DollarSign, Calculator, ArrowUpRight, ArrowDownLeft, Truck, AlertTriangle, Zap, Sparkles, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { Package, FileText, Plus, Printer, Download, Search, Calendar, RotateCcw, Trash2, Edit, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileSpreadsheet, Loader2, Settings, DollarSign, Calculator, ArrowUpRight, ArrowDownLeft, Truck, AlertTriangle, Zap, Sparkles, RefreshCw, Eye, EyeOff, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SupplyOrderItem, SupplyOrder, BottleType } from '@/types';
 import { format } from 'date-fns';
@@ -2047,38 +2047,66 @@ const SupplyReturn = () => {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <div className="flex items-center justify-start gap-2 pb-2">
+                <div className="flex items-center justify-start gap-2 pb-6 pt-2">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="relative h-10 min-w-[280px] justify-between border-slate-200 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 text-slate-900 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-emerald-400 animate-ping" />
-                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-emerald-500" />
-                        <span className="flex items-center gap-2 text-sm font-semibold">
-                          <Sparkles className="h-4 w-4 text-emerald-500" />
-                          {selectedBottleTypeIds.size === 0
-                            ? tr('Sélectionner un produit dans la liste', 'اختر منتجًا من القائمة')
-                            : [...selectedBottleTypeIds].map(id => sortedBottleTypes.find(b => b.id === id)?.name).filter(Boolean).join(', ')}
+                      <Button variant="outline" className="group relative h-12 min-w-[320px] justify-between border-emerald-200/50 bg-gradient-to-r from-emerald-50/50 via-white to-indigo-50/50 text-slate-900 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-300 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-emerald-100/20 via-transparent to-indigo-100/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm shadow-emerald-200" />
+                        <span className="flex items-center gap-3 text-[15px] font-bold z-10">
+                          <div className="p-1.5 bg-emerald-100/50 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                            <Sparkles className="h-4 w-4 text-emerald-600 group-hover:animate-pulse" />
+                          </div>
+                          <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
+                            {selectedBottleTypeIds.size === 0
+                              ? tr('Sélectionner un produit dans la liste', 'اختر منتجًا من القائمة')
+                              : [...selectedBottleTypeIds].map(id => sortedBottleTypes.find(b => b.id === id)?.name).filter(Boolean).join(', ')}
+                          </span>
                         </span>
-                        <ChevronDown className="h-4 w-4 text-slate-400" />
+                        <div className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-white transition-colors z-10">
+                          <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                        </div>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-2 rounded-2xl shadow-2xl border-slate-100" align="start">
-                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-                        <div className="mb-2">
+                    <PopoverContent className="w-[340px] p-3 rounded-2xl shadow-2xl border-slate-100 bg-white/95 backdrop-blur-xl" align="start">
+                      <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.2, type: 'spring', bounce: 0.5 }}>
+                        <div className="mb-3 relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <Input
                             value={bottleTypeQuery}
                             onChange={(e) => setBottleTypeQuery(e.target.value)}
                             placeholder={tr('Rechercher un produit...', 'ابحث عن منتج...')}
-                            className="h-8"
+                            className="h-10 pl-9 border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 bg-slate-50/50 transition-all rounded-xl"
                           />
                         </div>
-                        <div className="max-h-72 overflow-auto pr-1">
-                          {filteredBottleTypes.map(bt => {
+                        <div className="max-h-[320px] overflow-y-auto pr-2 space-y-1.5 custom-scrollbar">
+                          {filteredBottleTypes.map((bt, idx) => {
                             const checked = selectedBottleTypeIds.has(bt.id);
                             return (
-                              <label key={bt.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all hover:bg-indigo-50/60 hover:shadow-sm hover:-translate-y-0.5">
+                              <motion.label 
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.03 }}
+                                key={bt.id} 
+                                className={cn(
+                                  "flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer border border-transparent",
+                                  checked 
+                                    ? "bg-emerald-50/80 border-emerald-100 shadow-sm" 
+                                    : "hover:bg-slate-50 hover:border-slate-100"
+                                )}
+                              >
+                                <div className={cn(
+                                  "flex items-center justify-center w-5 h-5 rounded-md border transition-all",
+                                  checked 
+                                    ? "bg-emerald-500 border-emerald-600 text-white" 
+                                    : "border-slate-300 bg-white"
+                                )}>
+                                  {checked && <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}><Check className="w-3.5 h-3.5" /></motion.div>}
+                                </div>
                                 <Checkbox
                                   checked={checked}
+                                  className="hidden"
                                   onCheckedChange={(v) => {
                                     setSelectedBottleTypeIds(prev => {
                                       const next = new Set(prev);
@@ -2087,27 +2115,31 @@ const SupplyReturn = () => {
                                     });
                                   }}
                                 />
-                                <span className="text-sm">{bt.name}</span>
-                              </label>
+                                <div className="flex flex-col">
+                                  <span className={cn("text-sm font-semibold transition-colors", checked ? "text-emerald-900" : "text-slate-700")}>{bt.name}</span>
+                                  <span className="text-[10px] text-slate-400 font-medium">{bt.capacity}</span>
+                                </div>
+                              </motion.label>
                             );
                           })}
                         </div>
                         {selectedBottleTypeIds.size > 0 && (
-                          <div className="mt-2 flex justify-between">
-                            <div className="flex flex-wrap gap-1">
-                              {[...selectedBottleTypeIds].slice(0, 3).map(id => {
+                          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                            <div className="flex flex-wrap gap-1.5">
+                              {[...selectedBottleTypeIds].slice(0, 2).map(id => {
                                 const name = sortedBottleTypes.find(b => b.id === id)?.name;
                                 if (!name) return null;
-                                return <Badge key={id} variant="secondary">{name}</Badge>;
+                                return <Badge key={id} className="bg-emerald-100 text-emerald-800 border-emerald-200 font-semibold">{name}</Badge>;
                               })}
-                              {selectedBottleTypeIds.size > 3 && (
-                                <Badge variant="outline">+{selectedBottleTypeIds.size - 3}</Badge>
+                              {selectedBottleTypeIds.size > 2 && (
+                                <Badge variant="outline" className="bg-slate-50 text-slate-600 font-bold border-slate-200">+{selectedBottleTypeIds.size - 2}</Badge>
                               )}
                             </div>
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedBottleTypeIds(new Set())}>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedBottleTypeIds(new Set())} className="text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 h-8 px-2 rounded-lg font-semibold">
+                              <RefreshCw className="w-3 h-3 mr-1.5" />
                               {tr('Réinitialiser', 'إعادة تعيين')}
                             </Button>
-                          </div>
+                          </motion.div>
                         )}
                       </motion.div>
                     </PopoverContent>

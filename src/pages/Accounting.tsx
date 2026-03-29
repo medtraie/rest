@@ -184,17 +184,7 @@ export default function Accounting() {
       if (loadedGazClasses.length) setGazClassesState(loadedGazClasses);
       if (loadedExercices.length) setExercices(loadedExercices);
       setEntries(loadedEntries);
-      if (loadedExpenseCatalog.length) {
-        setExpenseCatalog(loadedExpenseCatalog);
-      } else {
-        setExpenseCatalog(
-          scannedExpenseCatalog.map((item) => ({
-            ...item,
-            id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
-            workflowStatus: 'approved',
-          }))
-        );
-      }
+      setExpenseCatalog(loadedExpenseCatalog);
     };
     loadV2Data();
   }, []);
@@ -359,29 +349,57 @@ export default function Accounting() {
     await supabaseService.delete('accounting_expense_codes', id);
     toast.success(t('accounting.actions.saved', 'Enregistré avec succès'));
   };
+  const handleClearExpenseCatalog = async () => {
+    const securityCode = window.prompt(tr('Entrez le code de sécurité pour supprimer tous les codes :', 'أدخل رمز الأمان لحذف كل الأكواد:'));
+    if (securityCode === null) return;
+    if (securityCode !== 'SFTGAZ25') {
+      toast.error(tr('Code de sécurité invalide', 'رمز الأمان غير صحيح'));
+      return;
+    }
+    if (!window.confirm(tr('Confirmer la suppression de tous les codes ?', 'تأكيد حذف كل الأكواد؟'))) return;
+    const ids = expenseCatalog.map((item) => item.id);
+    setExpenseCatalog([]);
+    setExpenseSearchTerm('');
+    if (ids.length > 0) {
+      await Promise.all(ids.map((id) => supabaseService.delete('accounting_expense_codes', id)));
+    }
+    toast.success(tr('Codes supprimés', 'تم حذف الأكواد'));
+  };
   const handleSetExpenseWorkflow = async (id: string, status: ExpenseCatalogItem['workflowStatus']) => {
     setExpenseCatalog((prev) => prev.map((item) => (item.id === id ? { ...item, workflowStatus: status } : item)));
     await supabaseService.update('accounting_expense_codes', id, { workflowStatus: status });
-    toast.success(status === 'approved' ? 'Code approuvé' : 'Code envoyé en revue');
+    toast.success(status === 'approved' ? tr('Code approuvé', 'تم اعتماد الكود') : tr('Code envoyé en revue', 'تم إرسال الكود للمراجعة'));
   };
   const handleImportScannedCatalog = async () => {
-    const imported = scannedExpenseCatalog.map((item) => ({
-      id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
-      code: item.code,
-      designation: item.designation,
-      account: item.account,
-      taxable: item.taxable,
-      workflowStatus: 'approved' as const,
-    }));
-    setExpenseCatalog((prev) => {
-      const byCode = new Map(prev.map((row) => [row.code, row]));
-      imported.forEach((row) => byCode.set(row.code, row));
-      return Array.from(byCode.values());
-    });
-    for (const row of imported) {
-      await supabaseService.create('accounting_expense_codes', row);
+    const currentRows = await supabaseService.getAll<ExpenseCatalogItem>('accounting_expense_codes');
+    const byCode = new Map(currentRows.map((row) => [row.code.trim().toUpperCase(), row]));
+    for (const item of scannedExpenseCatalog) {
+      const code = item.code.trim();
+      const codeKey = code.toUpperCase();
+      const payload = {
+        code,
+        designation: item.designation.trim(),
+        account: item.account.trim(),
+        taxable: item.taxable,
+        workflowStatus: 'approved' as const,
+      };
+      const existing = byCode.get(codeKey);
+      if (existing?.id) {
+        await supabaseService.update('accounting_expense_codes', existing.id, payload);
+      } else {
+        await supabaseService.create('accounting_expense_codes', {
+          id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
+          ...payload,
+        });
+      }
     }
-    toast.success('Catalogue des dépenses importé');
+    const reloaded = await supabaseService.getAll<ExpenseCatalogItem>('accounting_expense_codes');
+    const uniqueByCode = new Map<string, ExpenseCatalogItem>();
+    reloaded.forEach((row) => {
+      uniqueByCode.set(row.code.trim().toUpperCase(), row);
+    });
+    setExpenseCatalog(Array.from(uniqueByCode.values()));
+    toast.success(t('accounting.expenseCatalog.imported', 'Catalogue des dépenses importé'));
   };
   const filteredExpenseCatalog = expenseCatalog.filter((row) => {
     const q = expenseSearchTerm.trim().toLowerCase();
@@ -712,7 +730,7 @@ export default function Accounting() {
                         {entries.map((entry) => (
                           <TableRow key={entry.id}>
                             <TableCell className="text-slate-500 text-xs">{entry.date}</TableCell>
-                            <TableCell><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50">{entry.journal.toUpperCase()}</Badge></TableCell>
+                            <TableCell><Badge variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50">{(entry.journal || '').toUpperCase()}</Badge></TableCell>
                             <TableCell>
                               <Badge variant="outline" className="font-mono bg-slate-50">{entry.debitAccount}</Badge>
                             </TableCell>
@@ -1139,8 +1157,8 @@ export default function Accounting() {
                 <div className="mt-8 rounded-xl border border-slate-200 overflow-hidden">
                   <div className="bg-slate-50 p-4 flex items-center justify-between border-b border-slate-200">
                     <div>
-                      <h3 className="font-bold text-slate-900">Liste des dépenses codifiées (scan intégré)</h3>
-                      <p className="text-sm text-slate-500">Codes, désignations et comptes reliés au plan comptable gaz</p>
+                      <h3 className="font-bold text-slate-900">{t('accounting.expenseCatalog.title', 'Liste des dépenses codifiées (scan intégré)')}</h3>
+                      <p className="text-sm text-slate-500">{t('accounting.expenseCatalog.subtitle', 'Codes, désignations et comptes reliés au plan comptable gaz')}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="relative">
@@ -1148,25 +1166,33 @@ export default function Accounting() {
                         <Input
                           value={expenseSearchTerm}
                           onChange={(e) => setExpenseSearchTerm(e.target.value)}
-                          placeholder="Rechercher code / désignation / compte..."
+                          placeholder={t('accounting.expenseCatalog.searchPlaceholder', 'Rechercher code / désignation / compte...')}
                           className="pl-9 w-[320px] bg-white"
                         />
                       </div>
                       <Button variant="outline" onClick={openCreateExpenseCode}>
                         <PlusCircle className="w-4 h-4 mr-2" />
-                        Nouveau code dépense
+                        {t('accounting.expenseCatalog.new', 'Nouveau code dépense')}
+                      </Button>
+                      <Button variant="outline" onClick={handleImportScannedCatalog}>
+                        <Download className="w-4 h-4 mr-2" />
+                        {t('accounting.expenseCatalog.reimport', 'Réimporter scan')}
+                      </Button>
+                      <Button variant="outline" onClick={handleClearExpenseCatalog} className="border-rose-200 text-rose-600 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {t('accounting.expenseCatalog.clear', 'Supprimer tous')}
                       </Button>
                     </div>
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Désignation</TableHead>
-                        <TableHead>Compte</TableHead>
-                        <TableHead>Taxable</TableHead>
-                        <TableHead>Workflow</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t('accounting.expenseCatalog.code', 'Code')}</TableHead>
+                        <TableHead>{t('accounting.expenseCatalog.designation', 'Désignation')}</TableHead>
+                        <TableHead>{t('accounting.expenseCatalog.account', 'Compte')}</TableHead>
+                        <TableHead>{t('accounting.expenseCatalog.taxable', 'Taxable')}</TableHead>
+                        <TableHead>{t('accounting.expenseCatalog.workflow', 'Workflow')}</TableHead>
+                        <TableHead className="text-right">{t('accounting.expenseCatalog.actions', 'Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1175,26 +1201,26 @@ export default function Accounting() {
                           <TableCell className="font-mono text-xs">{row.code}</TableCell>
                           <TableCell className="font-medium">{row.designation}</TableCell>
                           <TableCell className="font-mono">{row.account}</TableCell>
-                          <TableCell>{row.taxable ? <Badge className="bg-emerald-100 text-emerald-700 border-none">True</Badge> : <Badge className="bg-slate-200 text-slate-700 border-none">False</Badge>}</TableCell>
+                          <TableCell>{row.taxable ? <Badge className="bg-emerald-100 text-emerald-700 border-none">{t('accounting.expenseCatalog.yes', 'Oui')}</Badge> : <Badge className="bg-slate-200 text-slate-700 border-none">{t('accounting.expenseCatalog.no', 'Non')}</Badge>}</TableCell>
                           <TableCell>
                             {row.workflowStatus === 'approved' ? (
-                              <Badge className="bg-emerald-100 text-emerald-700 border-none">Approved</Badge>
+                              <Badge className="bg-emerald-100 text-emerald-700 border-none">{t('accounting.expenseCatalog.workflowApproved', 'Approuvé')}</Badge>
                             ) : row.workflowStatus === 'review' ? (
-                              <Badge className="bg-amber-100 text-amber-700 border-none">Review</Badge>
+                              <Badge className="bg-amber-100 text-amber-700 border-none">{t('accounting.expenseCatalog.workflowReview', 'En revue')}</Badge>
                             ) : (
-                              <Badge className="bg-slate-200 text-slate-700 border-none">Draft</Badge>
+                              <Badge className="bg-slate-200 text-slate-700 border-none">{t('accounting.expenseCatalog.workflowDraft', 'Brouillon')}</Badge>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="inline-flex items-center gap-1">
                               <Button size="sm" variant="outline" onClick={() => openEditExpenseCode(row)}>
-                                <Pencil className="w-3 h-3 mr-1" /> Edit
+                                <Pencil className="w-3 h-3 mr-1" /> {t('accounting.expenseCatalog.edit', 'Modifier')}
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => handleSetExpenseWorkflow(row.id, row.workflowStatus === 'approved' ? 'review' : 'approved')}>
-                                <ShieldCheck className="w-3 h-3 mr-1" /> {row.workflowStatus === 'approved' ? 'Review' : 'Approve'}
+                                <ShieldCheck className="w-3 h-3 mr-1" /> {row.workflowStatus === 'approved' ? t('accounting.expenseCatalog.review', 'Revoir') : t('accounting.expenseCatalog.approve', 'Approuver')}
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => handleDeleteExpenseCode(row.id)}>
-                                <Trash2 className="w-3 h-3 mr-1" /> Delete
+                                <Trash2 className="w-3 h-3 mr-1" /> {t('accounting.expenseCatalog.delete', 'Supprimer')}
                               </Button>
                             </div>
                           </TableCell>
@@ -1203,7 +1229,7 @@ export default function Accounting() {
                       {filteredExpenseCatalog.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-slate-500 py-8">
-                            Aucun résultat pour cette recherche
+                            {t('accounting.expenseCatalog.noResults', 'Aucun résultat pour cette recherche')}
                           </TableCell>
                         </TableRow>
                       )}
@@ -1213,31 +1239,31 @@ export default function Accounting() {
                 <Dialog open={isExpenseCodeModalOpen} onOpenChange={setIsExpenseCodeModalOpen}>
                   <DialogContent className="sm:max-w-[520px]">
                     <DialogHeader>
-                      <DialogTitle>{editingExpenseCodeId ? 'Modifier code dépense' : 'Nouveau code dépense'}</DialogTitle>
-                      <DialogDescription>Renseigner le code de dépense lié au plan comptable marocain.</DialogDescription>
+                      <DialogTitle>{editingExpenseCodeId ? t('accounting.expenseCatalog.editTitle', 'Modifier code dépense') : t('accounting.expenseCatalog.newTitle', 'Nouveau code dépense')}</DialogTitle>
+                      <DialogDescription>{t('accounting.expenseCatalog.dialogDesc', 'Renseigner le code de dépense lié au plan comptable marocain.')}</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label>Code</Label>
+                          <Label>{t('accounting.expenseCatalog.code', 'Code')}</Label>
                           <Input value={expenseCodeForm.code} onChange={(e) => setExpenseCodeForm((prev) => ({ ...prev, code: e.target.value }))} placeholder="Ex: GAS DEP" />
                         </div>
                         <div className="space-y-2">
-                          <Label>Compte</Label>
+                          <Label>{t('accounting.expenseCatalog.account', 'Compte')}</Label>
                           <Input value={expenseCodeForm.account} onChange={(e) => setExpenseCodeForm((prev) => ({ ...prev, account: e.target.value }))} placeholder="Ex: 6122320" />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Désignation</Label>
+                        <Label>{t('accounting.expenseCatalog.designation', 'Désignation')}</Label>
                         <Input value={expenseCodeForm.designation} onChange={(e) => setExpenseCodeForm((prev) => ({ ...prev, designation: e.target.value }))} placeholder="Ex: GASOIL CAMIONS" />
                       </div>
                       <div className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-                        <Label className="text-sm">Taxable</Label>
+                        <Label className="text-sm">{t('accounting.expenseCatalog.taxable', 'Taxable')}</Label>
                         <Select value={expenseCodeForm.taxable ? 'true' : 'false'} onValueChange={(val) => setExpenseCodeForm((prev) => ({ ...prev, taxable: val === 'true' }))}>
                           <SelectTrigger className="w-[120px] h-8"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="true">True</SelectItem>
-                            <SelectItem value="false">False</SelectItem>
+                            <SelectItem value="true">{t('accounting.expenseCatalog.yes', 'Oui')}</SelectItem>
+                            <SelectItem value="false">{t('accounting.expenseCatalog.no', 'Non')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

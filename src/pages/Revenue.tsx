@@ -890,10 +890,10 @@ function Revenue() {
             <div className="p-2 bg-blue-600 rounded-lg">
               <Landmark className="h-6 w-6 text-white" />
             </div>
-            {t('revenue.title')}
+            {t('revenue.title', 'Revenus & Trésorerie')}
           </h2>
           <p className="app-page-subtitle text-slate-500 mt-1">
-            {t('revenue.subtitle')}
+            {t('revenue.subtitle', 'Vue globale et gestion des flux financiers')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -902,7 +902,7 @@ function Revenue() {
             onClick={() => setTransferDialogOpen(true)}
           >
             <ArrowRightLeft className="h-4 w-4" />
-            {t('revenue.bankTransfer')}
+            {t('revenue.bankTransfer', 'Transfert Bancaire')}
           </Button>
           <Button 
             variant="outline" 
@@ -910,7 +910,7 @@ function Revenue() {
             onClick={() => setCashDialogOpen(true)}
           >
             <Wallet className="h-4 w-4" />
-            {t('revenue.cashOperation')}
+            {t('revenue.cashOperation', 'Opération de Caisse')}
           </Button>
         </div>
       </div>
@@ -919,7 +919,7 @@ function Revenue() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.espece')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.espece', 'Caisse (Espèce)')}</CardTitle>
             <div className="p-2 bg-emerald-50 rounded-full group-hover:bg-emerald-100 transition-colors">
               <Coins className="h-4 w-4 text-emerald-600" />
             </div>
@@ -928,14 +928,14 @@ function Revenue() {
             <div className="text-2xl font-bold text-slate-900">{formatCurrency(soldeEspece)}</div>
             <div className="flex items-center mt-1 text-xs text-emerald-600 font-medium">
               <ArrowDownLeft className="h-3 w-3 mr-1" />
-              {t('revenue.accounts.especeAvail')}
+              {t('revenue.accounts.especeAvail', 'Disponible en espèce')}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.banque')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.banque', 'Banque')}</CardTitle>
             <div className="p-2 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors">
               <Landmark className="h-4 w-4 text-blue-600" />
             </div>
@@ -944,14 +944,14 @@ function Revenue() {
             <div className="text-2xl font-bold text-slate-900">{formatCurrency(soldeBanque)}</div>
             <div className="flex items-center mt-1 text-xs text-blue-600 font-medium">
               <Check className="h-3 w-3 mr-1" />
-              {t('revenue.accounts.banqueAvail')}
+              {t('revenue.accounts.banqueAvail', 'Solde bancaire')}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.cheque')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.accounts.cheque', 'Chèques (Portefeuille)')}</CardTitle>
             <div className="p-2 bg-indigo-50 rounded-full group-hover:bg-indigo-100 transition-colors">
               <CreditCard className="h-4 w-4 text-indigo-600" />
             </div>
@@ -960,14 +960,14 @@ function Revenue() {
             <div className="text-2xl font-bold text-slate-900">{formatCurrency(soldeCheque)}</div>
             <div className="flex items-center mt-1 text-xs text-indigo-600 font-medium">
               <History className="h-3 w-3 mr-1" />
-              {t('revenue.accounts.chequeAvail')}
+              {t('revenue.accounts.chequeAvail', 'Valeur des chèques')}
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.cards.debt')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.cards.debt', 'Dettes Fournisseurs')}</CardTitle>
             <div className="p-2 bg-amber-50 rounded-full group-hover:bg-amber-100 transition-colors">
               <Receipt className="h-4 w-4 text-amber-600" />
             </div>
@@ -983,7 +983,7 @@ function Revenue() {
 
         <Card className="border-none shadow-sm bg-white overflow-hidden group hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.cards.expenses')}</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">{t('revenue.cards.expenses', 'Dépenses & Charges')}</CardTitle>
             <div className="p-2 bg-rose-50 rounded-full group-hover:bg-rose-100 transition-colors">
               <TrendingDown className="h-4 w-4 text-rose-600" />
             </div>
@@ -1031,7 +1031,7 @@ function Revenue() {
                 <Button variant={commandWindow === '7j' ? 'default' : 'outline'} size="sm" className={commandWindow === '7j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('7j')}>{tr('7 jours', '7 أيام')}</Button>
                 <Button variant={commandWindow === '30j' ? 'default' : 'outline'} size="sm" className={commandWindow === '30j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('30j')}>{tr('30 jours', '30 يومًا')}</Button>
                 <Button variant={commandWindow === '90j' ? 'default' : 'outline'} size="sm" className={commandWindow === '90j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('90j')}>{tr('90 jours', '90 يومًا')}</Button>
-                <Button variant={commandWindow === 'all' ? 'default' : 'outline'} size="sm" className={commandWindow === 'all' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('all')}>{t('revenue.window.all')}</Button>
+                <Button variant={commandWindow === 'all' ? 'default' : 'outline'} size="sm" className={commandWindow === 'all' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('all')}>{t('revenue.window.all', 'Tout')}</Button>
               </div>
             </div>
 
@@ -1074,7 +1074,7 @@ function Revenue() {
                         onClick={() => setFilterType(row.kind === 'transfert' ? 'transfert' : row.typeLabel)}
                         className="w-full text-left rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50 transition-colors"
                       >
-                        <p className="text-xs font-bold text-slate-800">{row.kind === 'transfert' ? t('revenue.table.transfert') : formatOpType(row.typeLabel)}</p>
+                        <p className="text-xs font-bold text-slate-800">{row.kind === 'transfert' ? t('revenue.table.transfert', 'Transfert') : formatOpType(row.typeLabel)}</p>
                         <p className="text-[11px] text-slate-500 mt-0.5">{formatDateLocalized(row.date)} · {formatCurrency(row.amount)}</p>
                       </button>
                     ))
@@ -1098,7 +1098,7 @@ function Revenue() {
               </Button>
               <Button variant="ghost" onClick={() => applyCommandFocus('reset')} className="text-slate-600">
                 <X className="h-4 w-4 mr-2" />
-                {t('revenue.intelligence.reset')}
+                {t('revenue.intelligence.reset', 'Réinitialiser')}
               </Button>
             </div>
           </CardContent>
@@ -1209,7 +1209,7 @@ function Revenue() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-[11px] uppercase tracking-wide text-slate-500">{t('revenue.whatif.horizon')}</Label>
+              <Label className="text-[11px] uppercase tracking-wide text-slate-500">{t('revenue.whatif.horizon', 'Horizon')}</Label>
               <div className="flex items-center gap-2">
                 <Button variant={whatIfHorizon === '15' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '15' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('15')}>{language === 'ar' ? '15ي' : '15j'}</Button>
                 <Button variant={whatIfHorizon === '30' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '30' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('30')}>{language === 'ar' ? '30ي' : '30j'}</Button>
@@ -1218,7 +1218,7 @@ function Revenue() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{t('revenue.whatif.currentLiquidity')}</p>
+                <p className="text-xs text-slate-500">{t('revenue.whatif.currentLiquidity', 'Liquidité actuelle')}</p>
                 <p className="text-xs font-black text-slate-800">{formatCurrency(whatIfScenario.currentLiquidity)}</p>
               </div>
               <div className="flex items-center justify-between">
@@ -1228,13 +1228,13 @@ function Revenue() {
                 </p>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{t('revenue.whatif.runway')}</p>
+                <p className="text-xs text-slate-500">{t('revenue.whatif.runway', 'Runway')}</p>
                 <p className="text-xs font-black text-slate-800">
-                  {Number.isFinite(whatIfScenario.runwayDays) ? `${Math.max(0, Math.floor(whatIfScenario.runwayDays))} ${t('revenue.whatif.days')}` : tr('Trajectoire positive', 'مسار إيجابي')}
+                  {Number.isFinite(whatIfScenario.runwayDays) ? `${Math.max(0, Math.floor(whatIfScenario.runwayDays))} ${t('revenue.whatif.days', 'jours')}` : tr('Trajectoire positive', 'مسار إيجابي')}
                 </p>
               </div>
               <Badge className={whatIfScenario.risk === 'high' ? 'bg-rose-100 text-rose-700 border-none' : whatIfScenario.risk === 'medium' ? 'bg-amber-100 text-amber-700 border-none' : 'bg-emerald-100 text-emerald-700 border-none'}>
-                {whatIfScenario.risk === 'high' ? t('revenue.whatif.risk.high') : whatIfScenario.risk === 'medium' ? t('revenue.whatif.risk.medium') : tr('Risque maîtrisé', 'خطر متحكم به')}
+                {whatIfScenario.risk === 'high' ? t('revenue.whatif.risk.high', 'Risque élevé') : whatIfScenario.risk === 'medium' ? t('revenue.whatif.risk.medium', 'Risque moyen') : tr('Risque maîtrisé', 'خطر متحكم به')}
               </Badge>
             </div>
           </CardContent>
@@ -1250,9 +1250,9 @@ function Revenue() {
                 <p className="text-xs text-slate-500">{tr('Détection des flux atypiques pour audit rapide', 'اكتشاف التدفقات غير الاعتيادية للتدقيق السريع')}</p>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant={anomalyMode === 'all' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'all' ? 'bg-slate-700 hover:bg-slate-800' : ''} onClick={() => setAnomalyMode('all')}>{t('revenue.anomalies.all')}</Button>
-                <Button variant={anomalyMode === 'positive' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'positive' ? 'bg-emerald-600 hover:bg-emerald-700' : ''} onClick={() => setAnomalyMode('positive')}>{t('revenue.anomalies.positive')}</Button>
-                <Button variant={anomalyMode === 'negative' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'negative' ? 'bg-rose-600 hover:bg-rose-700' : ''} onClick={() => setAnomalyMode('negative')}>{t('revenue.anomalies.negative')}</Button>
+                <Button variant={anomalyMode === 'all' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'all' ? 'bg-slate-700 hover:bg-slate-800' : ''} onClick={() => setAnomalyMode('all')}>{t('revenue.anomalies.all', 'Toutes')}</Button>
+                <Button variant={anomalyMode === 'positive' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'positive' ? 'bg-emerald-600 hover:bg-emerald-700' : ''} onClick={() => setAnomalyMode('positive')}>{t('revenue.anomalies.positive', 'Positives')}</Button>
+                <Button variant={anomalyMode === 'negative' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'negative' ? 'bg-rose-600 hover:bg-rose-700' : ''} onClick={() => setAnomalyMode('negative')}>{t('revenue.anomalies.negative', 'Négatives')}</Button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -1318,11 +1318,11 @@ function Revenue() {
         <TabsList className="bg-white border p-1 shadow-sm">
           <TabsTrigger value="gestion" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <ArrowRightLeft className="mr-2 h-4 w-4" />
-            {t('revenue.tabs.gestion')}
+            {t('revenue.tabs.gestion', 'Gestion')}
           </TabsTrigger>
           <TabsTrigger value="historique" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <History className="mr-2 h-4 w-4" />
-            {t('revenue.tabs.historique')}
+            {t('revenue.tabs.historique', 'Historique')}
           </TabsTrigger>
         </TabsList>
 
@@ -1331,8 +1331,8 @@ function Revenue() {
             <CardHeader className="bg-white border-b py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.management.title')}</CardTitle>
-                  <p className="text-sm text-slate-500">{t('revenue.management.subtitle')}</p>
+                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.management.title', 'Gestion des Flux')}</CardTitle>
+                  <p className="text-sm text-slate-500">{t('revenue.management.subtitle', 'Suivi des opérations et transferts')}</p>
                 </div>
                 <Button 
                   variant="outline" 
@@ -1341,7 +1341,7 @@ function Revenue() {
                   onClick={exportOpsToPDF}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {t('revenue.management.exportPdf')}
+                  {t('revenue.management.exportPdf', 'Exporter PDF')}
                 </Button>
               </div>
             </CardHeader>
@@ -1349,7 +1349,7 @@ function Revenue() {
               {/* Filters Section */}
               <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
                   <div className="flex items-center gap-2">
                     <Input 
                       type="date" 
@@ -1357,7 +1357,7 @@ function Revenue() {
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
                     />
-                    <span className="text-slate-400">{t('revenue.filters.to')}</span>
+                    <span className="text-slate-400">{t('revenue.filters.to', 'à')}</span>
                     <Input 
                       type="date" 
                       className="h-9 text-sm"
@@ -1368,29 +1368,29 @@ function Revenue() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.type')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.type', 'Type')}</Label>
                   <Select value={filterType} onValueChange={setFilterType}>
                     <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.filters.allTypes')} />
+                      <SelectValue placeholder={t('revenue.filters.allTypes', 'Tous les types')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allTypes')}</SelectItem>
-                      <SelectItem value="transfert">{t('revenue.table.transfert')}</SelectItem>
-                      <SelectItem value="versement">{t('revenue.types.versement')}</SelectItem>
-                      <SelectItem value="retrait">{t('revenue.types.retrait')}</SelectItem>
-                      <SelectItem value="dépense">{t('revenue.types.depense')}</SelectItem>
+                      <SelectItem value="all">{t('revenue.filters.allTypes', 'Tous les types')}</SelectItem>
+                      <SelectItem value="transfert">{t('revenue.table.transfert', 'Transfert')}</SelectItem>
+                      <SelectItem value="versement">{t('revenue.types.versement', 'Versement')}</SelectItem>
+                      <SelectItem value="retrait">{t('revenue.types.retrait', 'Retrait')}</SelectItem>
+                      <SelectItem value="dépense">{t('revenue.types.depense', 'Dépense')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.account')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.account', 'Compte')}</Label>
                   <Select value={filterAccount} onValueChange={setFilterAccount}>
                     <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.filters.allAccounts')} />
+                      <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allAccounts')}</SelectItem>
+                      <SelectItem value="all">{t('revenue.filters.allAccounts', 'Tous les comptes')}</SelectItem>
                       <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
                       <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
                       <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
@@ -1400,10 +1400,10 @@ function Revenue() {
                 </div>
 
                 <div className="space-y-1.5 lg:col-span-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.amountRange')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.amountRange', 'Montant')}</Label>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.min')}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.min', 'Min')}</span>
                       <Input 
                         className="h-9 pl-10 text-sm"
                         placeholder="0.00"
@@ -1412,7 +1412,7 @@ function Revenue() {
                       />
                     </div>
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.max')}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.max', 'Max')}</span>
                       <Input 
                         className="h-9 pl-10 text-sm"
                         placeholder="999..."
@@ -1424,10 +1424,10 @@ function Revenue() {
                 </div>
                 <div className="lg:col-span-5 flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
-                    {t('revenue.intelligence.priority')}: {priorityFilter === 'all' ? tr('Toutes', 'الكل') : priorityFilter === 'high' ? tr('Critique', 'حرج') : priorityFilter === 'medium' ? tr('Surveillance', 'مراقبة') : tr('Stable', 'مستقر')}
+                    {t('revenue.intelligence.priority', 'Priorité')}: {priorityFilter === 'all' ? tr('Toutes', 'الكل') : priorityFilter === 'high' ? tr('Critique', 'حرج') : priorityFilter === 'medium' ? tr('Surveillance', 'مراقبة') : tr('Stable', 'مستقر')}
                   </Badge>
                   <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
-                    {t('revenue.intelligence.window')}: {commandWindow === 'all' ? t('revenue.window.all') : commandWindow}
+                    {t('revenue.intelligence.window', 'Fenêtre')}: {commandWindow === 'all' ? t('revenue.window.all', 'Tout') : commandWindow}
                   </Badge>
                   <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
                     {tr('Radar', 'الرادار')}: {anomalyMode === 'all' ? tr('Tous signaux', 'كل الإشارات') : anomalyMode === 'positive' ? tr('Entrées atypiques', 'مداخل غير اعتيادية') : tr('Sorties atypiques', 'مخارج غير اعتيادية')}
@@ -1440,13 +1440,13 @@ function Revenue() {
                 <Table className="smart-table">
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.date')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.operation')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.details')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.amount')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.flowAccount')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.status')}</TableHead>
-                      <TableHead className="text-right font-semibold text-slate-700">{t('revenue.table.actions')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.date', 'Date')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.operation', 'Opération')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.details', 'Détails')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.amount', 'Montant')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.flowAccount', 'Compte Flux')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.status', 'Statut')}</TableHead>
+                      <TableHead className="text-right font-semibold text-slate-700">{t('revenue.table.actions', 'Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1455,7 +1455,7 @@ function Revenue() {
                         <TableCell colSpan={7} className="h-32 text-center text-slate-500">
                           <div className="flex flex-col items-center justify-center">
                             <Filter className="h-8 w-8 text-slate-300 mb-2" />
-                            <p>{t('revenue.table.noResults')}</p>
+                            <p>{t('revenue.table.noResults', 'Aucun résultat')}</p>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1608,8 +1608,8 @@ function Revenue() {
             <CardHeader className="bg-white border-b py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.history.title')}</CardTitle>
-                  <p className="text-sm text-slate-500">{t('revenue.history.subtitle')}</p>
+                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.history.title', 'Historique Financier')}</CardTitle>
+                  <p className="text-sm text-slate-500">{t('revenue.history.subtitle', 'Consulter toutes les transactions')}</p>
                 </div>
                 <Button 
                   variant="outline" 
@@ -1618,7 +1618,7 @@ function Revenue() {
                   onClick={exportHistoryToPDF}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {t('revenue.history.export')}
+                  {t('revenue.history.export', 'Exporter PDF')}
                 </Button>
               </div>
             </CardHeader>
@@ -1626,7 +1626,7 @@ function Revenue() {
               {/* Filters for History */}
               <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
                   <div className="flex items-center gap-2">
                     <Input 
                       type="date" 
@@ -1634,7 +1634,7 @@ function Revenue() {
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
                     />
-                    <span className="text-slate-400 text-xs">{t('revenue.filters.to')}</span>
+                    <span className="text-slate-400 text-xs">{t('revenue.filters.to', 'à')}</span>
                     <Input 
                       type="date" 
                       className="h-9 text-sm"
@@ -1645,29 +1645,29 @@ function Revenue() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.type')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.type', 'Type')}</Label>
                   <Select value={filterType} onValueChange={setFilterType}>
                     <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.history.allTransactions')} />
+                      <SelectValue placeholder={t('revenue.history.allTransactions', 'Toutes les transactions')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t('revenue.history.allTransactions')}</SelectItem>
-                      <SelectItem value="versement">{t('revenue.history.versements')}</SelectItem>
-                      <SelectItem value="transfert">{t('revenue.history.transfers')}</SelectItem>
-                      <SelectItem value="retrait">{t('revenue.history.withdrawals')}</SelectItem>
-                      <SelectItem value="dépense">{t('revenue.history.expenses')}</SelectItem>
+                      <SelectItem value="all">{t('revenue.history.allTransactions', 'Toutes les transactions')}</SelectItem>
+                      <SelectItem value="versement">{t('revenue.history.versements', 'Versements')}</SelectItem>
+                      <SelectItem value="transfert">{t('revenue.history.transfers', 'Transferts')}</SelectItem>
+                      <SelectItem value="retrait">{t('revenue.history.withdrawals', 'Retraits')}</SelectItem>
+                      <SelectItem value="dépense">{t('revenue.history.expenses', 'Dépenses')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.affectedAccount')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.affectedAccount', 'Compte affecté')}</Label>
                   <Select value={filterAccount} onValueChange={setFilterAccount}>
                     <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.filters.allAccounts')} />
+                      <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allAccounts')}</SelectItem>
+                      <SelectItem value="all">{t('revenue.filters.allAccounts', 'Tous les comptes')}</SelectItem>
                       <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
                       <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
                       <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
@@ -1677,17 +1677,17 @@ function Revenue() {
                 </div>
 
                 <div className="space-y-1.5 lg:col-span-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.table.amount')}</Label>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.table.amount', 'Montant')}</Label>
                   <div className="flex items-center gap-2">
                     <Input 
                       className="h-9 text-sm"
-                      placeholder={t('revenue.filters.min')}
+                      placeholder={t('revenue.filters.min', 'Min')}
                       value={filterAmountMin} 
                       onChange={(e) => setFilterAmountMin(e.target.value)} 
                     />
                     <Input 
                       className="h-9 text-sm"
-                      placeholder={t('revenue.filters.max')}
+                      placeholder={t('revenue.filters.max', 'Max')}
                       value={filterAmountMax} 
                       onChange={(e) => setFilterAmountMax(e.target.value)} 
                     />
@@ -1699,19 +1699,19 @@ function Revenue() {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.date')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.type')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.description')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.amount')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.accounts')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700 text-right">{t('revenue.table.status')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.date', 'Date')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.type', 'Type')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.description', 'Description')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.amount', 'Montant')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.accounts', 'Comptes')}</TableHead>
+                      <TableHead className="font-semibold text-slate-700 text-right">{t('revenue.table.status', 'Statut')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredHistory.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="h-32 text-center text-slate-500">
-                          {t('revenue.history.none')}
+                          {t('revenue.history.none', 'Aucune transaction trouvée')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -1770,29 +1770,29 @@ function Revenue() {
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-blue-200" />
-                {t('revenue.transfer.newTransfer')}
+                {t('revenue.transfer.newTransfer', 'Nouveau Transfert')}
               </DialogTitle>
-              <p className="text-blue-100 text-sm mt-1">{t('revenue.transfer.subtitle')}</p>
+              <p className="text-blue-100 text-sm mt-1">{t('revenue.transfer.subtitle', 'Déplacer des fonds entre les comptes')}</p>
             </DialogHeader>
           </div>
           <div className="p-6 space-y-4 bg-white">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">{t('revenue.transfer.type')}</Label>
+                <Label className="text-slate-700 font-medium">{t('revenue.transfer.type', 'Type de Transfert')}</Label>
                 <Select value={transferType} onValueChange={(v) => setTransferType(v as any)}>
                   <SelectTrigger className="border-slate-200 focus:ring-blue-500">
-                    <SelectValue placeholder={t('revenue.transfer.chooseType')} />
+                    <SelectValue placeholder={t('revenue.transfer.chooseType', 'Choisir le type')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="versement_espece">{t('revenue.transfer.depositCash')}</SelectItem>
-                    <SelectItem value="remise_cheques">{t('revenue.transfer.chequeDeposit')}</SelectItem>
-                    <SelectItem value="retrait_bancaire">{t('revenue.transfer.bankWithdrawal')}</SelectItem>
+                    <SelectItem value="versement_espece">{t('revenue.transfer.depositCash', 'Versement Espèce -> Banque')}</SelectItem>
+                    <SelectItem value="remise_cheques">{t('revenue.transfer.chequeDeposit', 'Remise Chèque -> Banque')}</SelectItem>
+                    <SelectItem value="retrait_bancaire">{t('revenue.transfer.bankWithdrawal', 'Retrait Banque -> Espèce')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.amount')}</Label>
+                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.amount', 'Montant')}</Label>
                   <Input 
                     type="number"
                     value={transferAmount} 
@@ -1802,7 +1802,7 @@ function Revenue() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.date')}</Label>
+                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.date', 'Date')}</Label>
                   <Input
                     type="date"
                     value={format(new Date(transferDate), 'yyyy-MM-dd')}
@@ -1815,11 +1815,11 @@ function Revenue() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">{t('revenue.transfer.descriptionLabel')}</Label>
+                <Label className="text-slate-700 font-medium">{t('revenue.transfer.descriptionLabel', 'Description / Référence')}</Label>
                 <Textarea 
                   value={transferDescription} 
                   onChange={(e) => setTransferDescription(e.target.value)} 
-                  placeholder={t('revenue.transfer.notesPlaceholder')}
+                  placeholder={t('revenue.transfer.notesPlaceholder', 'Ex: Versement recette du jour...')}
                   className="min-h-[100px] border-slate-200 focus:ring-blue-500 resize-none"
                 />
               </div>
@@ -1830,7 +1830,7 @@ function Revenue() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleSubmitTransfer} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
-              {t('revenue.transfer.confirm')}
+              {t('revenue.transfer.confirm', 'Confirmer le transfert')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1842,25 +1842,25 @@ function Revenue() {
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-indigo-200" />
-                {t('revenue.cashOperation.title')}
+                {t('revenue.cashOperation.title', 'Nouvelle Opération')}
               </DialogTitle>
-              <p className="text-indigo-100 text-sm mt-1">{t('revenue.cashOperation.subtitle')}</p>
+              <p className="text-indigo-100 text-sm mt-1">{t('revenue.cashOperation.subtitle', 'Enregistrer un versement ou retrait')}</p>
             </DialogHeader>
           </div>
           <div className="p-6 space-y-4 bg-white">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.label')}</Label>
+                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.label', 'Libellé de l\'opération')}</Label>
                 <Input 
                   value={cashName} 
                   onChange={(e) => setCashName(e.target.value)} 
-                  placeholder={t('revenue.cashOperation.labelPlaceholder')}
+                  placeholder={t('revenue.cashOperation.labelPlaceholder', 'Ex: Paiement fournisseur, Achat...')}
                   className="border-slate-200 focus:ring-indigo-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.amount')}</Label>
+                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.amount', 'Montant')}</Label>
                   <Input 
                     type="number"
                     value={cashAmount} 
@@ -1870,7 +1870,7 @@ function Revenue() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.date')}</Label>
+                  <Label className="text-slate-700 font-medium">{t('revenue.transfer.date', 'Date')}</Label>
                   <Input
                     type="date"
                     value={format(new Date(cashDate), 'yyyy-MM-dd')}
@@ -1883,7 +1883,7 @@ function Revenue() {
                 </div>
               </div>
               <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">{t('revenue.cashOperation.operationType')}</Label>
+                <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">{t('revenue.cashOperation.operationType', 'Type d\'opération')}</Label>
                 <RadioGroup
                   value={cashType}
                   onValueChange={(v) => setCashType(v as 'versement' | 'retrait')}
@@ -1892,19 +1892,19 @@ function Revenue() {
                   <div className="flex items-center space-x-2 cursor-pointer group">
                     <RadioGroupItem value="versement" id="versement" className="text-indigo-600 border-slate-300" />
                     <Label htmlFor="versement" className="font-medium text-slate-700 cursor-pointer group-hover:text-indigo-600 transition-colors">
-                      {t('revenue.cashOperation.depositEntry')}
+                      {t('revenue.cashOperation.depositEntry', 'Versement (Entrée)')}
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2 cursor-pointer group">
                     <RadioGroupItem value="retrait" id="retrait" className="text-rose-600 border-slate-300" />
                     <Label htmlFor="retrait" className="font-medium text-slate-700 cursor-pointer group-hover:text-rose-600 transition-colors">
-                      {t('revenue.cashOperation.withdrawExit')}
+                      {t('revenue.cashOperation.withdrawExit', 'Retrait (Sortie)')}
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.accountAffected')}</Label>
+                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.accountAffected', 'Compte impacté')}</Label>
                 <Select value={cashAccount} onValueChange={(v) => setCashAccount(v as any)}>
                   <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
                     <SelectValue placeholder={t('revenue.cashOperation.selectAccount')} />
@@ -2049,8 +2049,8 @@ function Revenue() {
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="versement">{t('revenue.types.versement')}</SelectItem>
-                      <SelectItem value="retrait">{t('revenue.types.retrait')}</SelectItem>
+                      <SelectItem value="versement">{t('revenue.types.versement', 'Versement')}</SelectItem>
+                      <SelectItem value="retrait">{t('revenue.types.retrait', 'Retrait')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
