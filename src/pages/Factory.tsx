@@ -873,6 +873,43 @@ const Factory = () => {
   const totalReceived = factoryOperations.reduce((sum, op) => 
     sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0), 0
   );
+  const invoiceRows = useMemo(() => {
+    const invoicedBl = new Set(invoices.flatMap(inv => inv.blReferences || []));
+    const standalone = factoryOperations
+      .filter(op => op.blReference && !invoicedBl.has(op.blReference))
+      .map((op) => {
+        const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
+        const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
+        const totalAmount = (op.receivedBottles || []).reduce((sum, b) => {
+          const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
+          const price = bt?.purchasePrice || 0;
+          return sum + price * b.quantity;
+        }, 0);
+        return {
+          source: 'single-bl' as const,
+          id: `BL-${op.blReference}`,
+          supplierId: op.supplierId || '',
+          date: op.date,
+          blReferences: [op.blReference],
+          totalSent: sent,
+          totalReceived: received,
+          totalAmount,
+          status: 'pending' as const,
+          operationId: op.id
+        };
+      });
+    const grouped = invoices.map(inv => ({ ...inv, source: 'invoice' as const }));
+    return [...grouped, ...standalone].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [invoices, factoryOperations, bottleTypes]);
+  const openInvoiceFromOperation = (operation: FactoryOperation) => {
+    if (!operation.supplierId || !operation.blReference) {
+      alert(tr('Veuillez sélectionner un fournisseur et un BL valide', 'يرجى اختيار مورّد وBL صالح'));
+      return;
+    }
+    setSelectedSupplierForInvoice(operation.supplierId);
+    setSelectedBLsForInvoice([operation.blReference]);
+    setShowInvoiceForm(true);
+  };
 
   const getEmptyStock = (bottleTypeId: string): number => {
     const stock = emptyBottlesStock.find(s => s.bottleTypeId === bottleTypeId);
@@ -3325,7 +3362,8 @@ const Factory = () => {
                       <TableHead className="py-3 font-bold text-slate-600 text-left px-4">{tr('N° Facture', 'رقم الفاتورة')}</TableHead>
                       <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Date', 'التاريخ')}</TableHead>
                       <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Fournisseur', 'المورّد')}</TableHead>
-                      <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('BLs Groupés', 'BL مجمعة')}</TableHead>
+                      <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Groupée / Non', 'مجمعة / غير مجمعة')}</TableHead>
+                      <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('BLs', 'BL')}</TableHead>
                       <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Total (Env/Rec)', 'الإجمالي (مرسل/مستلم)')}</TableHead>
                       <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Montant', 'المبلغ')}</TableHead>
                       <TableHead className="py-3 font-bold text-slate-600 text-left">{tr('Statut', 'الحالة')}</TableHead>
@@ -3334,16 +3372,21 @@ const Factory = () => {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence mode="popLayout">
-                      {invoices.length > 0 ? (
-                        invoices.map((invoice, idx) => {
+                      {invoiceRows.length > 0 ? (
+                        invoiceRows.map((invoice, idx) => {
                           const supplier = safeSuppliers.find(s => s.id === invoice.supplierId);
+                          const isGrouped = invoice.source === 'invoice' && (invoice.blReferences?.length || 0) > 1;
+                          const isSingle = invoice.source === 'single-bl';
+                          const operation = isSingle
+                            ? factoryOperations.find(op => String(op.id) === String((invoice as any).operationId))
+                            : null;
                           return (
                             <motion.tr
                               key={invoice.id}
                               variants={itemVariants}
                               initial="hidden"
                               animate="visible"
-                              className="group hover:bg-slate-50/80 transition-colors border-b border-slate-50"
+                              className={`group hover:bg-slate-50/80 transition-colors border-b border-slate-50 ${isSingle ? 'border-l-2 border-amber-300' : 'border-l-2 border-transparent'}`}
                             >
                               <TableCell className="py-3 font-black text-slate-900 px-4">{invoice.id}</TableCell>
                               <TableCell className="py-3 text-slate-600">
@@ -3351,6 +3394,11 @@ const Factory = () => {
                               </TableCell>
                               <TableCell className="py-3">
                                 <span className="font-bold text-slate-700">{supplier?.name || tr('N/A', 'غير متاح')}</span>
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <Badge className={isSingle ? 'bg-amber-100 text-amber-700' : isGrouped ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-700'}>
+                                  {isSingle ? tr('Non groupée', 'غير مجمعة') : isGrouped ? tr('Groupée', 'مجمعة') : tr('BL unique', 'BL مفرد')}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-3">
                                 <div className="flex flex-wrap gap-1">
@@ -3380,46 +3428,71 @@ const Factory = () => {
                               </TableCell>
                               <TableCell className="py-3 text-right px-4">
                                 <div className="flex items-center gap-2 justify-end">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => handleDownloadInvoicePDF(invoice)}
-                                    className="w-9 h-9 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all"
-                                    title={tr('Télécharger PDF', 'تنزيل PDF')}
-                                  >
-                                    <Download className="w-4 h-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => handleToggleInvoicePaid(invoice)}
-                                    title={invoice.status === 'paid' ? tr('Marquer comme en attente', 'وضع كقيد الانتظار') : tr('Marquer comme payée', 'وضع كمدفوعة')}
-                                    className={`w-9 h-9 rounded-xl transition-all ${invoice.status === 'paid' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
-                                  >
-                                    {invoice.status === 'paid' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => {
-                                      setEditingInvoice(invoice);
-                                      setOriginalInvoiceId(invoice.id);
-                                      setShowEditInvoice(true);
-                                    }}
-                                    className="w-9 h-9 rounded-xl text-blue-600 hover:bg-blue-50 transition-all"
-                                    title={tr('Modifier la facture', 'تعديل الفاتورة')}
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    onClick={() => deleteInvoice(invoice.id)}
-                                    className="w-9 h-9 rounded-xl text-rose-600 hover:bg-rose-50 transition-all"
-                                    title={tr('Supprimer la facture', 'حذف الفاتورة')}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  {invoice.source === 'invoice' ? (
+                                    <>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => handleDownloadInvoicePDF(invoice)}
+                                        className="w-9 h-9 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all"
+                                        title={tr('Télécharger PDF', 'تنزيل PDF')}
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => handleToggleInvoicePaid(invoice)}
+                                        title={invoice.status === 'paid' ? tr('Marquer comme en attente', 'وضع كقيد الانتظار') : tr('Marquer comme payée', 'وضع كمدفوعة')}
+                                        className={`w-9 h-9 rounded-xl transition-all ${invoice.status === 'paid' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                      >
+                                        {invoice.status === 'paid' ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => {
+                                          setEditingInvoice(invoice);
+                                          setOriginalInvoiceId(invoice.id);
+                                          setShowEditInvoice(true);
+                                        }}
+                                        className="w-9 h-9 rounded-xl text-blue-600 hover:bg-blue-50 transition-all"
+                                        title={tr('Modifier la facture', 'تعديل الفاتورة')}
+                                      >
+                                        <Edit2 className="w-4 h-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => deleteInvoice(invoice.id)}
+                                        className="w-9 h-9 rounded-xl text-rose-600 hover:bg-rose-50 transition-all"
+                                        title={tr('Supprimer la facture', 'حذف الفاتورة')}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => operation && handleDownloadPDF(operation)}
+                                        className="w-9 h-9 rounded-xl text-emerald-600 hover:bg-emerald-50 transition-all"
+                                        title={tr('Télécharger BL', 'تنزيل BL')}
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => operation && openInvoiceFromOperation(operation)}
+                                        className="w-9 h-9 rounded-xl text-indigo-600 hover:bg-indigo-50 transition-all"
+                                        title={tr('Créer facture', 'إنشاء فاتورة')}
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               </TableCell>
                             </motion.tr>
@@ -3427,7 +3500,7 @@ const Factory = () => {
                         })
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={8} className="py-20 text-center">
+                          <TableCell colSpan={9} className="py-20 text-center">
                             <div className="flex flex-col items-center gap-3">
                               <div className="p-4 bg-slate-50 rounded-full">
                                 <History className="w-8 h-8 text-slate-200" />
@@ -3445,7 +3518,7 @@ const Factory = () => {
           </CardContent>
           <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {tr('Total', 'الإجمالي')} {historyTab === 'operations' ? tr('opérations', 'عمليات') : historyTab === 'settlements' ? tr('règlements', 'تسويات') : tr('factures', 'فواتير')}: {historyTab === 'operations' ? factoryOperations.length : historyTab === 'settlements' ? debtSettlements.length : invoices.length}
+              {tr('Total', 'الإجمالي')} {historyTab === 'operations' ? tr('opérations', 'عمليات') : historyTab === 'settlements' ? tr('règlements', 'تسويات') : tr('factures', 'فواتير')}: {historyTab === 'operations' ? factoryOperations.length : historyTab === 'settlements' ? debtSettlements.length : invoiceRows.length}
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled className="h-9 rounded-lg border-slate-200 text-slate-400">{tr('Précédent', 'السابق')}</Button>
