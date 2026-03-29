@@ -894,6 +894,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       paymentMygaz,
       paymentDebt,
       paymentTotal,
+      isPaid: true,
+      paidAt: new Date().toISOString(),
     };
 
     const created = await supabaseService.create<any>("return_orders", newReturnOrder);

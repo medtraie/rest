@@ -1999,17 +1999,22 @@ const SupplyReturn = () => {
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <div className="flex items-center justify-between gap-2 pb-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{tr("Type de Bouteille", "نوع القنينة")}</div>
+                <div className="flex items-center justify-start gap-2 pb-2">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="h-9 min-w-[260px] justify-between border-slate-200">
-                        {selectedBottleTypeIds.size === 0
-                          ? tr('Sélectionner un produit dans la liste', 'اختر منتجًا من القائمة')
-                          : [...selectedBottleTypeIds].map(id => sortedBottleTypes.find(b => b.id === id)?.name).filter(Boolean).join(', ')}
+                      <Button variant="outline" className="relative h-10 min-w-[280px] justify-between border-slate-200 bg-gradient-to-r from-indigo-50 via-white to-emerald-50 text-slate-900 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full bg-emerald-500" />
+                        <span className="flex items-center gap-2 text-sm font-semibold">
+                          <Sparkles className="h-4 w-4 text-emerald-500" />
+                          {selectedBottleTypeIds.size === 0
+                            ? tr('Sélectionner un produit dans la liste', 'اختر منتجًا من القائمة')
+                            : [...selectedBottleTypeIds].map(id => sortedBottleTypes.find(b => b.id === id)?.name).filter(Boolean).join(', ')}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-slate-400" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-2 rounded-2xl shadow-2xl border-slate-100" align="end">
+                    <PopoverContent className="w-[300px] p-2 rounded-2xl shadow-2xl border-slate-100" align="start">
                       <div className="mb-2">
                         <Input
                           value={bottleTypeQuery}
@@ -2421,7 +2426,9 @@ const SupplyReturn = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredOrders.map((order, idx) => (
+                        filteredOrders.map((order, idx) => {
+                          const relatedReturn = returnOrders.find((ret: any) => String(ret.supplyOrderId) === String(order.id));
+                          return (
                           <TableRow key={order.id} className="hover:bg-slate-50/50 transition-colors">
                             <TableCell>
                               <div className="font-mono font-bold text-indigo-600">{order.orderNumber}</div>
@@ -2471,18 +2478,38 @@ const SupplyReturn = () => {
                                 >
                                   <Printer className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
-                                  onClick={() => {
-                                    setSelectedSupplyOrder(order);
-                                    setReturnDialogOpen(true);
-                                  }}
-                                  title={tsu('history.recordReturn', 'Enregistrer Retour')}
-                                >
-                                  <RotateCcw className="w-4 h-4" />
-                                </Button>
+                                {relatedReturn ? (
+                                  <>
+                                    <Badge className="h-8 px-2 text-[10px] bg-emerald-100 text-emerald-700 border-emerald-200">
+                                      {tsu('history.paid', 'Réglé')}
+                                    </Badge>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                                      onClick={() => {
+                                        setSelectedReturnOrder(relatedReturn);
+                                        setReturnDetailsDialogOpen(true);
+                                      }}
+                                      title={tsu('history.details', 'Voir détails')}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                                    onClick={() => {
+                                      setSelectedSupplyOrder(order);
+                                      setReturnDialogOpen(true);
+                                    }}
+                                    title={tsu('history.recordReturn', 'Enregistrer Retour')}
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   size="icon"
                                   variant="ghost"
@@ -2498,7 +2525,8 @@ const SupplyReturn = () => {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))
+                        );
+                        })
                       )}
                     </TableBody>
                   </Table>
