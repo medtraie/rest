@@ -289,7 +289,6 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
                     <TableHeader className="bg-slate-100/50">
                       <TableRow>
                         <TableHead className="w-[300px]">Produit</TableHead>
-                        <TableHead className="text-center">Quantité Vides</TableHead>
                         <TableHead className="text-center">Quantité Pleines</TableHead>
                         <TableHead className="text-right">Prix Unitaire</TableHead>
                         <TableHead className="text-right">Montant</TableHead>
@@ -300,7 +299,7 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
                       <AnimatePresence initial={false}>
                         {items.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="h-32 text-center text-slate-400 italic">
+                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">
                               Aucun produit ajouté. Cliquez sur "Ajouter un Produit" pour commencer.
                             </TableCell>
                           </TableRow>
@@ -334,33 +333,6 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
                                     ))}
                                   </SelectContent>
                                 </Select>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-center gap-1">
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-full border-indigo-100 hover:bg-indigo-100 hover:text-indigo-600"
-                                    onClick={() => updateItem(index, 'emptyQuantity', Math.max(0, item.emptyQuantity - 1))}
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </Button>
-                                  <Input
-                                    type="number"
-                                    value={item.emptyQuantity}
-                                    onChange={(e) => updateItem(index, 'emptyQuantity', parseInt(e.target.value) || 0)}
-                                    className="w-20 text-center font-bold border-indigo-100"
-                                    min="0"
-                                  />
-                                  <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-full border-indigo-100 hover:bg-indigo-100 hover:text-indigo-600"
-                                    onClick={() => updateItem(index, 'emptyQuantity', item.emptyQuantity + 1)}
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </Button>
-                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center justify-center gap-1">

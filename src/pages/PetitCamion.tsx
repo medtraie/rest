@@ -19,7 +19,6 @@ const PetitCamion = () => {
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
   
   const [selectedTruckId, setSelectedTruckId] = useState<string>('');
-  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
   const [showSupplyDialog, setShowSupplyDialog] = useState(false);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [animationState, setAnimationState] = useState<AnimateState>('idle');
@@ -28,6 +27,7 @@ const PetitCamion = () => {
   const petitCamionTrucks = trucks.filter(truck => truck.truckType === 'petit-camion');
   
   const selectedTruck = trucks.find(t => t.id === selectedTruckId);
+  const selectedDriverId = selectedTruck?.driverId || '';
   const selectedDriver = drivers.find(d => d.id === selectedDriverId);
   const latestSupplyOrder = supplyOrders
     .filter(order => order.driverId === selectedDriverId && order.truckId === selectedTruckId)
@@ -96,7 +96,7 @@ const PetitCamion = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label htmlFor="truck-select">{tr("Allogaz", "ألوغاز")}</Label>
               <Select value={selectedTruckId} onValueChange={setSelectedTruckId}>
@@ -115,22 +115,6 @@ const PetitCamion = () => {
                       </SelectItem>
                     );
                   })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="driver-select">{tr("Sélectionnez un chauffeur", "اختر سائقًا")}</Label>
-              <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-                <SelectTrigger id="driver-select">
-                  <SelectValue placeholder={tr("Sélectionner un chauffeur", "اختر سائقًا")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map(driver => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.name}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
