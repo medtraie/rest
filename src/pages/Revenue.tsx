@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApp } from '@/contexts/AppContext';
-import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { useT } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { 
   Download, 
@@ -128,9 +128,8 @@ function Revenue() {
     getAccountBalance,
   } = useApp();
   const t = useT();
-  const { language } = useLanguage();
-  const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
-  const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
+  const uiLocale = 'fr-MA';
+  const tr = (frText: string, _arText: string) => frText;
   const formatCurrency = (n: number) => fmtMAD(n, uiLocale);
   const formatOpType = (type: string) => {
     if (type === 'transfert') return tr('Transfert', 'تحويل');
@@ -477,7 +476,7 @@ function Revenue() {
       .filter((row) => Math.abs(row.score) >= 1.15)
       .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
       .slice(0, 6);
-  }, [commandWindowOps, language]);
+  }, [commandWindowOps]);
 
   const visibleAnomalies = useMemo(() => {
     if (anomalyMode === 'all') return anomalyRows;
@@ -1023,7 +1022,7 @@ function Revenue() {
                   <Banknote className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">{tr('Revenue Mission Deck', 'لوحة قيادة الإيرادات')}</h3>
+                  <h3 className="text-lg font-black text-slate-900">{tr('Tableau de Pilotage des Flux', 'لوحة قيادة الإيرادات')}</h3>
                   <p className="text-xs text-slate-500">{tr('Vue tactique des flux et priorités de validation', 'رؤية تكتيكية للتدفقات وأولويات الاعتماد')}</p>
                 </div>
               </div>
@@ -1047,9 +1046,9 @@ function Revenue() {
                 <p className="text-[11px] text-rose-600">{tr('Pression de trésorerie', 'ضغط السيولة')}</p>
               </div>
               <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 space-y-2">
-                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">{tr('Balance Mission', 'رصيد المهمة')}</p>
+                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">{tr('Balance de mission', 'رصيد المهمة')}</p>
                 <p className="text-xl font-black text-indigo-700">{formatCurrency(revenueIntelligence.netFlow)}</p>
-                <p className="text-[11px] text-indigo-600">{tr('في الانتظار', 'في الانتظار')}: {revenueIntelligence.pendingOps}</p>
+                <p className="text-[11px] text-indigo-600">{tr('En attente', 'في الانتظار')}: {revenueIntelligence.pendingOps}</p>
               </div>
             </div>
 
@@ -1086,15 +1085,15 @@ function Revenue() {
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={() => applyCommandFocus('pending')} className="bg-rose-600 hover:bg-rose-700 text-white">
                 <ChevronDown className="h-4 w-4 mr-2" />
-                {tr('Focus validations', 'تركيز على الاعتمادات')}
+                {tr('Priorité validations', 'تركيز على الاعتمادات')}
               </Button>
               <Button variant="outline" onClick={() => applyCommandFocus('inflow')}>
                 <TrendingUp className="h-4 w-4 mr-2 text-emerald-600" />
-                {tr('Focus entrées', 'تركيز على الداخل')}
+                {tr('Priorité entrées', 'تركيز على الداخل')}
               </Button>
               <Button variant="outline" onClick={() => applyCommandFocus('outflow')}>
                 <TrendingDown className="h-4 w-4 mr-2 text-rose-600" />
-                {tr('Focus sorties', 'تركيز على الخارج')}
+                {tr('Priorité sorties', 'تركيز على الخارج')}
               </Button>
               <Button variant="ghost" onClick={() => applyCommandFocus('reset')} className="text-slate-600">
                 <X className="h-4 w-4 mr-2" />
@@ -1155,7 +1154,7 @@ function Revenue() {
                 <Calendar className="h-5 w-5 text-indigo-600" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Weekly Flow Heatmap', 'خريطة حرارة التدفق الأسبوعي')}</h3>
+                <h3 className="text-base font-black text-slate-900">{tr('Carte Hebdomadaire des Flux', 'خريطة حرارة التدفق الأسبوعي')}</h3>
                 <p className="text-xs text-slate-500">{tr('Lecture visuelle des semaines positives et sous tension', 'قراءة بصرية للأسابيع الإيجابية وتحت الضغط')}</p>
               </div>
             </div>
@@ -1180,7 +1179,7 @@ function Revenue() {
                   <p className={`text-xs font-black mt-1 ${week.trend === 'up' ? 'text-emerald-700' : 'text-rose-700'}`}>
                     {formatCurrency(week.net)}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{week.trend === 'up' ? tr('Momentum +', 'زخم +') : tr('Momentum -', 'زخم -')}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{week.trend === 'up' ? tr('Élan +', 'زخم +') : tr('Élan -', 'زخم -')}</p>
                 </button>
               ))}
             </div>
@@ -1194,7 +1193,7 @@ function Revenue() {
                 <Wallet className="h-5 w-5 text-violet-600" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">{tr('What-if Liquidity Lab', 'مختبر سيناريوهات السيولة')}</h3>
+                <h3 className="text-base font-black text-slate-900">{tr('Laboratoire de Scénarios de Liquidité', 'مختبر سيناريوهات السيولة')}</h3>
                 <p className="text-xs text-slate-500">{tr('Simulation proactive de la trésorerie', 'محاكاة استباقية للسيولة')}</p>
               </div>
             </div>
@@ -1211,9 +1210,9 @@ function Revenue() {
             <div className="space-y-1">
               <Label className="text-[11px] uppercase tracking-wide text-slate-500">{t('revenue.whatif.horizon', 'Horizon')}</Label>
               <div className="flex items-center gap-2">
-                <Button variant={whatIfHorizon === '15' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '15' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('15')}>{language === 'ar' ? '15ي' : '15j'}</Button>
-                <Button variant={whatIfHorizon === '30' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '30' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('30')}>{language === 'ar' ? '30ي' : '30j'}</Button>
-                <Button variant={whatIfHorizon === '60' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '60' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('60')}>{language === 'ar' ? '60ي' : '60j'}</Button>
+                <Button variant={whatIfHorizon === '15' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '15' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('15')}>15j</Button>
+                <Button variant={whatIfHorizon === '30' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '30' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('30')}>30j</Button>
+                <Button variant={whatIfHorizon === '60' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '60' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('60')}>60j</Button>
               </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
@@ -1228,7 +1227,7 @@ function Revenue() {
                 </p>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{t('revenue.whatif.runway', 'Runway')}</p>
+                <p className="text-xs text-slate-500">{t('revenue.whatif.runway', 'Autonomie estimée')}</p>
                 <p className="text-xs font-black text-slate-800">
                   {Number.isFinite(whatIfScenario.runwayDays) ? `${Math.max(0, Math.floor(whatIfScenario.runwayDays))} ${t('revenue.whatif.days', 'jours')}` : tr('Trajectoire positive', 'مسار إيجابي')}
                 </p>
@@ -1246,7 +1245,7 @@ function Revenue() {
           <CardContent className="p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Anomaly Radar', 'رادار الشذوذ')}</h3>
+                <h3 className="text-base font-black text-slate-900">{tr('Radar des Anomalies', 'رادار الشذوذ')}</h3>
                 <p className="text-xs text-slate-500">{tr('Détection des flux atypiques pour audit rapide', 'اكتشاف التدفقات غير الاعتيادية للتدقيق السريع')}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1289,7 +1288,7 @@ function Revenue() {
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardContent className="p-5 space-y-3">
             <div>
-              <h3 className="text-base font-black text-slate-900">{tr('Autopilot Playbooks', 'سيناريوهات الطيار الآلي')}</h3>
+                <h3 className="text-base font-black text-slate-900">{tr('Scénarios de Pilotage Automatique', 'سيناريوهات الطيار الآلي')}</h3>
               <p className="text-xs text-slate-500">{tr('Scénarios prêts à appliquer en un clic', 'سيناريوهات جاهزة للتطبيق بنقرة واحدة')}</p>
             </div>
             <Button onClick={() => applyAutopilot('protect')} className="w-full justify-start bg-rose-600 hover:bg-rose-700">
@@ -1302,7 +1301,7 @@ function Revenue() {
             </Button>
             <Button variant="ghost" onClick={() => applyAutopilot('balance')} className="w-full justify-start text-slate-600">
               <X className="h-4 w-4 mr-2" />
-              {tr('Reset Intelligent', 'إعادة ضبط ذكية')}
+              {tr('Réinitialisation intelligente', 'إعادة ضبط ذكية')}
             </Button>
             <div className="rounded-xl bg-slate-900 text-white p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-300">{tr('Pilotage conseillé', 'توجيه موصى به')}</p>
@@ -1827,7 +1826,7 @@ function Revenue() {
           </div>
           <DialogFooter className="p-6 pt-2 bg-slate-50 flex gap-2">
             <Button variant="ghost" onClick={() => setTransferDialogOpen(false)} className="text-slate-600 hover:bg-slate-200">
-              {t('common.cancel')}
+              {t('common.cancel', 'Annuler')}
             </Button>
             <Button onClick={handleSubmitTransfer} className="bg-blue-600 hover:bg-blue-700 text-white px-8">
               {t('revenue.transfer.confirm', 'Confirmer le transfert')}
@@ -1907,22 +1906,22 @@ function Revenue() {
                 <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.accountAffected', 'Compte impacté')}</Label>
                 <Select value={cashAccount} onValueChange={(v) => setCashAccount(v as any)}>
                   <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
-                    <SelectValue placeholder={t('revenue.cashOperation.selectAccount')} />
+                    <SelectValue placeholder={t('revenue.cashOperation.selectAccount', 'Sélectionner le compte')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="espece">{t('revenue.cashOperation.cashRegister')}</SelectItem>
-                    <SelectItem value="banque">{t('revenue.cashOperation.bankAccount')}</SelectItem>
+                    <SelectItem value="espece">{t('revenue.cashOperation.cashRegister', 'Caisse (Espèce)')}</SelectItem>
+                    <SelectItem value="banque">{t('revenue.cashOperation.bankAccount', 'Compte Banque')}</SelectItem>
                     <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
                     <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.counterpartyDetails')}</Label>
+                <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.counterpartyDetails', 'Détails contrepartie')}</Label>
                 <Input 
                   value={cashAccountDetails} 
                   onChange={(e) => setCashAccountDetails(e.target.value)} 
-                  placeholder={t('revenue.cashOperation.counterpartyPlaceholder')} 
+                  placeholder={t('revenue.cashOperation.counterpartyPlaceholder', 'Ex: fournisseur, client, référence...')} 
                   className="border-slate-200 focus:ring-indigo-500"
                 />
               </div>
@@ -1930,10 +1929,10 @@ function Revenue() {
           </div>
           <DialogFooter className="p-6 pt-2 bg-slate-50 flex gap-2">
             <Button variant="ghost" onClick={() => setCashDialogOpen(false)} className="text-slate-600 hover:bg-slate-200">
-              {t('common.cancel')}
+              {t('common.cancel', 'Annuler')}
             </Button>
             <Button onClick={handleSubmitCash} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8">
-              {t('revenue.cashOperation.saveOperation')}
+              {t('revenue.cashOperation.saveOperation', 'Enregistrer l’opération')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1945,13 +1944,13 @@ function Revenue() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-blue-600" />
-              {t('revenue.editTransfer.title')}
+              {t('revenue.editTransfer.title', 'Modifier le transfert')}
             </DialogTitle>
           </DialogHeader>
           {editingTransfer && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>{t('revenue.editTransfer.type')}</Label>
+                <Label>{t('revenue.editTransfer.type', 'Type')}</Label>
                 <Select
                   value={editingTransfer.type}
                   onValueChange={(v) => setEditingTransfer({ ...editingTransfer, type: v as any })}
@@ -1966,7 +1965,7 @@ function Revenue() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('revenue.editTransfer.amount')}</Label>
+                  <Label>{t('revenue.editTransfer.amount', 'Montant')}</Label>
                   <Input
                     type="number"
                     value={editingTransfer.amount}
@@ -1974,7 +1973,7 @@ function Revenue() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('revenue.editTransfer.date')}</Label>
+                  <Label>{t('revenue.editTransfer.date', 'Date')}</Label>
                   <Input
                     type="date"
                     value={format(new Date(editingTransfer.date), 'yyyy-MM-dd')}
@@ -1986,7 +1985,7 @@ function Revenue() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>{t('revenue.editTransfer.description')}</Label>
+                <Label>{t('revenue.editTransfer.description', 'Description')}</Label>
                 <Textarea
                   value={editingTransfer.description}
                   onChange={(e) => setEditingTransfer({ ...editingTransfer, description: e.target.value })}
@@ -1996,8 +1995,8 @@ function Revenue() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditTransferOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleUpdateTransfer} className="bg-blue-600 hover:bg-blue-700 text-white">{t('common.update')}</Button>
+            <Button variant="outline" onClick={() => setEditTransferOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
+            <Button onClick={handleUpdateTransfer} className="bg-blue-600 hover:bg-blue-700 text-white">{t('common.update', 'Mettre à jour')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2007,13 +2006,13 @@ function Revenue() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-indigo-600" />
-              {t('revenue.editOperation.title')}
+              {t('revenue.editOperation.title', 'Modifier l’opération')}
             </DialogTitle>
           </DialogHeader>
           {editingCash && (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>{t('revenue.editOperation.label')}</Label>
+                <Label>{t('revenue.editOperation.label', 'Libellé')}</Label>
                 <Input
                   value={editingCash.name}
                   onChange={(e) => setEditingCash({ ...editingCash, name: e.target.value })}
@@ -2021,7 +2020,7 @@ function Revenue() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('revenue.editOperation.amount')}</Label>
+                  <Label>{t('revenue.editOperation.amount', 'Montant')}</Label>
                   <Input
                     type="number"
                     value={editingCash.amount}
@@ -2029,7 +2028,7 @@ function Revenue() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('revenue.editOperation.date')}</Label>
+                  <Label>{t('revenue.editOperation.date', 'Date')}</Label>
                   <Input
                     type="date"
                     value={format(new Date(editingCash.date), 'yyyy-MM-dd')}
@@ -2042,7 +2041,7 @@ function Revenue() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{t('revenue.editOperation.type')}</Label>
+                  <Label>{t('revenue.editOperation.type', 'Type')}</Label>
                   <Select
                     value={editingCash.type}
                     onValueChange={(v) => setEditingCash({ ...editingCash, type: v as any })}
@@ -2055,7 +2054,7 @@ function Revenue() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t('revenue.editOperation.accountAffected')}</Label>
+                  <Label>{t('revenue.editOperation.accountAffected', 'Compte impacté')}</Label>
                   <Select
                     value={editingCash.accountAffected}
                     onValueChange={(v) => setEditingCash({ ...editingCash, accountAffected: v as any })}
@@ -2071,18 +2070,18 @@ function Revenue() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>{t('revenue.editOperation.counterpartyDetails')}</Label>
+                <Label>{t('revenue.editOperation.counterpartyDetails', 'Détails contrepartie')}</Label>
                 <Input
                   value={editingCash.accountDetails || ''}
                   onChange={(e) => setEditingCash({ ...editingCash, accountDetails: e.target.value })}
-                  placeholder={t('revenue.editOperation.counterpartyPlaceholder')}
+                  placeholder={t('revenue.editOperation.counterpartyPlaceholder', 'Ex: fournisseur, client, référence...')}
                 />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditCashOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={handleUpdateCash} className="bg-indigo-600 hover:bg-indigo-700 text-white">{t('common.update')}</Button>
+            <Button variant="outline" onClick={() => setEditCashOpen(false)}>{t('common.cancel', 'Annuler')}</Button>
+            <Button onClick={handleUpdateCash} className="bg-indigo-600 hover:bg-indigo-700 text-white">{t('common.update', 'Mettre à jour')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

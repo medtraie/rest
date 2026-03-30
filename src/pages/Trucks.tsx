@@ -70,6 +70,58 @@ const AnimatedMetricValue = ({
   return <span className={className}>{displayValue}{suffix}</span>;
 };
 
+const TruckTypeBadge = ({
+  truckType,
+  label
+}: {
+  truckType: string;
+  label: string;
+}) => {
+  const [broken, setBroken] = useState(false);
+  const imageCandidatesByType: Record<'camion' | 'remorque' | 'allogaz', string[]> = {
+    allogaz: ['/truck-types/allogaz.png', '/truck-types/allgaz.png', '/truck-types/allogaz', '/truck-types/allgaz'],
+    remorque: ['/truck-types/remorque.png', '/truck-types/remorque'],
+    camion: ['/truck-types/camion.png', '/truck-types/camion']
+  };
+  const [imageIndex, setImageIndex] = useState(0);
+  const fallbackByType: Record<'camion' | 'remorque' | 'allogaz', string> = {
+    allogaz: '🚚',
+    remorque: '🛞',
+    camion: '🚛'
+  };
+  const normalizedType = String(truckType || '').toLowerCase();
+  const safeType: 'camion' | 'remorque' | 'allogaz' =
+    normalizedType === 'camion' || normalizedType === 'remorque' || normalizedType === 'allogaz'
+      ? normalizedType
+      : 'allogaz';
+  const imageCandidates = imageCandidatesByType[safeType];
+  useEffect(() => {
+    setBroken(false);
+    setImageIndex(0);
+  }, [safeType]);
+  return (
+    <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-medium px-2 py-0.5 rounded-md">
+      {broken ? (
+        <span className="mr-1">{fallbackByType[safeType]}</span>
+      ) : (
+        <img
+          src={imageCandidates[Math.min(imageIndex, imageCandidates.length - 1)]}
+          alt={label}
+          onError={() => {
+            if (imageIndex + 1 < imageCandidates.length) {
+              setImageIndex((prev) => prev + 1);
+              return;
+            }
+            setBroken(true);
+          }}
+          className="mr-1 inline-block h-3.5 w-5 object-contain align-middle"
+        />
+      )}
+      {label}
+    </Badge>
+  );
+};
+
 const Trucks = () => {
   const { trucks, drivers, updateTruck, deleteTruck, clearAllTrucks, bulkSetRepos, bulkReactivate, bulkDissociateDriver, driverHasActiveTruck, truckAssignments } = useApp();
   const { toast } = useToast();
@@ -1440,13 +1492,16 @@ const Trucks = () => {
                       </TableCell>
                       <TableCell className="font-bold text-slate-900">{truck.matricule}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-medium px-2 py-0.5 rounded-md">
-                          {truck.truckType === 'camion'
-                            ? `🚛 ${tu('truckTypes.camion', 'Camion')}`
-                            : truck.truckType === 'remorque'
-                              ? `🛞 ${tu('truckTypes.remorque', 'Remorque')}`
-                              : `🚚 ${tu('truckTypes.allogaz', 'Allogaz')}`}
-                        </Badge>
+                        <TruckTypeBadge
+                          truckType={truck.truckType}
+                          label={
+                            truck.truckType === 'camion'
+                              ? tu('truckTypes.camion', 'Camion')
+                              : truck.truckType === 'remorque'
+                                ? tu('truckTypes.remorque', 'Remorque')
+                                : tu('truckTypes.allogaz', 'Allogaz')
+                          }
+                        />
                       </TableCell>
                       <TableCell>
                         {currentDriver ? (
@@ -1692,13 +1747,16 @@ const Trucks = () => {
                   </Badge>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <Badge variant="outline" className="bg-white border-slate-200 text-slate-600 font-medium px-2 py-0.5 rounded-md">
-                    {truck.truckType === 'camion'
-                      ? `🚛 ${tu('truckTypes.camion', 'Camion')}`
-                      : truck.truckType === 'remorque'
-                        ? `🛞 ${tu('truckTypes.remorque', 'Remorque')}`
-                        : `🚚 ${tu('truckTypes.allogaz', 'Allogaz')}`}
-                  </Badge>
+                  <TruckTypeBadge
+                    truckType={truck.truckType}
+                    label={
+                      truck.truckType === 'camion'
+                        ? tu('truckTypes.camion', 'Camion')
+                        : truck.truckType === 'remorque'
+                          ? tu('truckTypes.remorque', 'Remorque')
+                          : tu('truckTypes.allogaz', 'Allogaz')
+                    }
+                  />
                   <Button variant="ghost" size="sm" className="text-indigo-600 hover:bg-indigo-50" onClick={() => { setHistoryTruckId(truck.id); setHistoryDialogOpen(true); }}>
                     <ArrowUpRight className="w-4 h-4 mr-1.5" />
                     {tu('actions.history', 'Historique')}

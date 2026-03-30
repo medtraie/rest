@@ -82,20 +82,20 @@ export const Layout: React.FC = () => {
                   <Button
                     size="sm"
                     variant={cardMode === 'classic' ? 'secondary' : 'ghost'}
-                    className={cardMode === 'classic' ? 'bg-slate-100 text-slate-900' : 'text-slate-500'}
+                    className={cardMode === 'classic' ? 'gap-1.5 bg-slate-100 text-slate-900 hover:bg-slate-100' : 'gap-1.5 text-slate-600 hover:text-slate-800'}
                     onClick={() => applyCardMode('classic')}
                   >
                     <PanelsTopLeft className="w-4 h-4" />
-                    {t("layout.cardClassic")}
+                    <span className="font-medium">{t("layout.cardClassic", "Classique")}</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={cardMode === 'cinematic' ? 'secondary' : 'ghost'}
-                    className={cardMode === 'cinematic' ? 'bg-slate-900 text-white hover:bg-slate-900' : 'text-slate-500'}
+                    className={cardMode === 'cinematic' ? 'gap-1.5 bg-slate-900 text-white hover:bg-slate-900' : 'gap-1.5 text-slate-600 hover:text-slate-800'}
                     onClick={() => applyCardMode('cinematic')}
                   >
                     <Sparkles className="w-4 h-4" />
-                    {t("layout.cardCinematic")}
+                    <span className="font-medium">{t("layout.cardCinematic", "Cinématique")}</span>
                   </Button>
                 </div>
                 <div className="text-sm text-muted-foreground">

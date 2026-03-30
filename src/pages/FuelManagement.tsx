@@ -66,7 +66,9 @@ import {
   Timer,
   ShieldAlert,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -256,6 +258,7 @@ const FuelManagement = () => {
   });
 
   const [perfLimits, setPerfLimits] = useState({ greenMax: 25, yellowMax: 35 });
+  const [showPerfThresholds, setShowPerfThresholds] = useState(true);
 
   useEffect(() => {
     const loadTankCapacity = async () => {
@@ -401,6 +404,10 @@ const FuelManagement = () => {
     return driverPerformance.slice(0, 8).map((driver, index) => {
       const score = driver.lPer100 ?? 0;
       const normalized = perfLimits.yellowMax > 0 ? Math.min(1, score / perfLimits.yellowMax) : 0;
+      const relatedConsumptions = fuelConsumptions
+        .filter((entry) => (entry.driver || tr("N/A", "غير متاح")) === driver.driver)
+        .sort((a, b) => +toDate(b.date) - +toDate(a.date));
+      const latest = relatedConsumptions[0];
       const levelClass =
         driver.lPer100 == null
           ? "bg-slate-100 border-slate-200"
@@ -412,6 +419,9 @@ const FuelManagement = () => {
       return {
         rank: index + 1,
         name: driver.driver,
+        truck: latest?.truck || tr("Camion non renseigné", "شاحنة غير مذكورة"),
+        trips: relatedConsumptions.length,
+        latestDate: latest?.date ? new Date(latest.date).toLocaleDateString(uiLocale) : tr("Date inconnue", "تاريخ غير معروف"),
         liters: driver.liters,
         km: driver.km,
         lPer100: driver.lPer100,
@@ -419,7 +429,26 @@ const FuelManagement = () => {
         intensity: `${Math.max(12, Math.round(normalized * 100))}%`,
       };
     });
-  }, [driverPerformance, perfLimits.yellowMax]);
+  }, [driverPerformance, perfLimits.yellowMax, fuelConsumptions, uiLocale]);
+
+  const lastMileageByTruck = useMemo(() => {
+    const map = new Map<string, { mileageKm: number; date: Date | string }>();
+    fuelConsumptions.forEach((entry) => {
+      if (!entry.truck) return;
+      const prev = map.get(entry.truck);
+      if (!prev || +toDate(entry.date) > +toDate(prev.date)) {
+        map.set(entry.truck, { mileageKm: entry.mileageKm || 0, date: entry.date });
+      }
+    });
+    return map;
+  }, [fuelConsumptions]);
+
+  const lastMileageForSelectedTruck = useMemo(() => {
+    if (!consumptionForm.truck) return null;
+    const last = lastMileageByTruck.get(consumptionForm.truck);
+    if (!last) return null;
+    return Number(last.mileageKm || 0);
+  }, [consumptionForm.truck, lastMileageByTruck]);
 
   const predictiveOps = useMemo(() => {
     const now = Date.now();
@@ -528,8 +557,20 @@ const FuelManagement = () => {
   };
 
   const addConsumption = async () => {
-    if (!consumptionForm.driver || !consumptionForm.truck || !consumptionForm.liters || consumptionForm.liters <= 0) {
-      toast.error(tr("Veuillez compléter chauffeur, camion et quantité.", "يرجى استكمال السائق والشاحنة والكمية."));
+    if (!consumptionForm.driver || !consumptionForm.truck || !consumptionForm.liters || consumptionForm.liters <= 0 || !consumptionForm.mileageKm || consumptionForm.mileageKm <= 0) {
+      toast.error(tr("Veuillez compléter chauffeur, camion, quantité et kilométrage.", "يرجى استكمال السائق والشاحنة والكمية والكيلومترات."));
+      return;
+    }
+    if (
+      lastMileageForSelectedTruck !== null &&
+      consumptionForm.mileageKm < lastMileageForSelectedTruck
+    ) {
+      toast.error(
+        tr(
+          `Le kilométrage doit être supérieur ou égal au dernier relevé (${formatNum(lastMileageForSelectedTruck)} km).`,
+          "يجب أن يكون الكيلومتر أكبر من أو يساوي آخر قراءة."
+        )
+      );
       return;
     }
     const newConsumption: FuelConsumption = {
@@ -1293,53 +1334,77 @@ const FuelManagement = () => {
         {/* Configuration des Seuils */}
         <Card>
           <CardHeader className="bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Settings2 className="w-5 h-5 text-primary" />
-              <div>
-                <CardTitle>{tr('Seuils de Performance', 'عتبات الأداء')}</CardTitle>
-                <CardDescription>{tr('Configurez les limites L/100km', 'قم بضبط حدود L/100km')}</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-primary" />
+                <div>
+                  <CardTitle>{tr('Seuils de Performance', 'عتبات الأداء')}</CardTitle>
+                  <CardDescription>{tr('Configurez les limites L/100km', 'قم بضبط حدود L/100km')}</CardDescription>
+                </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPerfThresholds((prev) => !prev)}
+                className="gap-1.5"
+              >
+                {showPerfThresholds ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPerfThresholds ? tr('Masquer', 'إخفاء') : tr('Afficher', 'إظهار')}
+              </Button>
             </div>
           </CardHeader>
-          <CardContent className="pt-6 space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  {tr('Limite Optimale (Vert)', 'الحد المثالي (أخضر)')}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    className="w-20 text-right"
-                    value={perfLimits.greenMax}
-                    onChange={(e) => setPerfLimits(p => ({ ...p, greenMax: parseFloat(e.target.value) || 0 }))}
-                  />
-                  <span className="text-xs text-muted-foreground">L/100</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                  {tr("Limite d'Alerte (Jaune)", 'حد الإنذار (أصفر)')}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    className="w-20 text-right"
-                    value={perfLimits.yellowMax}
-                    onChange={(e) => setPerfLimits(p => ({ ...p, yellowMax: parseFloat(e.target.value) || 0 }))}
-                  />
-                  <span className="text-xs text-muted-foreground">L/100</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 bg-muted/50 rounded-lg text-xs text-muted-foreground space-y-2">
-              <p>• <span className="text-green-600 font-medium">{tr('Vert', 'أخضر')}:</span> {tr('En dessous de', 'أقل من')} {perfLimits.greenMax} L/100km</p>
-              <p>• <span className="text-yellow-600 font-medium">{tr('Jaune', 'أصفر')}:</span> {tr('Entre', 'بين')} {perfLimits.greenMax} {tr('et', 'و')} {perfLimits.yellowMax} L/100km</p>
-              <p>• <span className="text-red-600 font-medium">{tr('Rouge', 'أحمر')}:</span> {tr('Au-dessus de', 'أعلى من')} {perfLimits.yellowMax} L/100km</p>
-            </div>
-          </CardContent>
+          <AnimatePresence initial={false}>
+            {showPerfThresholds && (
+              <motion.div
+                key="perf-thresholds-content"
+                initial={{ opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -8, height: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="pt-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                        {tr('Limite Optimale (Vert)', 'الحد المثالي (أخضر)')}
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          className="w-20 text-right"
+                          value={perfLimits.greenMax}
+                          onChange={(e) => setPerfLimits(p => ({ ...p, greenMax: parseFloat(e.target.value) || 0 }))}
+                        />
+                        <span className="text-xs text-muted-foreground">L/100</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                        {tr("Limite d'Alerte (Jaune)", 'حد الإنذار (أصفر)')}
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          className="w-20 text-right"
+                          value={perfLimits.yellowMax}
+                          onChange={(e) => setPerfLimits(p => ({ ...p, yellowMax: parseFloat(e.target.value) || 0 }))}
+                        />
+                        <span className="text-xs text-muted-foreground">L/100</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-muted/50 rounded-lg text-xs text-muted-foreground space-y-2">
+                    <p>• <span className="text-green-600 font-medium">{tr('Vert', 'أخضر')}:</span> {tr('En dessous de', 'أقل من')} {perfLimits.greenMax} L/100km</p>
+                    <p>• <span className="text-yellow-600 font-medium">{tr('Jaune', 'أصفر')}:</span> {tr('Entre', 'بين')} {perfLimits.greenMax} {tr('et', 'و')} {perfLimits.yellowMax} L/100km</p>
+                    <p>• <span className="text-red-600 font-medium">{tr('Rouge', 'أحمر')}:</span> {tr('Au-dessus de', 'أعلى من')} {perfLimits.yellowMax} L/100km</p>
+                  </div>
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
       </div>
 
@@ -1364,18 +1429,46 @@ const FuelManagement = () => {
               {performanceHeatmap.map((cell) => (
                 <motion.div
                   key={cell.name}
-                  whileHover={{ y: -2 }}
-                  className={`rounded-xl border p-3 ${cell.levelClass}`}
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.25, delay: cell.rank * 0.04 }}
+                  whileHover={{ y: -4, scale: 1.015 }}
+                  className={`relative overflow-hidden rounded-xl border p-3 ${cell.levelClass}`}
                 >
+                  <motion.div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/40 to-white/0"
+                    initial={{ x: "-120%" }}
+                    whileHover={{ x: "120%" }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                  />
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] uppercase tracking-wide font-bold">#{cell.rank}</span>
                     <span className="text-[11px] font-bold">{cell.lPer100 !== null ? `${cell.lPer100.toFixed(2)} L/100` : "-"}</span>
                   </div>
-                  <p className="font-bold text-sm mt-1 truncate">{cell.name}</p>
+                  <div className="mt-1 space-y-0.5">
+                    <p className="font-bold text-sm truncate">{cell.name}</p>
+                    <p className="text-[10px] text-slate-600 flex items-center gap-1.5 truncate">
+                      <Truck className="w-3 h-3" />
+                      {cell.truck}
+                    </p>
+                    <p className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
+                      <User className="w-3 h-3" />
+                      {tr('Chauffeur', 'السائق')}: {cell.name}
+                    </p>
+                  </div>
                   <div className="mt-2 h-2 rounded-full bg-white/70 overflow-hidden">
-                    <div className="h-full bg-slate-900/70" style={{ width: cell.intensity }} />
+                    <motion.div
+                      className="h-full bg-slate-900/70"
+                      initial={{ width: 0 }}
+                      animate={{ width: cell.intensity }}
+                      transition={{ duration: 0.55, delay: 0.08 + cell.rank * 0.04 }}
+                    />
                   </div>
                   <p className="mt-2 text-[11px] font-semibold text-slate-700">{formatNum(cell.liters)} L · {formatNum(cell.km)} km</p>
+                  <p className="mt-1 text-[10px] text-slate-600">
+                    {tr('Trajets', 'الرحلات')}: {cell.trips} · {tr('Dernière saisie', 'آخر تسجيل')}: {cell.latestDate}
+                  </p>
                 </motion.div>
               ))}
             </div>
@@ -1738,10 +1831,13 @@ const FuelManagement = () => {
                 onValueChange={(value) => {
                   const selectedDriver = drivers.find((d) => d.id === value);
                   const linkedTrucks = trucks.filter((t) => String(t.driverId) === String(value) && t.matricule);
+                  const autoTruck = linkedTrucks.length === 1 ? linkedTrucks[0].matricule : "";
+                  const autoMileage = autoTruck ? (lastMileageByTruck.get(autoTruck)?.mileageKm || 0) : 0;
                   setConsumptionForm({
                     ...consumptionForm,
                     driver: selectedDriver ? selectedDriver.name : "",
-                    truck: linkedTrucks.length === 1 ? linkedTrucks[0].matricule : "",
+                    truck: autoTruck,
+                    mileageKm: autoMileage,
                   });
                   setSelectedDriverId(value);
                 }}
@@ -1763,9 +1859,10 @@ const FuelManagement = () => {
                 {tr('Camion', 'الشاحنة')}
               </Label>
               <Select
-                onValueChange={(value) =>
-                  setConsumptionForm({ ...consumptionForm, truck: value })
-                }
+                onValueChange={(value) => {
+                  const lastMileage = lastMileageByTruck.get(value)?.mileageKm || 0;
+                  setConsumptionForm({ ...consumptionForm, truck: value, mileageKm: lastMileage });
+                }}
                 value={consumptionForm.truck}
                 disabled={!selectedDriverId}
               >
@@ -1786,20 +1883,34 @@ const FuelManagement = () => {
             {/* Nouveau: Kilométrage */}
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="mileage" className="text-right">
-                {tr('Kilométrage (km)', 'المسافة المقطوعة (كم)')}
+                {tr('Kilométrage (km) *', 'المسافة المقطوعة (كم) *')}
               </Label>
-              <Input
-                id="mileage"
-                type="number"
-                className="col-span-3"
-                value={consumptionForm.mileageKm || ""}
-                onChange={(e) =>
-                  setConsumptionForm({
-                    ...consumptionForm,
-                    mileageKm: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="mileage"
+                  type="number"
+                  className="bg-transparent"
+                  min={lastMileageForSelectedTruck ?? 0}
+                  value={consumptionForm.mileageKm || ""}
+                  placeholder={lastMileageForSelectedTruck && lastMileageForSelectedTruck > 0 ? `${lastMileageForSelectedTruck}` : tr("Saisir le kilométrage", "أدخل الكيلومترات")}
+                  onChange={(e) =>
+                    setConsumptionForm({
+                      ...consumptionForm,
+                      mileageKm: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+                {lastMileageForSelectedTruck !== null && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {tr('Dernier kilométrage enregistré', 'آخر كيلومتر مسجل')}: {formatNum(lastMileageForSelectedTruck)} km
+                  </p>
+                )}
+                {lastMileageForSelectedTruck !== null && consumptionForm.mileageKm > 0 && consumptionForm.mileageKm < lastMileageForSelectedTruck && (
+                  <p className="text-[11px] text-rose-600">
+                    {tr('Le kilométrage saisi est inférieur au dernier relevé.', 'الكيلومتر المدخل أقل من آخر قراءة.')}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
