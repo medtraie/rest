@@ -15,6 +15,7 @@
     "supplyReturn": "Distrubition",
     "petitCamion": "Allogaz",
     "exchanges": "Échanges",
+    "transfer": "Transfert",
     "defectiveStock": "Stock Défectueux",
     "fuelManagement": "Gestion Carburant & Huile",
     "repairs": "Gestion des Réparations",
@@ -1511,7 +1512,8 @@
       "truckTypes": {
         "camion": "Camion",
         "remorque": "Remorque",
-        "allogaz": "Allogaz"
+        "allogaz": "Allogaz",
+        "clark": "Clark"
       },
       "priority": {
         "critical": "Critique",

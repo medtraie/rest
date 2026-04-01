@@ -14,6 +14,7 @@ import Inventory from "./pages/Inventory";
 import Trucks from "./pages/Trucks";
 import Drivers from "./pages/Drivers";
 import Exchanges from "./pages/Exchanges";
+import Transfer from "./pages/Transfer";
 import Factory from "./pages/Factory";
 import SupplyReturn from "./pages/SupplyReturn";
 import Clients from "./pages/Clients";
@@ -113,6 +114,7 @@ const RoutesWithAuth = ({ session }: { session: Session | null }) => {
     { permission: "petit-camion", path: "/petit-camion" },
     { permission: "defective-stock", path: "/defective-stock" },
     { permission: "exchanges", path: "/exchanges" },
+    { permission: "transfer", path: "/transfer" },
     { permission: "factory", path: "/factory" },
     { permission: "fuel-management", path: "/fuel-management" },
     { permission: "repairs", path: "/repairs" },
@@ -135,6 +137,7 @@ const RoutesWithAuth = ({ session }: { session: Session | null }) => {
         <Route path="/trucks" element={<ProtectedRoute permission="trucks" element={<Trucks />} fallback={fallbackPath} />} />
         <Route path="/drivers" element={<ProtectedRoute permission="drivers" element={<Drivers />} fallback={fallbackPath} />} />
         <Route path="/exchanges" element={<ProtectedRoute permission="exchanges" element={<Exchanges />} fallback={fallbackPath} />} />
+        <Route path="/transfer" element={<ProtectedRoute permission="transfer" element={<Transfer />} fallback={fallbackPath} />} />
         <Route path="/factory" element={<ProtectedRoute permission="factory" element={<Factory />} fallback={fallbackPath} />} />
         <Route path="/supply-return" element={<ProtectedRoute permission="supply-return" element={<SupplyReturn />} fallback={fallbackPath} />} />
         <Route path="/clients" element={<ProtectedRoute permission="clients" element={<Clients />} fallback={fallbackPath} />} />

@@ -15,6 +15,7 @@
     "supplyReturn": "التوزيع",
     "petitCamion": "ألوغاز",
     "exchanges": "التبادلات",
+    "transfer": "التحويل",
     "defectiveStock": "المخزون التالف",
     "fuelManagement": "إدارة الوقود والزيت",
     "repairs": "إدارة الإصلاحات",
@@ -1511,7 +1512,8 @@
       "truckTypes": {
         "camion": "شاحنة",
         "remorque": "مقطورة",
-        "allogaz": "ألوغاز"
+        "allogaz": "ألوغاز",
+        "clark": "كلارك"
       },
       "priority": {
         "critical": "حرج",

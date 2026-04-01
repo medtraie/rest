@@ -134,6 +134,7 @@ export interface BottleType {
   unitPrice: number;
   taxRate: number;
   purchasePrice?: number;
+  color?: string;
 }
 export interface Truck {
   id: string;
@@ -145,7 +146,7 @@ export interface Truck {
   nextReturnDate?: string;
   reposReason?: string;
   techStatus?: 'operational' | 'maintenance' | 'repair';
-  truckType: 'camion' | 'remorque' | 'petit-camion';
+  truckType: 'camion' | 'remorque' | 'petit-camion' | 'clark';
 }
 export interface TruckLoad {
   bottleTypeId: string;

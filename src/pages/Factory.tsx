@@ -2957,7 +2957,7 @@ const Factory = () => {
                 <div className="grid gap-4 md:grid-cols-2">
                   {bottleTypes.map((bt, index) => {
                     const receivedEntry = returnForm.receivedBottles[index] || { bottleTypeId: bt.id, quantity: 0 };
-                    const effectivePrice = localPurchasePrices[bt.id] ?? (bt.purchasePrice ?? 0);
+                    const effectivePrice = localPurchasePrices[bt.id] ?? (bt.purchasePrice ?? bt.unitPrice ?? 0);
                     return (
                     <div key={bt.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-center justify-between">
                       <div className="flex items-center gap-3">

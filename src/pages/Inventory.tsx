@@ -26,6 +26,85 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+const bottleColorPalette = ['#2563eb', '#16a34a', '#ef4444', '#f59e0b', '#111827', '#06b6d4', '#7c3aed', '#f97316'];
+
+const sanitizeBottleColor = (value: unknown, fallback: string) => {
+  const raw = String(value ?? '').trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw;
+  if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+    const v = raw.slice(1);
+    return `#${v[0]}${v[0]}${v[1]}${v[1]}${v[2]}${v[2]}`;
+  }
+  return fallback;
+};
+
+const colorForBottle = (bottle: BottleType, index: number) => {
+  const fallback = bottleColorPalette[index % bottleColorPalette.length];
+  return sanitizeBottleColor((bottle as any).color, fallback);
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const parsed = sanitizeBottleColor(hex, '#2563eb').replace('#', '');
+  const r = parseInt(parsed.slice(0, 2), 16);
+  const g = parseInt(parsed.slice(2, 4), 16);
+  const b = parseInt(parsed.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha))})`;
+};
+
+const AnimatedBottleGlyph = ({ color, delay = 0 }: { color: string; delay?: number }) => (
+  <motion.svg
+    viewBox="0 0 64 64"
+    className="w-9 h-9"
+    initial={{ opacity: 0, y: 6, scale: 0.94 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.35, ease: 'easeOut', delay }}
+  >
+    <motion.rect
+      x="24"
+      y="5"
+      width="16"
+      height="6"
+      rx="2"
+      fill={hexToRgba(color, 0.2)}
+      stroke={hexToRgba(color, 0.9)}
+      strokeWidth="1.5"
+    />
+    <motion.path
+      d="M18 13h28v7H18z"
+      fill={hexToRgba(color, 0.18)}
+      stroke={hexToRgba(color, 0.9)}
+      strokeWidth="1.5"
+    />
+    <motion.rect
+      x="14"
+      y="20"
+      width="36"
+      height="34"
+      rx="10"
+      fill={hexToRgba(color, 0.2)}
+      stroke={hexToRgba(color, 0.95)}
+      strokeWidth="2"
+      animate={{ y: [0, -1.5, 0] }}
+      transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay }}
+    />
+    <motion.path
+      d="M14 37h36"
+      stroke={hexToRgba(color, 0.95)}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+    <motion.ellipse
+      cx="32"
+      cy="58"
+      rx="18"
+      ry="4"
+      fill={hexToRgba(color, 0.18)}
+      animate={{ opacity: [0.25, 0.45, 0.25] }}
+      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut', delay }}
+    />
+  </motion.svg>
+);
+
 const Inventory = () => {
   const t = useT();
   const { language } = useLanguage();
@@ -1296,7 +1375,9 @@ const Inventory = () => {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredBottleCards.map(({ bottle, stockPlein, warehouseEmpty, computedTotal, stockInfo, distributed, distributionRate, criticalThreshold }, index) => (
+        {filteredBottleCards.map(({ bottle, stockPlein, warehouseEmpty, computedTotal, stockInfo, distributed, distributionRate, criticalThreshold }, index) => {
+          const bottleColor = colorForBottle(bottle, index);
+          return (
           <motion.div
             key={bottle.id}
             initial={{ opacity: 0, y: 16 }}
@@ -1307,8 +1388,8 @@ const Inventory = () => {
               <CardHeader className="pb-3 bg-slate-50/50 rounded-t-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <Package2 className="w-5 h-5 text-indigo-600" />
+                    <div className="p-1.5 rounded-lg border" style={{ backgroundColor: hexToRgba(bottleColor, 0.1), borderColor: hexToRgba(bottleColor, 0.26) }}>
+                      <AnimatedBottleGlyph color={bottleColor} delay={Math.min(index * 0.07, 0.45)} />
                     </div>
                     <CardTitle className="text-lg font-bold text-slate-800">{bottle.name}</CardTitle>
                   </div>
@@ -1328,8 +1409,9 @@ const Inventory = () => {
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                     <div 
-                      className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
+                      className="h-full rounded-full transition-all duration-500" 
                       style={{ 
+                        backgroundColor: bottleColor,
                         width: `${computedTotal > 0 ? Math.min(((stockPlein) / computedTotal) * 100, 100) : 0}%` 
                       }}
                     />
@@ -1338,11 +1420,11 @@ const Inventory = () => {
                     <svg viewBox="0 0 120 28" className="h-8 w-[120px] shrink-0">
                       <defs>
                         <linearGradient id={`fullCardGradient-${bottle.id}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.32" />
-                          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.02" />
+                          <stop offset="0%" stopColor={bottleColor} stopOpacity="0.36" />
+                          <stop offset="100%" stopColor={bottleColor} stopOpacity="0.03" />
                         </linearGradient>
                       </defs>
-                      <path d="M2 26 L118 26" className="stroke-indigo-100" strokeWidth="1.2" fill="none" />
+                      <path d="M2 26 L118 26" stroke={hexToRgba(bottleColor, 0.24)} strokeWidth="1.2" fill="none" />
                       <motion.path
                         d={sparklineByBottle[bottle.id]?.full.areaPath || 'M2 26 L2 14 L118 14 L118 26 Z'}
                         fill={`url(#fullCardGradient-${bottle.id})`}
@@ -1352,7 +1434,7 @@ const Inventory = () => {
                       />
                       <motion.path
                         d={sparklineByBottle[bottle.id]?.full.path || 'M2 14 L118 14'}
-                        className="stroke-indigo-500"
+                        stroke={bottleColor}
                         strokeWidth="2"
                         fill="none"
                         strokeLinecap="round"
@@ -1368,7 +1450,7 @@ const Inventory = () => {
                         cx={sparklineByBottle[bottle.id]?.full.lastPoint.x || 118}
                         cy={sparklineByBottle[bottle.id]?.full.lastPoint.y || 14}
                         r="2.8"
-                        className="fill-indigo-500"
+                        fill={bottleColor}
                         animate={{
                           r: [2.2, 3.2 + clamp01(sparklineByBottle[bottle.id]?.full.volatility || 0) * 2, 2.2],
                           opacity: [0.9, 0.35 + clamp01(sparklineByBottle[bottle.id]?.full.volatility || 0) * 0.35, 0.9]
@@ -1418,12 +1500,12 @@ const Inventory = () => {
                 <div className="pt-2">
                   <div className="flex justify-between text-sm mb-2 font-medium">
                     <span className="text-slate-600">{t('inventory.card.distributionRate', 'Taux de distribution')}</span>
-                    <span className="text-indigo-600">{distributionRate.toFixed(1)}%</span>
+                    <span style={{ color: bottleColor }}>{distributionRate.toFixed(1)}%</span>
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                     <div 
-                      className="bg-indigo-400 h-full rounded-full transition-all duration-500" 
-                      style={{ width: `${Math.min(distributionRate, 100)}%` }}
+                      className="h-full rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min(distributionRate, 100)}%`, backgroundColor: bottleColor }}
                     />
                   </div>
                 </div>
@@ -1496,7 +1578,8 @@ const Inventory = () => {
               </CardContent>
             </Card>
           </motion.div>
-        ))}
+          );
+        })}
         {filteredBottleCards.length === 0 && (
           <Card className="md:col-span-2 lg:col-span-3 border-dashed">
             <CardContent className="py-16 text-center text-slate-500">

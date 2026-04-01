@@ -101,6 +101,7 @@ export type PermissionKey =
   | "revenue"
   | "reports"
   | "live-map"
+  | "transfer"
   | "settings"
   | "accounting";
 
@@ -134,6 +135,7 @@ const permissionCatalog: Array<{ key: PermissionKey; label: string }> = [
   { key: "revenue", label: "Recette" },
   { key: "reports", label: "Rapports" },
   { key: "live-map", label: "Carte Live" },
+  { key: "transfer", label: "Transfert" },
   { key: "accounting", label: "Comptabilité" },
   { key: "settings", label: "Paramètres" },
 ];
@@ -161,9 +163,10 @@ const defaultRoles: Role[] = [
       "revenue",
       "reports",
       "live-map",
+      "transfer",
     ],
   },
-  { id: "viewer", name: "Consultation", permissions: ["dashboard", "reports", "live-map"] },
+  { id: "viewer", name: "Consultation", permissions: ["dashboard", "reports", "live-map", "transfer"] },
 ];
 
 // AppContextType interface additions
@@ -1671,7 +1674,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addBottleType = async (bottle: BottleType) => {
     const id = bottle.id || (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
     const newBottleType = { ...bottle, id };
-    const created = await supabaseService.create<BottleType>("bottle_types", newBottleType);
+    let created = await supabaseService.create<BottleType>("bottle_types", newBottleType);
+    if (!created && Object.prototype.hasOwnProperty.call(newBottleType, "color")) {
+      const fallbackPayload = { ...newBottleType } as any;
+      delete fallbackPayload.color;
+      created = await supabaseService.create<BottleType>("bottle_types", fallbackPayload);
+    }
     if (created) {
       const merged = { ...newBottleType, ...created };
       setBottleTypes(prev => [...prev, merged]);
@@ -1680,7 +1688,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return null;
   };
   const updateBottleType = async (id: string, patch: Partial<BottleType>) => {
-    const updated = await supabaseService.update<BottleType>("bottle_types", id, patch);
+    let updated = await supabaseService.update<BottleType>("bottle_types", id, patch);
+    if (!updated && Object.prototype.hasOwnProperty.call(patch, "color")) {
+      const fallbackPatch = { ...patch } as any;
+      delete fallbackPatch.color;
+      updated = await supabaseService.update<BottleType>("bottle_types", id, fallbackPatch);
+    }
     if (updated) {
       const merged = { id, ...updated, ...patch };
       setBottleTypes(prev => prev.map(b => (b.id === id ? { ...b, ...merged } : b)));

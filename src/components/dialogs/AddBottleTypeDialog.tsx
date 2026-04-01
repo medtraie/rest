@@ -9,13 +9,16 @@ import { toast } from 'sonner';
 
 export const AddBottleTypeDialog = () => {
   const { addBottleType, bottleTypes } = useApp();
+  const colorPresets = ['#2563eb', '#16a34a', '#ef4444', '#f59e0b', '#111827', '#06b6d4', '#7c3aed', '#f97316'];
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     capacity: '',
     totalQuantity: '',
     unitPrice: '',
-    taxRate: '20'
+    purchasePrice: '',
+    taxRate: '20',
+    color: '#2563eb'
   });
 
   // Reset form when dialog opens
@@ -26,7 +29,9 @@ export const AddBottleTypeDialog = () => {
         capacity: '',
         totalQuantity: '',
         unitPrice: '',
-        taxRate: '20'
+        purchasePrice: '',
+        taxRate: '20',
+        color: '#2563eb'
       });
     }
   }, [open]);
@@ -52,7 +57,9 @@ export const AddBottleTypeDialog = () => {
       distributedQuantity: 0,
       remainingQuantity: totalQty,
       unitPrice: parseFloat(formData.unitPrice) || 0,
-      taxRate: parseFloat(formData.taxRate) || 0
+      purchasePrice: parseFloat(formData.purchasePrice) || 0,
+      taxRate: parseFloat(formData.taxRate) || 0,
+      color: formData.color || '#2563eb'
     };
 
     const result = await addBottleType(newBottle);
@@ -60,7 +67,7 @@ export const AddBottleTypeDialog = () => {
     if (result) {
       toast.success('Type de bouteille ajouté avec succès');
       setOpen(false);
-      setFormData({ name: '', capacity: '', totalQuantity: '', unitPrice: '', taxRate: '20' });
+      setFormData({ name: '', capacity: '', totalQuantity: '', unitPrice: '', purchasePrice: '', taxRate: '20', color: '#2563eb' });
     } else {
       toast.error('Erreur lors de l\'ajout du type de bouteille');
     }
@@ -121,6 +128,44 @@ export const AddBottleTypeDialog = () => {
               placeholder="150"
               required
             />
+          </div>
+          <div>
+            <Label htmlFor="purchasePrice">Prix d'achat (DH)</Label>
+            <Input
+              id="purchasePrice"
+              type="number"
+              step="0.01"
+              value={formData.purchasePrice}
+              onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+              placeholder="120"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="color">Couleur de la bouteille</Label>
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-3">
+                <Input
+                  id="color"
+                  type="color"
+                  className="h-10 w-16 p-1 cursor-pointer"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                />
+                <span className="text-xs font-mono text-slate-500">{formData.color}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {colorPresets.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color: preset })}
+                    className={`h-6 w-6 rounded-full border ${formData.color === preset ? 'border-slate-900 ring-2 ring-slate-300' : 'border-slate-300'}`}
+                    style={{ backgroundColor: preset }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
           <div>
             <Label htmlFor="taxRate">Taux de taxe (%)</Label>

@@ -78,22 +78,28 @@ const TruckTypeBadge = ({
   label: string;
 }) => {
   const [broken, setBroken] = useState(false);
-  const imageCandidatesByType: Record<'camion' | 'remorque' | 'allogaz', string[]> = {
+  const imageCandidatesByType: Record<'camion' | 'remorque' | 'allogaz' | 'clark', string[]> = {
     allogaz: ['/truck-types/allogaz.png', '/truck-types/allgaz.png', '/truck-types/allogaz', '/truck-types/allgaz'],
     remorque: ['/truck-types/remorque.png', '/truck-types/remorque'],
-    camion: ['/truck-types/camion.png', '/truck-types/camion']
+    camion: ['/truck-types/camion.png', '/truck-types/camion'],
+    clark: ['/truck-types/clark.jpeg', '/truck-types/clark.jpg', '/truck-types/clark.png', '/truck-types/clark']
   };
   const [imageIndex, setImageIndex] = useState(0);
-  const fallbackByType: Record<'camion' | 'remorque' | 'allogaz', string> = {
+  const fallbackByType: Record<'camion' | 'remorque' | 'allogaz' | 'clark', string> = {
     allogaz: '🚚',
     remorque: '🛞',
-    camion: '🚛'
+    camion: '🚛',
+    clark: '🦺'
   };
   const normalizedType = String(truckType || '').toLowerCase();
-  const safeType: 'camion' | 'remorque' | 'allogaz' =
-    normalizedType === 'camion' || normalizedType === 'remorque' || normalizedType === 'allogaz'
-      ? normalizedType
-      : 'allogaz';
+  const safeType: 'camion' | 'remorque' | 'allogaz' | 'clark' =
+    normalizedType === 'camion'
+      ? 'camion'
+      : normalizedType === 'remorque'
+        ? 'remorque'
+        : normalizedType === 'clark'
+          ? 'clark'
+          : 'allogaz';
   const imageCandidates = imageCandidatesByType[safeType];
   useEffect(() => {
     setBroken(false);
@@ -1499,7 +1505,9 @@ const Trucks = () => {
                               ? tu('truckTypes.camion', 'Camion')
                               : truck.truckType === 'remorque'
                                 ? tu('truckTypes.remorque', 'Remorque')
-                                : tu('truckTypes.allogaz', 'Allogaz')
+                                : truck.truckType === 'clark'
+                                  ? tu('truckTypes.clark', 'Clark')
+                                  : tu('truckTypes.allogaz', 'Allogaz')
                           }
                         />
                       </TableCell>
@@ -1754,7 +1762,9 @@ const Trucks = () => {
                         ? tu('truckTypes.camion', 'Camion')
                         : truck.truckType === 'remorque'
                           ? tu('truckTypes.remorque', 'Remorque')
-                          : tu('truckTypes.allogaz', 'Allogaz')
+                          : truck.truckType === 'clark'
+                            ? tu('truckTypes.clark', 'Clark')
+                            : tu('truckTypes.allogaz', 'Allogaz')
                     }
                   />
                   <Button variant="ghost" size="sm" className="text-indigo-600 hover:bg-indigo-50" onClick={() => { setHistoryTruckId(truck.id); setHistoryDialogOpen(true); }}>

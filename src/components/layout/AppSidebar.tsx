@@ -52,6 +52,7 @@ const menuItems: MenuItem[] = [
   { title: "supplyReturn", url: "/supply-return", icon: Route, permission: "supply-return" },
   { title: "petitCamion", url: "/petit-camion", icon: Truck, permission: "petit-camion" },
   { title: "exchanges", url: "/exchanges", icon: ArrowRightLeft, permission: "exchanges" },
+  { title: "transfer", url: "/transfer", icon: Route, permission: "transfer" },
   { title: "defectiveStock", url: "/defective-stock", icon: ShieldAlert, permission: "defective-stock" },
   { title: "fuelManagement", url: "/fuel-management", icon: Fuel, permission: "fuel-management" },
   { title: "repairs", url: "/repairs", icon: Wrench, permission: "repairs" },

@@ -30,7 +30,7 @@ export const AddTruckDialog = ({ trigger }: AddTruckDialogProps) => {
   const [formData, setFormData] = useState({
     matricule: '',
     driverId: '',
-    truckType: 'camion' as 'camion' | 'remorque' | 'petit-camion'
+    truckType: 'camion' as 'camion' | 'remorque' | 'petit-camion' | 'clark'
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,19 +102,35 @@ export const AddTruckDialog = ({ trigger }: AddTruckDialogProps) => {
 
           <div className="space-y-2">
             <Label htmlFor="truckType" className="text-slate-700 font-semibold ml-1">Type de véhicule</Label>
-            <Select value={formData.truckType} onValueChange={(value: 'camion' | 'remorque' | 'petit-camion') => setFormData({ ...formData, truckType: value })}>
+            <Select value={formData.truckType} onValueChange={(value: 'camion' | 'remorque' | 'petit-camion' | 'clark') => setFormData({ ...formData, truckType: value })}>
               <SelectTrigger className="h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-indigo-600 transition-all rounded-xl">
                 <SelectValue placeholder="Sélectionner le type" />
               </SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  <SelectItem value="camion" className="rounded-lg">🚛 Camion</SelectItem>
-                <SelectItem value="remorque" className="rounded-lg">
-                  <span className="inline-flex items-center gap-2">
-                    <TrailerIcon />
-                    <span>Remorque</span>
-                  </span>
-                </SelectItem>
-                <SelectItem value="petit-camion" className="rounded-lg">🚚 Allogaz</SelectItem>
+                  <SelectItem value="camion" className="rounded-lg">
+                    <span className="inline-flex items-center gap-2">
+                      <img src="/truck-types/camion.png" alt="Camion" className="h-4 w-6 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      <span>Camion</span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="remorque" className="rounded-lg">
+                    <span className="inline-flex items-center gap-2">
+                      <img src="/truck-types/remorque.png" alt="Remorque" className="h-4 w-6 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      <span>Remorque</span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="petit-camion" className="rounded-lg">
+                    <span className="inline-flex items-center gap-2">
+                      <img src="/truck-types/allogaz.png" alt="Allogaz" className="h-4 w-6 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      <span>Allogaz</span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="clark" className="rounded-lg">
+                    <span className="inline-flex items-center gap-2">
+                      <img src="/truck-types/clark.jpeg" alt="Clark" className="h-4 w-6 object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                      <span>Clark</span>
+                    </span>
+                  </SelectItem>
                 </SelectContent>
             </Select>
           </div>

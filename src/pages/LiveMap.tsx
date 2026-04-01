@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from "@/components/ui/card";
-import { MapPin, ShieldAlert, RefreshCw, Truck, Gauge, Clock3, Search, Target, Pause, Play, Maximize2, Minimize2, Flame, BellRing, Radar, Focus, Download, Volume2, VolumeX, Sparkles, Activity, PanelBottom, Table2, Rows3, Command, Layers, GitCompare, AlertTriangle, Wifi, WifiOff, Eye, EyeOff } from "lucide-react";
+import { MapPin, ShieldAlert, ShieldCheck, RefreshCw, Truck, Gauge, Clock3, Search, Target, Pause, Play, Maximize2, Minimize2, Flame, BellRing, Radar, Focus, Download, Volume2, VolumeX, Sparkles, Activity, PanelBottom, Table2, Rows3, Command, Layers, GitCompare, AlertTriangle, Wifi, WifiOff, Eye, EyeOff, Palette, Zap, History as HistoryIcon, LayoutDashboard, Navigation, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { supabase } from "@/lib/supabaseClient";
@@ -41,7 +41,7 @@ type AddressValue = {
   full: string;
 };
 
-type MapTheme = "osm" | "cartoLight" | "cartoDark";
+type MapTheme = "googleRoad";
 
 type LiveMapSettings = {
   refreshMs: string;
@@ -81,6 +81,8 @@ type LayerPreset = "operations" | "security" | "replay" | "focus";
 type DockWorkspace = "visibility" | "presets" | "display" | "actions";
 
 type SectionVisibility = {
+  liveIntelligence: boolean;
+  studioTactique: boolean;
   topModes: boolean;
   miniMap: boolean;
   storyTimeline: boolean;
@@ -104,20 +106,10 @@ type MapViewportState = {
 };
 
 const mapThemes: Record<MapTheme, { label: string; url: string; attribution: string }> = {
-  osm: {
-    label: "OpenStreetMap",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenStreetMap contributors",
-  },
-  cartoLight: {
-    label: "Carto Clair",
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-  },
-  cartoDark: {
-    label: "Carto Sombre",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+  googleRoad: {
+    label: "Google Maps",
+    url: `https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}${import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? `&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}` : ""}${import.meta.env.VITE_GOOGLE_MAPS_REGION ? `&region=${import.meta.env.VITE_GOOGLE_MAPS_REGION}` : ""}`,
+    attribution: "&copy; Google",
   },
 };
 
@@ -350,7 +342,7 @@ const LiveMap = () => {
   const [refreshPaused, setRefreshPaused] = useState(false);
   const [addressCache, setAddressCache] = useState<Record<string, AddressValue>>({});
   const [markerColor, setMarkerColor] = useState("#2563eb");
-  const [mapTheme, setMapTheme] = useState<MapTheme>("osm");
+  const [mapTheme, setMapTheme] = useState<MapTheme>("googleRoad");
   const [showTrace, setShowTrace] = useState(true);
   const [compactCards, setCompactCards] = useState(false);
   const [replaySpeed, setReplaySpeed] = useState<"1" | "2" | "4">("1");
@@ -394,6 +386,8 @@ const LiveMap = () => {
   const [recordingStatus, setRecordingStatus] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sectionVisibility, setSectionVisibility] = useState<SectionVisibility>({
+    liveIntelligence: true,
+    studioTactique: true,
     topModes: true,
     miniMap: true,
     storyTimeline: true,
@@ -594,9 +588,9 @@ const LiveMap = () => {
         return;
       }
       const nextFilter = typeof saved.deviceFilter === "string" ? saved.deviceFilter : "all";
-      const nextTheme = typeof saved.mapTheme === "string" ? saved.mapTheme : "osm";
+      const nextTheme = typeof saved.mapTheme === "string" ? saved.mapTheme : "googleRoad";
       const validFilters: DeviceFilter[] = ["all", "online", "offline", "moving", "stopped"];
-      const validThemes: MapTheme[] = ["osm", "cartoLight", "cartoDark"];
+      const validThemes: MapTheme[] = ["googleRoad"];
       if (validFilters.includes(nextFilter as DeviceFilter)) setDeviceFilter(nextFilter as DeviceFilter);
       if (validThemes.includes(nextTheme as MapTheme)) setMapTheme(nextTheme as MapTheme);
       if (typeof saved.refreshMs === "string") setRefreshMs(saved.refreshMs);
@@ -611,7 +605,7 @@ const LiveMap = () => {
       if (typeof saved.alertsLayerEnabled === "boolean") setAlertsLayerEnabled(saved.alertsLayerEnabled);
       if (typeof saved.adaptiveRefreshEnabled === "boolean") setAdaptiveRefreshEnabled(saved.adaptiveRefreshEnabled);
       if (typeof saved.sidePanelSize === "number") setSidePanelSize(Math.max(18, Math.min(45, saved.sidePanelSize)));
-      if (saved.designMode === "neon" || saved.designMode === "glass" || saved.designMode === "mission") setDesignMode(saved.designMode);
+      if (saved.designMode === "neon" || saved.designMode === "glass" || saved.designMode === "mission") setDesignMode(saved.designMode === "neon" ? "glass" : saved.designMode);
       if (typeof saved.spatialAudioEnabled === "boolean") setSpatialAudioEnabled(saved.spatialAudioEnabled);
       if (saved.panelMode === "feed" || saved.panelMode === "table") setPanelMode(saved.panelMode);
       if (typeof saved.minimalUiMode === "boolean") setMinimalUiMode(saved.minimalUiMode);
@@ -1195,9 +1189,6 @@ const LiveMap = () => {
   })), [drivingScores, topRiskVehicles]);
   const workspaceTabs = useMemo(() => ([
     { key: "actions" as const, label: tr("Pilotage", "القيادة"), icon: Command },
-    { key: "visibility" as const, label: tr("Visibilité", "الرؤية"), icon: Eye },
-    { key: "presets" as const, label: tr("Scènes", "المشاهد"), icon: Layers },
-    { key: "display" as const, label: tr("Affichage", "العرض"), icon: PanelBottom },
   ]), [tr]);
   const tableRows = useMemo(() => filteredDevices.slice(0, 12), [filteredDevices]);
   const densityTypographyClass = filteredDevices.length >= 90 || sidePanelSize <= 24 ? "text-xs" : "text-sm";
@@ -1373,9 +1364,10 @@ const LiveMap = () => {
   return (
     <div dir={uiLanguage === "ar" ? "rtl" : "ltr"} lang={uiLanguage} className={`relative h-[calc(100vh-1rem)] overflow-hidden p-2 md:p-3 ${skin.page}`}>
       <div className="pointer-events-none absolute inset-x-4 top-4 z-[700] flex flex-col gap-3">
-        <div className="pointer-events-auto flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <Card className={`w-full max-w-[640px] overflow-hidden rounded-[28px] ${skin.panel}`}>
-            <div className={`relative p-4 md:p-5 ${isDarkDesign ? "bg-gradient-to-r from-cyan-500/18 via-slate-900/10 to-transparent" : "bg-gradient-to-r from-cyan-100/80 via-white/60 to-transparent"}`}>
+        <div className={`pointer-events-auto flex flex-col ${compactCards ? "gap-2" : "gap-3"} xl:flex-row xl:items-start xl:justify-between`}>
+          {sectionVisibility.liveIntelligence && (
+          <Card className={`w-full ${compactCards ? "max-w-[520px]" : "max-w-[640px]"} overflow-hidden rounded-[28px] ${skin.panel}`}>
+            <div className={`relative ${compactCards ? "p-3 md:p-4" : "p-4 md:p-5"} ${isDarkDesign ? "bg-gradient-to-r from-cyan-500/18 via-slate-900/10 to-transparent" : "bg-gradient-to-r from-cyan-100/80 via-white/60 to-transparent"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className={`mb-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] ${isDarkDesign ? "border-cyan-300/30 bg-cyan-400/10 text-cyan-100" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>
@@ -1383,96 +1375,136 @@ const LiveMap = () => {
                     {tr("Live intelligence", "ذكاء مباشر")}
                   </div>
                   <div className="text-lg font-semibold md:text-2xl">{tr("Carte Live Cinématique", "الخريطة المباشرة السينمائية")}</div>
-                  <div className={`mt-1 max-w-[540px] text-sm ${contrastMutedClass}`}>
-                    {tr("Pilotage temps réel, narration tactique et vision opérationnelle dans une seule scène.", "قيادة لحظية وسرد تكتيكي ورؤية تشغيلية داخل مشهد واحد.")}
-                  </div>
+                  {!compactCards && (
+                    <div className={`mt-1 max-w-[540px] text-sm ${contrastMutedClass}`}>
+                      {tr("Pilotage temps réel, narration tactique et vision opérationnelle dans une seule scène.", "قيادة لحظية وسرد تكتيكي ورؤية تشغيلية داخل مشهد واحد.")}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <Badge className={`${connectionState === "online" ? "bg-cyan-500/25 text-cyan-100" : connectionState === "retrying" ? "bg-sky-500/25 text-sky-100" : "bg-blue-500/25 text-blue-100"} border-0`}>
                     {connectionState === "online" ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
                     {connectionState === "online" ? tr("En ligne", "متصل") : connectionState === "retrying" ? tr("Nouvel essai", "إعادة المحاولة") : tr("Hors ligne", "غير متصل")}
                   </Badge>
-                  <div className={`text-xs ${contrastMutedClass}`}>
-                    {tr("Score flotte moyen", "متوسط أسطول")} {fleetPulse.averageSpeed} km/h
-                  </div>
+                  {!compactCards && (
+                    <div className={`text-xs ${contrastMutedClass}`}>
+                      {tr("Score flotte moyen", "متوسط أسطول")} {fleetPulse.averageSpeed} km/h
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className={`${compactCards ? "mt-2" : "mt-4"} grid grid-cols-2 gap-2 md:grid-cols-4`}>
                 {heroMetrics.map((metric) => {
                   const MetricIcon = metric.icon;
                   return (
-                    <div key={metric.key} className={`rounded-2xl border px-3 py-2.5 ${isDarkDesign ? "border-white/10 bg-slate-950/35" : "border-white/70 bg-white/70 shadow-sm"}`}>
-                      <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br ${metric.accent}`}>
+                    <div key={metric.key} className={`rounded-2xl border ${compactCards ? "px-2 py-2" : "px-3 py-2.5"} ${isDarkDesign ? "border-white/10 bg-slate-950/35" : "border-white/70 bg-white/70 shadow-sm"}`}>
+                      <div className={`${compactCards ? "mb-1 h-6 w-6" : "mb-2 h-8 w-8"} flex items-center justify-center rounded-xl bg-gradient-to-br ${metric.accent}`}>
                         <MetricIcon className="h-4 w-4" />
                       </div>
-                      <div className="text-xl font-black md:text-2xl">{metric.value}</div>
-                      <div className={`text-[11px] uppercase tracking-[0.18em] ${contrastMutedClass}`}>{metric.label}</div>
+                      <div className={`${compactCards ? "text-lg" : "text-xl md:text-2xl"} font-black`}>{metric.value}</div>
+                      <div className={`text-[11px] uppercase tracking-[0.18em] ${contrastMutedClass}`}>{compactCards ? metric.label.split(" ")[0] : metric.label}</div>
                     </div>
                   );
                 })}
               </div>
             </div>
           </Card>
+          )}
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className={`flex items-center gap-1 rounded-2xl px-1.5 py-1.5 shadow-lg ${skin.panel}`}>
-              <Button size="sm" variant={uiLanguage === "fr" ? "default" : "outline"} className={uiLanguage === "fr" ? "" : contrastOutlineButtonClass} onClick={() => setUiLanguage("fr")}>FR</Button>
-              <Button size="sm" variant={uiLanguage === "ar" ? "default" : "outline"} className={uiLanguage === "ar" ? "" : contrastOutlineButtonClass} onClick={() => setUiLanguage("ar")}>AR</Button>
-            </div>
-            <Button
-              size="sm"
-              variant={minimalUiMode ? "default" : "outline"}
-              className={minimalUiMode ? skin.panel : `${skin.panel} ${contrastOutlineButtonClass}`}
-              onClick={() => setMinimalUiMode((value) => !value)}
-            >
-              <PanelBottom className="h-3.5 w-3.5 mr-1" />
-              {minimalUiMode ? tr("Vue complète", "عرض كامل") : tr("Vue carte pure", "عرض الخريطة فقط")}
-            </Button>
-            <Button size="sm" variant="outline" className={`${skin.panel} ${contrastOutlineButtonClass}`} onClick={() => setCommandPaletteOpen(true)}>
-              <Command className="h-3.5 w-3.5 mr-1" />
-              {tr("Commandes", "الأوامر")}
-            </Button>
-          </div>
-        </div>
-
-        {!minimalUiMode && (
-          <Card className={`pointer-events-auto overflow-hidden rounded-[24px] px-3 py-3 ${skin.panel}`}>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className={`${isDarkDesign ? "bg-white/10 text-slate-100" : "bg-slate-900 text-white"} border-0`}>
-                  {tr("Studio tactique", "الاستوديو التكتيكي")}
-                </Badge>
-                {commandDeckSummary.map((item) => (
-                  <div key={item.key} className={`rounded-full border px-3 py-1 text-xs ${isDarkDesign ? "border-white/10 bg-white/5" : "border-slate-200 bg-white/80"}`}>
-                    <span className={`mr-1 ${contrastMutedClass}`}>{item.label}</span>
-                    <span className="font-semibold">{item.value}</span>
-                  </div>
-                ))}
+          <Card className={`w-full xl:w-auto rounded-[22px] ${compactCards ? "p-2" : "p-2.5"} shadow-xl ${skin.panel}`}>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="flex items-center justify-between rounded-xl border px-2 py-1.5 border-slate-200/70 dark:border-white/10">
+                <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${contrastMutedClass}`}>{tr("Langue", "اللغة")}</span>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant={uiLanguage === "fr" ? "default" : "outline"} className={uiLanguage === "fr" ? "" : contrastOutlineButtonClass} onClick={() => setUiLanguage("fr")}>FR</Button>
+                  <Button size="sm" variant={uiLanguage === "ar" ? "default" : "outline"} className={uiLanguage === "ar" ? "" : contrastOutlineButtonClass} onClick={() => setUiLanguage("ar")}>AR</Button>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center justify-between rounded-xl border px-2 py-1.5 border-slate-200/70 dark:border-white/10">
+                <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${contrastMutedClass}`}>{tr("Panneaux", "اللوحات")}</span>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant={sectionVisibility.liveIntelligence ? "default" : "outline"} className={sectionVisibility.liveIntelligence ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("liveIntelligence")}>
+                    {sectionVisibility.liveIntelligence ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Live", "مباشر")}
+                  </Button>
+                  <Button size="sm" variant={sectionVisibility.studioTactique ? "default" : "outline"} className={sectionVisibility.studioTactique ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("studioTactique")}>
+                    {sectionVisibility.studioTactique ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Studio", "الاستوديو")}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-1.5 rounded-xl border px-2 py-1.5 border-slate-200/70 dark:border-white/10 sm:col-span-2 xl:col-span-1">
                 <Button
                   size="sm"
-                  variant={sectionVisibility.topModes ? "default" : "outline"}
-                  className={sectionVisibility.topModes ? "" : contrastOutlineButtonClass}
-                  onClick={() => toggleSectionVisibility("topModes")}
+                  variant={compactCards ? "default" : "outline"}
+                  className={compactCards ? "" : contrastOutlineButtonClass}
+                  onClick={() => setCompactCards((value) => !value)}
                 >
-                  {sectionVisibility.topModes ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}
-                  {tr("Studio visuel", "الاستوديو البصري")}
+                  <Minimize2 className="h-3.5 w-3.5 mr-1" />
+                  {compactCards ? tr("Ultra compact", "ضغط فائق") : tr("Mode compact", "وضع مضغوط")}
                 </Button>
-                {(["operations", "security", "focus", "replay"] as const).map((preset) => (
-                  <Button key={preset} size="sm" variant={activePreset === preset ? "default" : "outline"} className={activePreset === preset ? "" : contrastOutlineButtonClass} onClick={() => applyLayerPreset(preset)}>
-                    {preset === "operations" ? tr("Opérations", "العمليات") : preset === "security" ? tr("Sécurité", "الأمن") : preset === "focus" ? tr("Focus", "التركيز") : tr("Relecture", "الإعادة")}
+                <Button
+                  size="sm"
+                  variant={minimalUiMode ? "default" : "outline"}
+                  className={minimalUiMode ? "" : contrastOutlineButtonClass}
+                  onClick={() => setMinimalUiMode((value) => !value)}
+                >
+                  <PanelBottom className="h-3.5 w-3.5 mr-1" />
+                  {minimalUiMode ? tr("Vue complète", "عرض كامل") : tr("Vue carte pure", "عرض الخريطة فقط")}
+                </Button>
+                <Button size="sm" variant="outline" className={contrastOutlineButtonClass} onClick={() => setCommandPaletteOpen(true)}>
+                  <Command className="h-3.5 w-3.5 mr-1" />
+                  {tr("Commandes", "الأوامر")}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {!minimalUiMode && sectionVisibility.studioTactique && (
+          <Card className={`pointer-events-auto overflow-hidden rounded-[24px] ${compactCards ? "px-2 py-2" : "px-3 py-3"} ${skin.panel}`}>
+            <div className={`grid ${compactCards ? "gap-2" : "gap-3"} xl:grid-cols-[0.95fr,1.55fr]`}>
+              <div className={`rounded-2xl border p-2.5 ${isDarkDesign ? "border-white/10 bg-slate-950/20" : "border-slate-200/70 bg-white/70"}`}>
+                <div className="mb-2 flex items-center gap-2">
+                  <Badge className={`${isDarkDesign ? "bg-white/10 text-slate-100" : "bg-slate-900 text-white"} border-0`}>
+                    {tr("Studio tactique", "الاستوديو التكتيكي")}
+                  </Badge>
+                </div>
+                <div className={`grid gap-1.5 ${compactCards ? "md:grid-cols-1" : "md:grid-cols-2 xl:grid-cols-1"}`}>
+                  {commandDeckSummary.map((item) => (
+                    <div key={item.key} className={`rounded-xl border px-2.5 py-1.5 text-xs ${isDarkDesign ? "border-white/10 bg-white/5" : "border-slate-200 bg-white/80"}`}>
+                      <span className={`${contrastMutedClass}`}>{item.label}</span>
+                      <span className="ml-1 font-semibold">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className={`rounded-2xl border p-2.5 ${isDarkDesign ? "border-white/10 bg-slate-950/20" : "border-slate-200/70 bg-white/70"}`}>
+              <div className={`flex flex-wrap items-center ${compactCards ? "gap-1.5" : "gap-2"}`}>
+                {(["operations", "security", "focus"] as const).map((preset) => {
+                  let Icon = Command;
+                  if (preset === "security") Icon = ShieldCheck;
+                  if (preset === "focus") Icon = Target;
+                  return (
+                    <Button key={preset} size="sm" variant={activePreset === preset ? "default" : "outline"} className={activePreset === preset ? "" : contrastOutlineButtonClass} onClick={() => applyLayerPreset(preset)}>
+                      <Icon className="h-4 w-4 mr-1.5" />
+                      {preset === "operations" ? tr("Opérations", "العمليات") : preset === "security" ? tr("Sécurité", "الأمن") : tr("Focus", "التركيز")}
+                    </Button>
+                  );
+                })}
+                <Button size="sm" variant={sectionVisibility.selectedVehicle ? "default" : "outline"} className={sectionVisibility.selectedVehicle ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("selectedVehicle")}>
+                  <Target className="h-4 w-4 mr-1.5" />
+                  {tr("Focus véhicule", "تركيز المركبة")}
+                </Button>
+                <Button size="sm" variant={sectionVisibility.storyTimeline ? "default" : "outline"} className={sectionVisibility.storyTimeline ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("storyTimeline")}>
+                  <HistoryIcon className="h-4 w-4 mr-1.5" />
+                  {tr("Mode histoire live", "وضع القصة المباشرة")}
+                </Button>
+                {!compactCards && (
+                  <Button variant={designMode === "mission" ? "default" : "outline"} size="sm" onClick={() => setDesignMode("mission")} className={designMode === "mission" ? "" : contrastOutlineButtonClass}>
+                    <LayoutDashboard className="h-4 w-4 mr-1.5" />
+                    {tr("Contrôle Mission", "وضع المهمة")}
                   </Button>
-                ))}
-                {sectionVisibility.topModes && (
-                  <>
-                    {(["neon", "glass", "mission"] as const).map((mode) => (
-                      <Button key={mode} variant={designMode === mode ? "default" : "outline"} size="sm" onClick={() => setDesignMode(mode)} className={designMode === mode ? "" : contrastOutlineButtonClass}>
-                        {mode === "neon" ? tr("Néon Tactique", "نيون تكتيكي") : mode === "glass" ? tr("Verre Minimal Pro", "زجاج احترافي") : tr("Contrôle Mission", "وضع المهمة")}
-                      </Button>
-                    ))}
-                  </>
                 )}
+              </div>
               </div>
             </div>
           </Card>
@@ -1548,29 +1580,7 @@ const LiveMap = () => {
               </MapContainer>
             )}
 
-            {!minimalUiMode && sectionVisibility.miniMap && (
-            <div className={`absolute right-4 top-[180px] z-[600] w-[270px] overflow-hidden rounded-[24px] shadow-2xl ${skin.panel}`}>
-              <div className={`border-b px-3 py-2.5 ${isDarkDesign ? "border-white/10 bg-slate-950/35" : "border-slate-200/70 bg-white/80"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold">{tr("Mini théâtre", "المسرح المصغر")}</div>
-                    <div className={`text-[11px] ${contrastMutedClass}`}>{devicesInViewport.length} {tr("véhicules dans le cadre", "مركبات داخل المشهد")}</div>
-                  </div>
-                  {selectedDevice && selectedStatusKey && <Badge className={`${contrastBadgePalette[selectedStatusKey]} border-0`}>{statusLabels[selectedStatusKey]}</Badge>}
-                </div>
-              </div>
-              <div className="h-[170px]">
-                <MapContainer center={selectedDevice ? [selectedDevice.lat, selectedDevice.lng] : [31.7917, -7.0926]} zoom={5} zoomControl={false} attributionControl={false} className="h-full w-full">
-                  <TileLayer attribution={mapThemes[mapTheme].attribution} url={mapThemes[mapTheme].url} />
-                  {filteredDevices.slice(0, 40).map((device) => (
-                    <Circle key={`mini-${device.id}`} center={[device.lat, device.lng]} radius={650} pathOptions={{ color: selectedDeviceId === device.id ? "#2563eb" : "#94a3b8", fillColor: selectedDeviceId === device.id ? "#2563eb" : "#94a3b8", fillOpacity: 0.45, weight: 1 }} />
-                  ))}
-                </MapContainer>
-              </div>
-            </div>
-            )}
-
-            {!minimalUiMode && selectedDevice && (
+            {!minimalUiMode && selectedDevice && sectionVisibility.selectedVehicle && (
             <div className="absolute left-4 bottom-28 z-[610] w-[min(420px,calc(100vw-2rem))]">
               <Card className={`overflow-hidden rounded-[28px] ${skin.panel}`}>
                 <div className={`relative border-b px-4 py-4 ${isDarkDesign ? "border-white/10 bg-gradient-to-br from-cyan-500/18 via-slate-950/10 to-transparent" : "border-slate-200/70 bg-gradient-to-br from-cyan-50 via-white to-transparent"}`}>
@@ -1689,9 +1699,15 @@ const LiveMap = () => {
                   <div className="text-base font-semibold md:text-sm">{tr("Panneaux contextuels", "اللوحات السياقية")}</div>
                   <div className={`mt-1 text-xs ${contrastMutedClass}`}>{tr("Lecture opérationnelle, alertes et suivi ciblé.", "قراءة تشغيلية وتنبيهات وتتبع موجّه.")}</div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="sm" variant={panelMode === "feed" ? "default" : "outline"} className={panelMode === "feed" ? "" : contrastOutlineButtonClass} onClick={() => setPanelMode("feed")}><Rows3 className="h-3.5 w-3.5 mr-1" />{tr("Flux", "التدفق")}</Button>
-                  <Button size="sm" variant={panelMode === "table" ? "default" : "outline"} className={panelMode === "table" ? "" : contrastOutlineButtonClass} onClick={() => setPanelMode("table")}><Table2 className="h-3.5 w-3.5 mr-1" />{tr("Tableau", "الجدول")}</Button>
+                <div className="flex items-center gap-1 bg-slate-100/50 dark:bg-slate-900/50 p-1 rounded-xl">
+                  <Button size="sm" variant={panelMode === "feed" ? "default" : "ghost"} className={`h-8 px-3 rounded-lg transition-all ${panelMode === "feed" ? "shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900"}`} onClick={() => setPanelMode("feed")}>
+                    <Rows3 className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Flux</span>
+                  </Button>
+                  <Button size="sm" variant={panelMode === "table" ? "default" : "ghost"} className={`h-8 px-3 rounded-lg transition-all ${panelMode === "table" ? "shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900"}`} onClick={() => setPanelMode("table")}>
+                    <Table2 className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Tableau</span>
+                  </Button>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1703,14 +1719,6 @@ const LiveMap = () => {
                   <div className={`text-[11px] uppercase tracking-[0.18em] ${contrastMutedClass}`}>{tr("Offline / stale", "غير متصل / متقادم")}</div>
                   <div className="mt-1 text-xl font-black">{fleetPulse.offline + fleetPulse.stale}</div>
                 </div>
-              </div>
-            </div>
-
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-base md:text-sm font-semibold">{tr("Vue active", "العرض النشط")}</div>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant={panelMode === "feed" ? "default" : "outline"} className={panelMode === "feed" ? "" : contrastOutlineButtonClass} onClick={() => setPanelMode("feed")}><Rows3 className="h-3.5 w-3.5 mr-1" />{tr("Flux", "التدفق")}</Button>
-                <Button size="sm" variant={panelMode === "table" ? "default" : "outline"} className={panelMode === "table" ? "" : contrastOutlineButtonClass} onClick={() => setPanelMode("table")}><Table2 className="h-3.5 w-3.5 mr-1" />{tr("Tableau", "الجدول")}</Button>
               </div>
             </div>
 
@@ -1740,12 +1748,24 @@ const LiveMap = () => {
                     </div>
                   </div>
                 </div>
-                <div className="px-3 py-3">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Button size="sm" variant={followEnabled ? "default" : "outline"} className={followEnabled ? "" : contrastOutlineButtonClass} onClick={() => { setFollowEnabled((value) => !value); setSelectedDeviceId(selectedDevice.id); }}><Target className="h-3.5 w-3.5 mr-1" />{tr("Suivre", "تتبع")}</Button>
-                  <Button size="sm" variant="outline" className={contrastOutlineButtonClass} onClick={() => { setSelectedDeviceId(selectedDevice.id); setReplayActive(true); setReplayIndex(0); }}><Activity className="h-3.5 w-3.5 mr-1" />{tr("Relecture", "إعادة التشغيل")}</Button>
-                  <Button size="sm" variant="outline" className={contrastOutlineButtonClass} onClick={() => setPendingCenterDeviceId(selectedDevice.id)}>{tr("Centrer", "توسيط")}</Button>
-                  <Button size="sm" variant={compareIds.includes(selectedDevice.id) ? "default" : "outline"} className={compareIds.includes(selectedDevice.id) ? "" : contrastOutlineButtonClass} onClick={() => toggleCompareDevice(selectedDevice.id)}><GitCompare className="h-3.5 w-3.5 mr-1" />{tr("Comparer", "مقارنة")}</Button>
+                <div className="px-3 py-3 border-t border-slate-100 dark:border-white/10">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button size="sm" variant={followEnabled ? "default" : "outline"} className={`group transition-all ${followEnabled ? "" : contrastOutlineButtonClass}`} onClick={() => { setFollowEnabled((value) => !value); setSelectedDeviceId(selectedDevice.id); }}>
+                    <Navigation className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Suivre</span>
+                  </Button>
+                  <Button size="sm" variant="outline" className={`group transition-all ${contrastOutlineButtonClass}`} onClick={() => { setSelectedDeviceId(selectedDevice.id); setReplayActive(true); setReplayIndex(0); }}>
+                    <HistoryIcon className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Relecture</span>
+                  </Button>
+                  <Button size="sm" variant="outline" className={`group transition-all ${contrastOutlineButtonClass}`} onClick={() => setPendingCenterDeviceId(selectedDevice.id)}>
+                    <Crosshair className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Centrer</span>
+                  </Button>
+                  <Button size="sm" variant={compareIds.includes(selectedDevice.id) ? "default" : "outline"} className={`group transition-all ${compareIds.includes(selectedDevice.id) ? "" : contrastOutlineButtonClass}`} onClick={() => toggleCompareDevice(selectedDevice.id)}>
+                    <GitCompare className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Comparer</span>
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     const payload = { id: selectedDevice.id, name: selectedDevice.name, speed: selectedDevice.speed, status: selectedDevice.status, trace: traceHistory[selectedDevice.id] ?? [], exportedAt: new Date().toISOString() };
                     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1755,7 +1775,10 @@ const LiveMap = () => {
                     anchor.download = `replay-${selectedDevice.id}.json`;
                     anchor.click();
                     URL.revokeObjectURL(url);
-                  }} className={contrastOutlineButtonClass}><Download className="h-3.5 w-3.5 mr-1" />{tr("Exporter", "تصدير")}</Button>
+                  }} className={`group transition-all col-span-2 ${contrastOutlineButtonClass}`}>
+                    <Download className="h-4 w-4 mr-1.5" />
+                    <span className="text-xs font-sans">Exporter</span>
+                  </Button>
                 </div>
                 </div>
               </motion.div>
@@ -1867,25 +1890,7 @@ const LiveMap = () => {
               </>
             )}
 
-            {sectionVisibility.deviceList && panelMode === "feed" ? (
-              <div className="mt-3 space-y-1.5">
-                {filteredDevices.slice(0, 14).map((device) => {
-                  const statusKey = resolveDeviceStatusKey(device);
-                  const badgeClass = contrastBadgePalette[statusKey];
-                  return (
-                    <button key={device.id} type="button" onClick={() => setSelectedDeviceId(device.id)} className={`w-full rounded-md border px-2 py-1.5 text-left ${selectedDeviceId === device.id ? "border-primary bg-primary/10" : ""}`}>
-                      <div className="flex items-center justify-between gap-2 text-sm md:text-xs">
-                        <span className="truncate">{device.name}</span>
-                        <div className="flex items-center gap-1.5">
-                          <Badge className={`${badgeClass} border-0`}>{statusLabels[statusKey]}</Badge>
-                          <Button size="sm" variant={compareIds.includes(device.id) ? "default" : "outline"} className={compareIds.includes(device.id) ? "h-6 px-2" : `h-6 px-2 ${contrastOutlineButtonClass}`} onClick={(event) => { event.stopPropagation(); toggleCompareDevice(device.id); }}>{tr("Comp", "مق")}</Button>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : sectionVisibility.deviceList && showVehiclesTable ? (
+            {sectionVisibility.deviceList && showVehiclesTable ? (
               <Table className={isDarkDesign ? "[&_th]:text-slate-200 [&_td]:text-slate-100" : ""}>
                 <TableHeader>
                   <TableRow>
@@ -1974,8 +1979,10 @@ const LiveMap = () => {
                   <div className="rounded-2xl border border-white/10 p-2.5">
                     <div className="mb-2 text-sm font-semibold">{tr("Visibilité rapide", "إظهار سريع")}</div>
                     <div className="flex flex-wrap gap-1.5">
-                      <Button size="sm" variant={sectionVisibility.miniMap ? "default" : "outline"} className={sectionVisibility.miniMap ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("miniMap")}>{sectionVisibility.miniMap ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Mini-carte", "الخريطة المصغرة")}</Button>
-                      <Button size="sm" variant={sectionVisibility.storyTimeline ? "default" : "outline"} className={sectionVisibility.storyTimeline ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("storyTimeline")}>{sectionVisibility.storyTimeline ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Chronologie live", "الجدول الزمني المباشر")}</Button>
+                      <Button size="sm" variant={sectionVisibility.liveIntelligence ? "default" : "outline"} className={sectionVisibility.liveIntelligence ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("liveIntelligence")}>{sectionVisibility.liveIntelligence ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Live intelligence", "ذكاء مباشر")}</Button>
+                      <Button size="sm" variant={sectionVisibility.studioTactique ? "default" : "outline"} className={sectionVisibility.studioTactique ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("studioTactique")}>{sectionVisibility.studioTactique ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Studio tactique", "الاستوديو التكتيكي")}</Button>
+                      <Button size="sm" variant={sectionVisibility.selectedVehicle ? "default" : "outline"} className={sectionVisibility.selectedVehicle ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("selectedVehicle")}>{sectionVisibility.selectedVehicle ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Focus véhicule", "تركيز المركبة")}</Button>
+                      <Button size="sm" variant={sectionVisibility.storyTimeline ? "default" : "outline"} className={sectionVisibility.storyTimeline ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("storyTimeline")}>{sectionVisibility.storyTimeline ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Mode histoire live", "وضع القصة المباشرة")}</Button>
                       <Button size="sm" variant={sectionVisibility.incidentTimeline ? "default" : "outline"} className={sectionVisibility.incidentTimeline ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("incidentTimeline")}>{sectionVisibility.incidentTimeline ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Incidents", "الحوادث")}</Button>
                       <Button size="sm" variant={sectionVisibility.riskRadar ? "default" : "outline"} className={sectionVisibility.riskRadar ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("riskRadar")}>{sectionVisibility.riskRadar ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Radar risques", "رادار المخاطر")}</Button>
                       <Button size="sm" variant={sectionVisibility.alertsFeed ? "default" : "outline"} className={sectionVisibility.alertsFeed ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("alertsFeed")}>{sectionVisibility.alertsFeed ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}{tr("Flux alertes", "تدفق التنبيهات")}</Button>
@@ -2012,9 +2019,9 @@ const LiveMap = () => {
                     <div className="mb-2 text-sm font-semibold">{tr("Studio visuel", "الاستوديو البصري")}</div>
                     <div className="flex flex-wrap gap-1.5">
                       <Button size="sm" variant={sectionVisibility.topModes ? "default" : "outline"} className={sectionVisibility.topModes ? "" : contrastOutlineButtonClass} onClick={() => toggleSectionVisibility("topModes")}>{sectionVisibility.topModes ? tr("Modes visibles", "الأنماط ظاهرة") : tr("Modes masqués", "الأنماط مخفية")}</Button>
-                      {(["neon", "glass", "mission"] as const).map((mode) => (
+                      {(["glass", "mission"] as const).map((mode) => (
                         <Button key={mode} size="sm" variant={designMode === mode ? "default" : "outline"} className={designMode === mode ? "" : contrastOutlineButtonClass} onClick={() => setDesignMode(mode)}>
-                          {mode === "neon" ? tr("Néon", "نيون") : mode === "glass" ? tr("Verre", "زجاج") : tr("Mission", "مهمة")}
+                          {mode === "glass" ? tr("Verre", "زجاج") : tr("Mission", "مهمة")}
                         </Button>
                       ))}
                     </div>
@@ -2027,8 +2034,11 @@ const LiveMap = () => {
                   {sectionVisibility.dockDisplay && (
                     <div className="rounded-2xl border border-white/10 p-2.5">
                       <div className="mb-2 text-sm font-semibold">{tr("Réglages d'affichage", "إعدادات العرض")}</div>
+                      <div className={`mb-3 inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs ${isDarkDesign ? "border-white/10 bg-white/5" : "border-slate-200 bg-white/80"}`}>
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span className="font-semibold">Google Maps</span>
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
-                        <Button size="sm" variant={panelMode === "feed" ? "default" : "outline"} className={panelMode === "feed" ? "" : contrastOutlineButtonClass} onClick={() => setPanelMode((value) => value === "feed" ? "table" : "feed")}><PanelBottom className="h-3.5 w-3.5 mr-1" />{panelMode === "feed" ? tr("Tableau", "الجدول") : tr("Flux", "التدفق")}</Button>
                         <Button size="sm" variant={smartFocusEnabled ? "default" : "outline"} className={smartFocusEnabled ? "" : contrastOutlineButtonClass} onClick={() => setSmartFocusEnabled((value) => !value)}><Focus className="h-3.5 w-3.5 mr-1" />{tr("Focus", "التركيز")}</Button>
                         <Button size="sm" variant={alertsLayerEnabled ? "default" : "outline"} className={alertsLayerEnabled ? "" : contrastOutlineButtonClass} onClick={() => setAlertsLayerEnabled((value) => !value)}><BellRing className="h-3.5 w-3.5 mr-1" />{tr("Alertes carte", "تنبيهات الخريطة")}</Button>
                         <Button size="sm" variant={clusteringEnabled ? "default" : "outline"} className={clusteringEnabled ? "" : contrastOutlineButtonClass} onClick={() => setClusteringEnabled((value) => !value)}><Layers className="h-3.5 w-3.5 mr-1" />{tr("Regrouper", "تجميع")}</Button>
