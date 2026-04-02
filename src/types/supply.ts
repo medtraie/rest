@@ -1,6 +1,13 @@
 export interface Client {
   id: string;
   name: string;
+  code?: string;
+  localite?: string | number;
+  region?: string;
+  categorie?: string;
+  repr?: string;
+  dateDeb?: string;
+  dateFin?: string;
 }
 
 export interface SupplyOrder {

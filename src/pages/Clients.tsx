@@ -25,6 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { useT } from '@/contexts/LanguageContext';
+import { Client } from '@/types';
 
 const Clients = () => {
   const { clients, addClient, updateClient, deleteClient, supplyOrders = [] } = useApp();
@@ -35,9 +36,9 @@ const Clients = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
-  const [newClientName, setNewClientName] = useState('');
-  const [editClientName, setEditClientName] = useState('');
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [newClient, setNewClient] = useState<Partial<Client>>({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
+  const [editClient, setEditClient] = useState<Partial<Client>>({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
   
   // History states
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -156,27 +157,27 @@ const Clients = () => {
 
   const handleAddClient = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClientName.trim()) {
+    if (!newClient.name?.trim()) {
       toast.error(tu('toast.enterClientName', 'Veuillez entrer un nom de client'));
       return;
     }
-    addClient({ name: newClientName.trim() });
+    addClient(newClient as Client);
     toast.success(tu('toast.clientAdded', 'Client ajouté avec succès'));
     setAddDialogOpen(false);
-    setNewClientName('');
+    setNewClient({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
   };
 
   const handleEditClient = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient || !editClientName.trim()) {
+    if (!selectedClient || !editClient.name?.trim()) {
       toast.error(tu('toast.enterClientName', 'Veuillez entrer un nom de client'));
       return;
     }
-    updateClient(selectedClient.id, { name: editClientName.trim() });
+    updateClient(selectedClient.id, editClient);
     toast.success(tu('toast.clientUpdated', 'Client modifié avec succès'));
     setEditDialogOpen(false);
     setSelectedClient(null);
-    setEditClientName('');
+    setEditClient({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
   };
 
   const handleDeleteClient = () => {
@@ -187,13 +188,13 @@ const Clients = () => {
     setSelectedClient(null);
   };
 
-  const openEditDialog = (client: { id: string; name: string }) => {
+  const openEditDialog = (client: Client) => {
     setSelectedClient(client);
-    setEditClientName(client.name);
+    setEditClient(client);
     setEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (client: { id: string; name: string }) => {
+  const openDeleteDialog = (client: Client) => {
     setSelectedClient(client);
     setDeleteDialogOpen(true);
   };
@@ -204,7 +205,7 @@ const Clients = () => {
     setSelectedOrders([]);
   };
 
-  const openHistoryDialog = (client: { id: string; name: string }) => {
+  const openHistoryDialog = (client: Client) => {
     setSelectedClient(client);
     resetFilters();
     setHistoryDialogOpen(true);
@@ -304,15 +305,80 @@ const Clients = () => {
                 <DialogTitle>{tu('dialog.addTitle', 'Ajouter un client')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleAddClient} className="space-y-4">
-                <div>
-                  <Label htmlFor="clientName">{tu('form.clientName', 'Nom du client')}</Label>
-                  <Input
-                    id="clientName"
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    placeholder={tu('form.clientNamePlaceholder', 'Ex: Restaurant Al Amal')}
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label htmlFor="clientName">{tu('form.clientName', 'Nom du client')}</Label>
+                    <Input
+                      id="clientName"
+                      value={newClient.name}
+                      onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                      placeholder={tu('form.clientNamePlaceholder', 'Ex: Restaurant Al Amal')}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientCode">Code</Label>
+                    <Input
+                      id="clientCode"
+                      value={newClient.code}
+                      onChange={(e) => setNewClient({ ...newClient, code: e.target.value })}
+                      placeholder="Ex: L125 ou F4015"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientLocalite" className="flex items-center gap-1">Localité <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                    <Input
+                      id="clientLocalite"
+                      value={newClient.localite}
+                      onChange={(e) => setNewClient({ ...newClient, localite: e.target.value })}
+                      placeholder="Nom ou numéro"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientRegion">Région</Label>
+                    <Input
+                      id="clientRegion"
+                      value={newClient.region}
+                      onChange={(e) => setNewClient({ ...newClient, region: e.target.value })}
+                      placeholder="Ex: BENI MELLAL"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientCategorie">Catégorie</Label>
+                    <Input
+                      id="clientCategorie"
+                      value={newClient.categorie}
+                      onChange={(e) => setNewClient({ ...newClient, categorie: e.target.value })}
+                      placeholder="Ex: LIVREUR"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="clientRepr">Repr</Label>
+                    <Input
+                      id="clientRepr"
+                      value={newClient.repr}
+                      onChange={(e) => setNewClient({ ...newClient, repr: e.target.value })}
+                      placeholder="Ex: L512"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientDateDeb" className="flex items-center gap-1">Date Deb <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                    <Input
+                      id="clientDateDeb"
+                      type="date"
+                      value={newClient.dateDeb}
+                      onChange={(e) => setNewClient({ ...newClient, dateDeb: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="clientDateFin" className="flex items-center gap-1">Date Fin <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                    <Input
+                      id="clientDateFin"
+                      type="date"
+                      value={newClient.dateFin}
+                      onChange={(e) => setNewClient({ ...newClient, dateFin: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <Button type="submit" className="w-full">{tu('actions.add', 'Ajouter')}</Button>
               </form>
@@ -514,10 +580,19 @@ const Clients = () => {
                         <Users className="w-5 h-5 text-indigo-600" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-900 truncate">{client.name}</p>
-                        <p className="text-xs text-slate-500 truncate">
+                        <p className="font-semibold text-slate-900 truncate">
+                          {client.name} {client.code && <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded ml-1">{client.code}</span>}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">
                           {orderCount} {tu('common.orders', 'Bons')} · {totalAmount.toFixed(2)} DH
                         </p>
+                        {(client.region || client.localite || client.categorie) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {client.region && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{client.region}</span>}
+                            {client.localite && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{client.localite}</span>}
+                            {client.categorie && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{client.categorie}</span>}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-700">
@@ -583,10 +658,19 @@ const Clients = () => {
                       <Users className="w-5 h-5 text-indigo-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold truncate">{client.name}</p>
+                      <p className="font-semibold truncate">
+                        {client.name} {client.code && <span className="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded ml-1">{client.code}</span>}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {orderCount} {tu('common.orders', 'Bons')} · {totalAmount.toFixed(2)} DH · {tu('common.last', 'Dernier')}: {lastOrderDate ? format(new Date(lastOrderDate), 'dd/MM/yyyy') : 'N/A'}
                       </p>
+                      {(client.region || client.localite || client.categorie) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {client.region && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{client.region}</span>}
+                          {client.localite && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{client.localite}</span>}
+                          {client.categorie && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{client.categorie}</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -754,15 +838,80 @@ const Clients = () => {
             <DialogTitle>{tu('dialog.editTitle', 'Modifier le client')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditClient} className="space-y-4">
-            <div>
-              <Label htmlFor="editClientName">{tu('form.clientName', 'Nom du client')}</Label>
-              <Input
-                id="editClientName"
-                value={editClientName}
-                onChange={(e) => setEditClientName(e.target.value)}
-                placeholder={tu('form.clientNameSimplePlaceholder', 'Nom du client')}
-                required
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="editClientName">{tu('form.clientName', 'Nom du client')}</Label>
+                <Input
+                  id="editClientName"
+                  value={editClient.name || ''}
+                  onChange={(e) => setEditClient({ ...editClient, name: e.target.value })}
+                  placeholder={tu('form.clientNameSimplePlaceholder', 'Nom du client')}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientCode">Code</Label>
+                <Input
+                  id="editClientCode"
+                  value={editClient.code || ''}
+                  onChange={(e) => setEditClient({ ...editClient, code: e.target.value })}
+                  placeholder="Ex: L125 ou F4015"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientLocalite" className="flex items-center gap-1">Localité <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                <Input
+                  id="editClientLocalite"
+                  value={editClient.localite || ''}
+                  onChange={(e) => setEditClient({ ...editClient, localite: e.target.value })}
+                  placeholder="Nom ou numéro"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientRegion">Région</Label>
+                <Input
+                  id="editClientRegion"
+                  value={editClient.region || ''}
+                  onChange={(e) => setEditClient({ ...editClient, region: e.target.value })}
+                  placeholder="Ex: BENI MELLAL"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientCategorie">Catégorie</Label>
+                <Input
+                  id="editClientCategorie"
+                  value={editClient.categorie || ''}
+                  onChange={(e) => setEditClient({ ...editClient, categorie: e.target.value })}
+                  placeholder="Ex: LIVREUR"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="editClientRepr">Repr</Label>
+                <Input
+                  id="editClientRepr"
+                  value={editClient.repr || ''}
+                  onChange={(e) => setEditClient({ ...editClient, repr: e.target.value })}
+                  placeholder="Ex: L512"
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientDateDeb" className="flex items-center gap-1">Date Deb <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                <Input
+                  id="editClientDateDeb"
+                  type="date"
+                  value={editClient.dateDeb || ''}
+                  onChange={(e) => setEditClient({ ...editClient, dateDeb: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editClientDateFin" className="flex items-center gap-1">Date Fin <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+                <Input
+                  id="editClientDateFin"
+                  type="date"
+                  value={editClient.dateFin || ''}
+                  onChange={(e) => setEditClient({ ...editClient, dateFin: e.target.value })}
+                />
+              </div>
             </div>
             <Button type="submit" className="w-full">{tu('actions.save', 'Enregistrer')}</Button>
           </form>
