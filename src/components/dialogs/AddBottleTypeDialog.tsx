@@ -12,6 +12,7 @@ export const AddBottleTypeDialog = () => {
   const colorPresets = ['#2563eb', '#16a34a', '#ef4444', '#f59e0b', '#111827', '#06b6d4', '#7c3aed', '#f97316'];
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
+    code: '',
     name: '',
     capacity: '',
     totalQuantity: '',
@@ -25,6 +26,7 @@ export const AddBottleTypeDialog = () => {
   React.useEffect(() => {
     if (open) {
       setFormData({
+        code: '',
         name: '',
         capacity: '',
         totalQuantity: '',
@@ -51,6 +53,7 @@ export const AddBottleTypeDialog = () => {
     const totalQty = parseInt(formData.totalQuantity) || 0;
     const newBottle = {
       id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36),
+      code: formData.code.trim() || undefined,
       name: formData.name,
       capacity: formData.capacity,
       totalQuantity: totalQty,
@@ -67,7 +70,7 @@ export const AddBottleTypeDialog = () => {
     if (result) {
       toast.success('Type de bouteille ajouté avec succès');
       setOpen(false);
-      setFormData({ name: '', capacity: '', totalQuantity: '', unitPrice: '', purchasePrice: '', taxRate: '20', color: '#2563eb' });
+      setFormData({ code: '', name: '', capacity: '', totalQuantity: '', unitPrice: '', purchasePrice: '', taxRate: '20', color: '#2563eb' });
     } else {
       toast.error('Erreur lors de l\'ajout du type de bouteille');
     }
@@ -86,6 +89,15 @@ export const AddBottleTypeDialog = () => {
           <DialogTitle>Ajouter un type de bouteille</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="code" className="flex items-center gap-1">Code <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span></Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="Ex: 6003"
+            />
+          </div>
           <div>
             <Label htmlFor="name">Nom</Label>
             <Input

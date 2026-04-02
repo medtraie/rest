@@ -126,6 +126,7 @@ export interface Repair {
 }
 export interface BottleType {
   id: string;
+  code?: string;
   name: string;
   capacity: string;
   totalQuantity: number;
