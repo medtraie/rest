@@ -92,6 +92,7 @@ const Exchanges = () => {
   
   const [exchangeForm, setExchangeForm] = useState({
     exchangeMode: 'simple' as 'simple' | 'duel',
+    code: '',
     companyName: '',
     sentCompany: '',
     receivedCompany: '',
@@ -212,6 +213,7 @@ const Exchanges = () => {
       : exchangeForm.companyName;
 
     await addExchange({
+      code: exchangeForm.code || undefined,
       companyName: companyLabel,
       clientName: exchangeForm.clientName || undefined,
       bottleType: bottleTypeData?.name || '',
@@ -278,6 +280,7 @@ const Exchanges = () => {
 
     setExchangeForm({
       exchangeMode: 'simple',
+      code: '',
       companyName: '',
       sentCompany: '',
       receivedCompany: '',
@@ -1164,7 +1167,7 @@ const Exchanges = () => {
           
           <div className="p-6 space-y-6 bg-white">
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-slate-500 uppercase">
+                <Label className="text-xs font-bold text-slate-500 uppercase">
                 {tr("Mode d'échange", "وضع التبديل")}
               </Label>
               <Select
@@ -1185,6 +1188,19 @@ const Exchanges = () => {
                   <SelectItem value="duel">{tr("Changement duel", "تبديل ثنائي")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Code field */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-500 uppercase">
+                Code
+              </Label>
+              <Input
+                value={exchangeForm.code}
+                onChange={(e) => setExchangeForm({ ...exchangeForm, code: e.target.value })}
+                className="rounded-xl border-slate-200 h-11 font-mono"
+                placeholder="Ex: EX-2026-001"
+              />
             </div>
 
             {exchangeForm.exchangeMode === 'duel' ? (
@@ -1272,8 +1288,8 @@ const Exchanges = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="envoi">{tr("J'envoie des bouteilles", "أرسل قنينات")}</SelectItem>
-                    <SelectItem value="reception">{tr("Je reçois des bouteilles", "أتلقى قنينات")}</SelectItem>
+                    <SelectItem value="envoi">{tr("Flux B.S", "تدفق B.S")}</SelectItem>
+                    <SelectItem value="reception">{tr("Flux B.D", "تدفق B.D")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

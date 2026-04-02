@@ -166,6 +166,7 @@ export interface Driver {
 }
 export interface CompanyExchange {
   id: string;
+  code?: string;
   companyName: string;
   clientName?: string;
   bottleType: string;
