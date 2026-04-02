@@ -27,6 +27,37 @@ import { motion } from 'framer-motion';
 import { useT } from '@/contexts/LanguageContext';
 import { Client } from '@/types';
 
+const EMPTY_CLIENT_FORM: Partial<Client> = {
+  name: '',
+  code: '',
+  localite: '',
+  region: '',
+  categorie: '',
+  repr: '',
+  dateDeb: '',
+  dateFin: ''
+};
+
+const normalizeClientPayload = (client: Partial<Client>): Client => {
+  const cleanString = (value?: string | number) => {
+    if (value === undefined || value === null) return undefined;
+    const parsed = String(value).trim();
+    return parsed.length > 0 ? parsed : undefined;
+  };
+  const name = cleanString(client.name) || '';
+  return {
+    ...(client.id ? { id: client.id } : {}),
+    name,
+    code: cleanString(client.code),
+    localite: cleanString(client.localite),
+    region: cleanString(client.region),
+    categorie: cleanString(client.categorie),
+    repr: cleanString(client.repr),
+    dateDeb: cleanString(client.dateDeb),
+    dateFin: cleanString(client.dateFin)
+  };
+};
+
 const Clients = () => {
   const { clients, addClient, updateClient, deleteClient, supplyOrders = [] } = useApp();
   const t = useT();
@@ -37,8 +68,8 @@ const Clients = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [newClient, setNewClient] = useState<Partial<Client>>({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
-  const [editClient, setEditClient] = useState<Partial<Client>>({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
+  const [newClient, setNewClient] = useState<Partial<Client>>(EMPTY_CLIENT_FORM);
+  const [editClient, setEditClient] = useState<Partial<Client>>(EMPTY_CLIENT_FORM);
   
   // History states
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -155,29 +186,35 @@ const Clients = () => {
     }
   };
 
-  const handleAddClient = (e: React.FormEvent) => {
+  const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newClient.name?.trim()) {
+    const payload = normalizeClientPayload(newClient);
+    if (!payload.name.trim()) {
       toast.error(tu('toast.enterClientName', 'Veuillez entrer un nom de client'));
       return;
     }
-    addClient(newClient as Client);
+    const createdId = await addClient(payload);
+    if (!createdId) {
+      toast.error(tu('toast.clientAddFailed', 'Échec de l’enregistrement du client'));
+      return;
+    }
     toast.success(tu('toast.clientAdded', 'Client ajouté avec succès'));
     setAddDialogOpen(false);
-    setNewClient({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
+    setNewClient(EMPTY_CLIENT_FORM);
   };
 
-  const handleEditClient = (e: React.FormEvent) => {
+  const handleEditClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient || !editClient.name?.trim()) {
+    const payload = normalizeClientPayload(editClient);
+    if (!selectedClient || !payload.name.trim()) {
       toast.error(tu('toast.enterClientName', 'Veuillez entrer un nom de client'));
       return;
     }
-    updateClient(selectedClient.id, editClient);
+    await updateClient(selectedClient.id, payload);
     toast.success(tu('toast.clientUpdated', 'Client modifié avec succès'));
     setEditDialogOpen(false);
     setSelectedClient(null);
-    setEditClient({ name: '', code: '', localite: '', region: '', categorie: '', repr: '', dateDeb: '', dateFin: '' });
+    setEditClient(EMPTY_CLIENT_FORM);
   };
 
   const handleDeleteClient = () => {
@@ -190,7 +227,7 @@ const Clients = () => {
 
   const openEditDialog = (client: Client) => {
     setSelectedClient(client);
-    setEditClient(client);
+    setEditClient({ ...EMPTY_CLIENT_FORM, ...client });
     setEditDialogOpen(true);
   };
 

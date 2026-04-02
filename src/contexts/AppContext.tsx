@@ -173,6 +173,8 @@ const defaultRoles: Role[] = [
 interface AppContextType {
   clients: Client[];
   addClient: (client: Client) => Promise<string | null>;
+  updateClient: (id: string, patch: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
   brands: Brand[];
   addBrand: (brand: Brand) => Promise<void>;
   drivers: Driver[];
@@ -558,6 +560,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         return created.id;
       }
       return null;
+    };
+
+    const updateClient = async (id: string, patch: Partial<Client>) => {
+      const updated = await supabaseService.update<Client>("clients", id, patch);
+      if (updated) {
+        setClients((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      }
+    };
+
+    const deleteClient = async (id: string) => {
+      const success = await supabaseService.delete("clients", id);
+      if (success) {
+        setClients((prev) => prev.filter((c) => c.id !== id));
+      }
     };
 
     const addSupplier = async (supplier: Supplier) => {
@@ -1903,6 +1919,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     clients,
     addClient,
+    updateClient,
+    deleteClient,
     brands,
     addBrand,
     drivers: driversWithTransactions,
