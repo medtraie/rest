@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type NavTheme = 'indigo' | 'emerald' | 'sunset' | 'violet';
 
@@ -82,6 +83,19 @@ const Settings = () => {
     if (stored === 'emerald' || stored === 'sunset' || stored === 'violet' || stored === 'indigo') return stored;
     return 'indigo';
   });
+  const [priceZone, setPriceZone] = useState<0 | 1>(0);
+  const [pricing, setPricing] = useState<Array<{
+    id?: string;
+    code: string;
+    designation: string;
+    prix_dif: number;
+    prix_def: number;
+    prix_unitaire: number;
+    prix_achat: number;
+    zone: 0 | 1;
+  }>>([]);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
 
   useEffect(() => {
     if (!assignmentRoleId && roles.length > 0) {
@@ -106,6 +120,86 @@ const Settings = () => {
     };
     loadGpsSettings();
   }, []);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      setPricingLoading(true);
+      const { data, error } = await supabase
+        .from('pricing_settings')
+        .select('*')
+        .eq('zone', priceZone)
+        .order('code', { ascending: true });
+      if (error) {
+        toast({ title: tr('Erreur chargement tarifs', 'خطأ في تحميل التعريفات'), description: error.message, variant: 'destructive' });
+        setPricingLoading(false);
+        return;
+      }
+      const rows = (data ?? []).map((r: any) => ({
+        id: String(r.id),
+        code: String(r.code ?? ''),
+        designation: String(r.designation ?? ''),
+        prix_dif: Number(r.prix_dif ?? 0),
+        prix_def: Number(r.prix_def ?? 0),
+        prix_unitaire: Number(r.prix_unitaire ?? 0),
+        prix_achat: Number(r.prix_achat ?? 0),
+        zone: Number(r.zone ?? 0) as 0 | 1,
+      }));
+      setPricing(rows);
+      setPricingLoading(false);
+    };
+    loadPricing();
+  }, [priceZone]);
+
+  const addPricingRow = () => {
+    setPricing(prev => [
+      ...prev,
+      { code: '', designation: '', prix_dif: 0, prix_def: 0, prix_unitaire: 0, prix_achat: 0, zone: priceZone }
+    ]);
+  };
+
+  const updateRowField = (index: number, field: keyof (typeof pricing)[number], value: string) => {
+    setPricing(prev => {
+      const next = [...prev];
+      const row = { ...next[index] };
+      if (['prix_dif', 'prix_def', 'prix_unitaire', 'prix_achat'].includes(field as string)) {
+        (row as any)[field] = Number(value) || 0;
+      } else {
+        (row as any)[field] = value;
+      }
+      next[index] = row;
+      return next;
+    });
+  };
+
+  const saveRow = async (index: number) => {
+    const row = pricing[index];
+    const payload = {
+      id: row.id,
+      code: row.code?.trim() || null,
+      designation: row.designation?.trim() || null,
+      prix_dif: Number(row.prix_dif) || 0,
+      prix_def: Number(row.prix_def) || 0,
+      prix_unitaire: Number(row.prix_unitaire) || 0,
+      prix_achat: Number(row.prix_achat) || 0,
+      zone: row.zone,
+      updated_at: new Date().toISOString()
+    };
+    setPricingSaving(true);
+    const { data, error } = await supabase.from('pricing_settings').upsert(payload, { onConflict: 'id' }).select().maybeSingle();
+    setPricingSaving(false);
+    if (error) {
+      toast({ title: tr('Échec de sauvegarde', 'فشل الحفظ'), description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: tr('Tarif enregistré', 'تم حفظ التسعيرة') });
+    if (data) {
+      setPricing(prev => {
+        const next = [...prev];
+        next[index] = { ...row, id: String(data.id) };
+        return next;
+      });
+    }
+  };
 
   const handleImport = (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,7 +374,7 @@ const Settings = () => {
         </Card>
 
         <Tabs defaultValue="operations" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 border border-slate-700 bg-slate-900/90">
+          <TabsList className="grid w-full grid-cols-4 border border-slate-700 bg-slate-900/90">
             <TabsTrigger value="operations" className="text-slate-200 hover:text-white data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               {tr('Opérations', 'العمليات')}
             </TabsTrigger>
@@ -290,7 +384,130 @@ const Settings = () => {
             <TabsTrigger value="system" className="text-slate-200 hover:text-white data-[state=active]:bg-slate-700 data-[state=active]:text-white">
               {tr('Système', 'النظام')}
             </TabsTrigger>
+            <TabsTrigger value="pricing" className="text-slate-200 hover:text-white data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+              {tr('Paramétrage', 'الإعدادات التفصيلية')}
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="pricing" className="space-y-6 m-0">
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardHeader className="border-b border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-slate-100">{tr('Paramétrage Tarifs', 'ضبط التعريفات')}</CardTitle>
+                    <CardDescription className="text-slate-300">
+                      {tr('أسعار حسب المنطقة. بدّل بين Zone 0 و Zone 1 وحرر القيم مباشرة.', 'Tarifs par zone. Basculez entre Zone 0 et Zone 1 et éditez directement.')}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant={priceZone === 0 ? 'default' : 'outline'} onClick={() => setPriceZone(0)} className={priceZone === 0 ? 'bg-indigo-600' : ''}>
+                      Zone 0
+                    </Button>
+                    <Button variant={priceZone === 1 ? 'default' : 'outline'} onClick={() => setPriceZone(1)} className={priceZone === 1 ? 'bg-indigo-600' : ''}>
+                      Zone 1
+                    </Button>
+                    <Button onClick={addPricingRow} className="bg-emerald-600 hover:bg-emerald-700">
+                      + {tr('Ajouter', 'إضافة')}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Code</TableHead>
+                        <TableHead className="text-slate-200">{tr('Désignation', 'التعيين')}</TableHead>
+                        <TableHead className="text-slate-200">Prix DIF</TableHead>
+                        <TableHead className="text-slate-200">Prix DEF</TableHead>
+                        <TableHead className="text-slate-200">{tr('Prix Unitaire', 'السعر الوحدوي')}</TableHead>
+                        <TableHead className="text-slate-200">{tr("Prix d'achat", 'سعر الشراء')}</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pricingLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-slate-300 py-6">
+                            {tr('Chargement...', 'جارٍ التحميل...')}
+                          </TableCell>
+                        </TableRow>
+                      ) : pricing.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-slate-400 py-6">
+                            {tr('Aucune ligne. Cliquez sur Ajouter.', 'لا توجد أسطر. اضغط إضافة.')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        pricing.map((row, idx) => (
+                          <TableRow key={row.id ?? `tmp-${idx}`}>
+                            <TableCell>
+                              <Input
+                                value={row.code}
+                                onChange={(e) => updateRowField(idx, 'code', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                                placeholder="6003"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={row.designation}
+                                onChange={(e) => updateRowField(idx, 'designation', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                                placeholder="TISSIR BNG 12KG"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={row.prix_dif}
+                                onChange={(e) => updateRowField(idx, 'prix_dif', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={row.prix_def}
+                                onChange={(e) => updateRowField(idx, 'prix_def', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={row.prix_unitaire}
+                                onChange={(e) => updateRowField(idx, 'prix_unitaire', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={row.prix_achat}
+                                onChange={(e) => updateRowField(idx, 'prix_achat', e.target.value)}
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                onClick={() => saveRow(idx)}
+                                disabled={pricingSaving}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                              >
+                                {pricingSaving ? tr('Sauvegarde...', 'جارٍ الحفظ...') : tr('Enregistrer', 'حفظ')}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="operations" className="space-y-6 m-0">
             <div className="grid gap-6 lg:grid-cols-2">
