@@ -14,12 +14,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion } from 'framer-motion';
 import { useT } from '@/contexts/LanguageContext';
+import { kvGet, kvSet } from '@/lib/kv';
 
 const Drivers = () => {
   const { drivers, bottleTypes, transactions, cashOperations, deleteDriver, canDeleteDriver } = useApp();
@@ -42,8 +44,126 @@ const Drivers = () => {
   const [driversSort, setDriversSort] = useState<'priority' | 'balance'>('priority');
   const [commandQuery, setCommandQuery] = useState('');
   const [priorityMode, setPriorityMode] = useState<'all' | 'hot'>('all');
+  const [aideDialogOpen, setAideDialogOpen] = useState(false);
+  const [aideDriver, setAideDriver] = useState<DriverType | null>(null);
+  const [aideDraft, setAideDraft] = useState('');
+  const [aideCodeDraft, setAideCodeDraft] = useState('');
+  const [aideLivreurCatalog, setAideLivreurCatalog] = useState<Array<{ name: string; codeAL?: string }>>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = window.localStorage.getItem('aide-livreur-catalog');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((item: any) => ({
+          name: String(item?.name || '').trim(),
+          codeAL: String(item?.codeAL || '').trim() || undefined,
+        }))
+        .filter((item: { name: string; codeAL?: string }) => item.name.length > 0);
+    } catch {
+      return [];
+    }
+  });
+  const upsertAideLivreurInCatalog = React.useCallback((name: string, codeAL?: string) => {
+    const normalizedName = String(name || '').trim();
+    const normalizedCode = String(codeAL || '').trim() || undefined;
+    if (!normalizedName) return;
+    setAideLivreurCatalog((prev) => {
+      const idx = prev.findIndex((item) => item.name.toLowerCase() === normalizedName.toLowerCase());
+      const next = [...prev];
+      if (idx >= 0) {
+        const current = next[idx];
+        next[idx] = {
+          name: current.name || normalizedName,
+          codeAL: normalizedCode ?? current.codeAL,
+        };
+      } else {
+        next.push({ name: normalizedName, codeAL: normalizedCode });
+      }
+      next.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+      return next;
+    });
+  }, []);
+  React.useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const cloudCatalog = await kvGet<Array<{ name: string; codeAL?: string }>>('aide-livreur-catalog');
+        if (!active || !Array.isArray(cloudCatalog)) return;
+        const normalized = cloudCatalog
+          .map((item) => ({
+            name: String(item?.name || '').trim(),
+            codeAL: String(item?.codeAL || '').trim() || undefined,
+          }))
+          .filter((item) => item.name.length > 0);
+        if (normalized.length > 0) {
+          setAideLivreurCatalog((prev) => {
+            const merged = [...prev];
+            normalized.forEach((item) => {
+              const idx = merged.findIndex((entry) => entry.name.toLowerCase() === item.name.toLowerCase());
+              if (idx >= 0) {
+                merged[idx] = { name: merged[idx].name, codeAL: item.codeAL ?? merged[idx].codeAL };
+              } else {
+                merged.push(item);
+              }
+            });
+            merged.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+            return merged;
+          });
+        }
+      } catch {}
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+  React.useEffect(() => {
+    (drivers || []).forEach((driver) => {
+      if (driver.aideLivreurs) {
+        upsertAideLivreurInCatalog(driver.aideLivreurs, driver.codeAL);
+      }
+    });
+  }, [drivers, upsertAideLivreurInCatalog]);
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem('aide-livreur-catalog', JSON.stringify(aideLivreurCatalog));
+    } catch {}
+    (async () => {
+      try {
+        await kvSet('aide-livreur-catalog', aideLivreurCatalog);
+      } catch {}
+    })();
+  }, [aideLivreurCatalog]);
 
   const { updateDriver } = useApp();
+  const openAideDialog = (driver: DriverType) => {
+    setAideDriver(driver);
+    setAideDraft(driver.aideLivreurs || '');
+    setAideCodeDraft(driver.codeAL || '');
+    setAideDialogOpen(true);
+  };
+  const dissocierAideLivreur = async (driver: DriverType) => {
+    if (driver.aideLivreurs) {
+      upsertAideLivreurInCatalog(driver.aideLivreurs, driver.codeAL);
+    }
+    await updateDriver(driver.id, { aideLivreurs: null as any, codeAL: null as any });
+    toast.success("Aide livreur dissocié");
+  };
+  const saveAideLivreur = async () => {
+    if (!aideDriver) return;
+    const normalizedName = aideDraft.trim();
+    const normalizedCode = aideCodeDraft.trim();
+    if (normalizedName) {
+      upsertAideLivreurInCatalog(normalizedName, normalizedCode);
+    }
+    await updateDriver(aideDriver.id, {
+      aideLivreurs: normalizedName || null as any,
+      codeAL: normalizedCode || null as any
+    } as any);
+    toast.success("Aide livreur mis à jour");
+    setAideDialogOpen(false);
+  };
 
   const today = new Date();
 
@@ -994,6 +1114,7 @@ const Drivers = () => {
                     <TableHead className="py-4 pl-6 font-semibold text-slate-700">{t('drivers.table.driverName', 'Nom du Chauffeur')}</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">Code</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">Aide livreurs</TableHead>
+                    <TableHead className="py-4 font-semibold text-slate-700">CODE A.L</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.status.debt', 'Dette')}</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.table.advances', 'Avances')}</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.common.balance', 'Balance')}</TableHead>
@@ -1023,6 +1144,9 @@ const Drivers = () => {
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-slate-700 font-medium">{driver.aideLivreurs || '-'}</span>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <span className="text-slate-700 font-medium">{driver.codeAL || '-'}</span>
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-red-600 font-bold">
@@ -1104,6 +1228,24 @@ const Drivers = () => {
                           >
                             <Package className="w-4.5 h-4.5" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-400 hover:text-cyan-600 hover:bg-cyan-50"
+                            title="Changer aide livreur"
+                            onClick={() => openAideDialog(driver)}
+                          >
+                            <Edit className="w-4.5 h-4.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                            title="Dissocier aide livreur"
+                            onClick={() => dissocierAideLivreur(driver)}
+                          >
+                            <UserPlus className="w-4.5 h-4.5" />
+                          </Button>
                           
                           {(() => {
                             const check = canDeleteDriver(driver.id);
@@ -1134,7 +1276,7 @@ const Drivers = () => {
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-20">
+                      <TableCell colSpan={10} className="text-center py-20">
                         <div className="flex flex-col items-center justify-center">
                           <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
                             <Users className="w-8 h-8 text-slate-300" />
@@ -1195,6 +1337,8 @@ const Drivers = () => {
                       <Button variant="ghost" size="icon" onClick={() => handleGeneratePDF(driver)}><Download className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedDriver(driver); setPaymentDialogOpen(true); }}><DollarSign className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => { setSelectedDriver(driver); setBottleManagementOpen(true); }}><Package className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => openAideDialog(driver)}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => dissocierAideLivreur(driver)}><UserPlus className="w-4 h-4" /></Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1639,6 +1783,52 @@ const Drivers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={aideDialogOpen} onOpenChange={setAideDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Changer Aide livreur</DialogTitle>
+            <DialogDescription>
+              {aideDriver ? `Chauffeur: ${aideDriver.name}` : "Modifier les données de l'aide livreur"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Aide livreur</Label>
+              <Input value={aideDraft} onChange={(e) => setAideDraft(e.target.value)} placeholder="Nom aide livreur" />
+              {aideLivreurCatalog.length > 0 && (
+                <Select
+                  onValueChange={(value) => {
+                    const [pickedName, pickedCode = ''] = value.split('||');
+                    const picked = aideLivreurCatalog.find((item) => item.name === pickedName && (item.codeAL || '') === pickedCode);
+                    if (!picked) return;
+                    setAideDraft(picked.name);
+                    setAideCodeDraft(picked.codeAL || '');
+                  }}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Choisir depuis la liste existante" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {aideLivreurCatalog.map((item) => (
+                      <SelectItem key={`${item.name}-${item.codeAL || ''}`} value={`${item.name}||${item.codeAL || ''}`}>
+                        {item.name}{item.codeAL ? ` • ${item.codeAL}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>Code A.L</Label>
+              <Input value={aideCodeDraft} onChange={(e) => setAideCodeDraft(e.target.value)} placeholder="AL-2026-01" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAideDialogOpen(false)}>Annuler</Button>
+            <Button onClick={saveAideLivreur}>Enregistrer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

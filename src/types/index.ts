@@ -159,6 +159,13 @@ export interface Driver {
   name: string;
   code?: string;
   aideLivreurs?: string;
+  codeAL?: string;
+  adresse?: string;
+  ville?: string;
+  telephone?: string;
+  nCin?: string;
+  vehicule?: string;
+  nPermis?: string;
   debt: number;
   advances: number;
   balance: number;
