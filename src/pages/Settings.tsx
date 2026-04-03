@@ -20,7 +20,9 @@ import {
   Layers,
   Palette,
   Eye,
-  EyeOff
+  EyeOff,
+  Filter,
+  Plus
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,6 +101,24 @@ const Settings = () => {
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingSaving, setPricingSaving] = useState(false);
   const [thresholdDrafts, setThresholdDrafts] = useState<Record<string, string>>({});
+  const [sectors, setSectors] = useState<Array<{
+    id: string;
+    code: string;
+    secteurs: string;
+    ville: string;
+    region: string;
+  }>>([]);
+  const [sectorsLoading, setSectorsLoading] = useState(false);
+  const [sectorsSaving, setSectorsSaving] = useState(false);
+  const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+  const [sectorFilterInput, setSectorFilterInput] = useState('');
+  const [sectorFilter, setSectorFilter] = useState('');
+  const [sectorForm, setSectorForm] = useState({
+    code: '',
+    secteurs: '',
+    ville: '',
+    region: ''
+  });
 
   useEffect(() => {
     if (!assignmentRoleId && roles.length > 0) {
@@ -152,6 +172,31 @@ const Settings = () => {
     };
     loadPricing();
   }, [priceZone]);
+
+  useEffect(() => {
+    const loadSectors = async () => {
+      setSectorsLoading(true);
+      const { data, error } = await supabase
+        .from('sectors_settings')
+        .select('*')
+        .order('code', { ascending: true });
+      if (error) {
+        toast({ title: 'Erreur chargement secteurs', description: error.message, variant: 'destructive' });
+        setSectorsLoading(false);
+        return;
+      }
+      const rows = (data ?? []).map((row: any) => ({
+        id: String(row.id),
+        code: String(row.code ?? ''),
+        secteurs: String(row.secteurs ?? ''),
+        ville: String(row.ville ?? ''),
+        region: String(row.region ?? '')
+      }));
+      setSectors(rows);
+      setSectorsLoading(false);
+    };
+    loadSectors();
+  }, []);
 
   const addPricingRow = () => {
     setPricing(prev => [
@@ -223,6 +268,137 @@ const Settings = () => {
       title: tr('Seuil enregistré', 'تم حفظ السقف'),
       description: tr('Le seuil de dette du chauffeur a été mis à jour.', 'تم تحديث سقف الدين للسائق.')
     });
+  };
+
+  const displayedSectors = React.useMemo(() => {
+    const keyword = sectorFilter.trim().toLowerCase();
+    if (!keyword) return sectors;
+    return sectors.filter((row) =>
+      row.code.toLowerCase().includes(keyword) ||
+      row.secteurs.toLowerCase().includes(keyword) ||
+      row.ville.toLowerCase().includes(keyword) ||
+      row.region.toLowerCase().includes(keyword)
+    );
+  }, [sectors, sectorFilter]);
+
+  const clearSectorForm = () => {
+    setSelectedSectorId(null);
+    setSectorForm({ code: '', secteurs: '', ville: '', region: '' });
+  };
+
+  const handleSectorFilter = () => {
+    setSectorFilter(sectorFilterInput.trim());
+  };
+
+  const handleSectorConsult = () => {
+    if (!selectedSectorId) {
+      toast({ title: 'Sélection requise', description: 'Veuillez sélectionner un secteur.', variant: 'destructive' });
+      return;
+    }
+    const selected = sectors.find((row) => row.id === selectedSectorId);
+    if (!selected) return;
+    setSectorForm({
+      code: selected.code,
+      secteurs: selected.secteurs,
+      ville: selected.ville,
+      region: selected.region
+    });
+    toast({ title: 'Secteur chargé', description: `Code ${selected.code || '-'}` });
+  };
+
+  const handleSectorAdd = async () => {
+    const payload = {
+      code: sectorForm.code.trim() || null,
+      secteurs: sectorForm.secteurs.trim() || null,
+      ville: sectorForm.ville.trim() || null,
+      region: sectorForm.region.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    if (!payload.code && !payload.secteurs && !payload.ville && !payload.region) {
+      toast({ title: 'Aucune donnée', description: 'Veuillez remplir au moins un champ.', variant: 'destructive' });
+      return;
+    }
+    setSectorsSaving(true);
+    const { data, error } = await supabase.from('sectors_settings').insert(payload).select().single();
+    setSectorsSaving(false);
+    if (error) {
+      toast({ title: 'Échec ajout secteur', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const created = {
+      id: String((data as any).id),
+      code: String((data as any).code ?? ''),
+      secteurs: String((data as any).secteurs ?? ''),
+      ville: String((data as any).ville ?? ''),
+      region: String((data as any).region ?? '')
+    };
+    setSectors((prev) => [created, ...prev]);
+    setSelectedSectorId(created.id);
+    setSectorForm({
+      code: created.code,
+      secteurs: created.secteurs,
+      ville: created.ville,
+      region: created.region
+    });
+    toast({ title: 'Secteur ajouté' });
+  };
+
+  const handleSectorUpdate = async () => {
+    if (!selectedSectorId) {
+      toast({ title: 'Sélection requise', description: 'Veuillez choisir une ligne à modifier.', variant: 'destructive' });
+      return;
+    }
+    const payload = {
+      code: sectorForm.code.trim() || null,
+      secteurs: sectorForm.secteurs.trim() || null,
+      ville: sectorForm.ville.trim() || null,
+      region: sectorForm.region.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    setSectorsSaving(true);
+    const { data, error } = await supabase
+      .from('sectors_settings')
+      .update(payload)
+      .eq('id', selectedSectorId)
+      .select()
+      .single();
+    setSectorsSaving(false);
+    if (error) {
+      toast({ title: 'Échec modification', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const updated = {
+      id: String((data as any).id),
+      code: String((data as any).code ?? ''),
+      secteurs: String((data as any).secteurs ?? ''),
+      ville: String((data as any).ville ?? ''),
+      region: String((data as any).region ?? '')
+    };
+    setSectors((prev) => prev.map((row) => (row.id === selectedSectorId ? updated : row)));
+    setSectorForm({
+      code: updated.code,
+      secteurs: updated.secteurs,
+      ville: updated.ville,
+      region: updated.region
+    });
+    toast({ title: 'Secteur modifié' });
+  };
+
+  const handleSectorDelete = async () => {
+    if (!selectedSectorId) {
+      toast({ title: 'Sélection requise', description: 'Veuillez choisir une ligne à supprimer.', variant: 'destructive' });
+      return;
+    }
+    setSectorsSaving(true);
+    const { error } = await supabase.from('sectors_settings').delete().eq('id', selectedSectorId);
+    setSectorsSaving(false);
+    if (error) {
+      toast({ title: 'Échec suppression', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setSectors((prev) => prev.filter((row) => row.id !== selectedSectorId));
+    clearSectorForm();
+    toast({ title: 'Secteur supprimé' });
   };
 
   const handleImport = (e: React.FormEvent) => {
@@ -523,6 +699,156 @@ const Settings = () => {
                                 {pricingSaving ? 'Sauvegarde...' : 'Enregistrer'}
                               </Button>
                             </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardHeader className="border-b border-slate-800">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-slate-100">Liste des secteurs</CardTitle>
+                    <CardDescription className="text-slate-300">
+                      Gestion des secteurs avec consultation, ajout, modification, suppression et filtre.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-slate-900 text-slate-200 border-slate-700">
+                    {displayedSectors.length} lignes
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="grid gap-3 md:grid-cols-5">
+                  <div className="space-y-1 md:col-span-1">
+                    <Label className="text-slate-200">Code</Label>
+                    <Input
+                      value={sectorForm.code}
+                      onChange={(e) => setSectorForm((prev) => ({ ...prev, code: e.target.value }))}
+                      placeholder="Ex: S210"
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-slate-200">Secteurs</Label>
+                    <Input
+                      value={sectorForm.secteurs}
+                      onChange={(e) => setSectorForm((prev) => ({ ...prev, secteurs: e.target.value }))}
+                      placeholder="Ex: OULED SAID"
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-1">
+                    <Label className="text-slate-200">Ville</Label>
+                    <Input
+                      value={sectorForm.ville}
+                      onChange={(e) => setSectorForm((prev) => ({ ...prev, ville: e.target.value }))}
+                      placeholder="Ex: BENI MELLAL"
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-1">
+                    <Label className="text-slate-200">Région</Label>
+                    <Input
+                      value={sectorForm.region}
+                      onChange={(e) => setSectorForm((prev) => ({ ...prev, region: e.target.value }))}
+                      placeholder="Ex: 200"
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="w-full md:w-[320px] space-y-1">
+                    <Label className="text-slate-200">Filtre</Label>
+                    <Input
+                      value={sectorFilterInput}
+                      onChange={(e) => setSectorFilterInput(e.target.value)}
+                      placeholder="Code, secteur, ville ou région"
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                    />
+                  </div>
+                  <Button onClick={handleSectorFilter} className="bg-cyan-600 hover:bg-cyan-700">
+                    <Filter className="w-4 h-4 mr-1.5" />
+                    Filtre
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-slate-700 text-slate-200 hover:bg-slate-800"
+                    onClick={() => {
+                      setSectorFilter('');
+                      setSectorFilterInput('');
+                    }}
+                  >
+                    Réinitialiser
+                  </Button>
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    <Button
+                      onClick={handleSectorConsult}
+                      variant="outline"
+                      className="border-slate-700 text-slate-200 hover:bg-slate-800"
+                    >
+                      Consulter
+                    </Button>
+                    <Button onClick={handleSectorAdd} disabled={sectorsSaving} className="bg-emerald-600 hover:bg-emerald-700">
+                      <Plus className="w-4 h-4 mr-1.5" />
+                      Ajouter
+                    </Button>
+                    <Button onClick={handleSectorUpdate} disabled={sectorsSaving} className="bg-indigo-600 hover:bg-indigo-700">
+                      Modifier
+                    </Button>
+                    <Button onClick={handleSectorDelete} disabled={sectorsSaving} variant="destructive">
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Code</TableHead>
+                        <TableHead className="text-slate-200">Secteurs</TableHead>
+                        <TableHead className="text-slate-200">Ville</TableHead>
+                        <TableHead className="text-slate-200">Région</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sectorsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-6 text-center text-slate-300">
+                            Chargement...
+                          </TableCell>
+                        </TableRow>
+                      ) : displayedSectors.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-6 text-center text-slate-400">
+                            Aucune ligne secteur.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        displayedSectors.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            className={`cursor-pointer ${selectedSectorId === row.id ? 'bg-indigo-500/20 hover:bg-indigo-500/20' : 'hover:bg-slate-800/40'}`}
+                            onClick={() => {
+                              setSelectedSectorId(row.id);
+                              setSectorForm({
+                                code: row.code,
+                                secteurs: row.secteurs,
+                                ville: row.ville,
+                                region: row.region
+                              });
+                            }}
+                          >
+                            <TableCell className="text-slate-100 font-medium">{row.code || '-'}</TableCell>
+                            <TableCell className="text-slate-100">{row.secteurs || '-'}</TableCell>
+                            <TableCell className="text-slate-200">{row.ville || '-'}</TableCell>
+                            <TableCell className="text-slate-200">{row.region || '-'}</TableCell>
                           </TableRow>
                         ))
                       )}
