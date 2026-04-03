@@ -56,6 +56,7 @@ import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const SupplyReturn = () => {
   const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt } = useApp();
+  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
   console.log(supplyOrders);
   const { toast } = useToast();
   const t = useT();
@@ -1864,7 +1865,7 @@ const SupplyReturn = () => {
                             <SelectValue placeholder={tsu('allogaz.selectDriver', 'Sélectionner un chauffeur')} />
                           </SelectTrigger>
                           <SelectContent>
-                            {drivers.map(driver => (
+                            {availableDrivers.map(driver => (
                               <SelectItem key={driver.id} value={driver.id}>
                                 {driver.name}
                               </SelectItem>
@@ -1912,7 +1913,7 @@ const SupplyReturn = () => {
                           <SelectValue placeholder={tr("Sélectionner un chauffeur", "اختر سائقًا")} />
                         </SelectTrigger>
                         <SelectContent>
-                          {drivers.map(driver => (
+                          {availableDrivers.map(driver => (
                             <SelectItem key={driver.id} value={driver.id}>
                               {driver.name}
                             </SelectItem>
@@ -2467,7 +2468,7 @@ const SupplyReturn = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{tsu('history.allDrivers', 'Tous les chauffeurs')}</SelectItem>
-                        {drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                        {availableDrivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -2730,7 +2731,7 @@ const SupplyReturn = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{tsu('history.allDrivers', 'Tous les chauffeurs')}</SelectItem>
-                    {drivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    {availableDrivers.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

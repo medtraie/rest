@@ -130,6 +130,7 @@ const TruckTypeBadge = ({
 
 const Trucks = () => {
   const { trucks, drivers, updateTruck, deleteTruck, clearAllTrucks, bulkSetRepos, bulkReactivate, bulkDissociateDriver, driverHasActiveTruck, truckAssignments } = useApp();
+  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
   const { toast } = useToast();
   const t = useT();
   const { language } = useLanguage();
@@ -1683,7 +1684,7 @@ const Trucks = () => {
                             <SelectValue placeholder={tu('placeholder.changeDriver', 'Changer chauffeur')} />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                            {drivers.map(driver => (
+                            {availableDrivers.map(driver => (
                               <SelectItem key={driver.id} value={driver.id} className="text-xs font-medium rounded-lg">
                                 {driver.name}
                               </SelectItem>
@@ -1808,7 +1809,7 @@ const Trucks = () => {
                       <SelectValue placeholder={tu('placeholder.changeDriver', 'Changer chauffeur')} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                      {drivers.map(driver => (
+                      {availableDrivers.map(driver => (
                         <SelectItem key={driver.id} value={driver.id} className="text-xs font-medium rounded-lg">
                           {driver.name}
                         </SelectItem>

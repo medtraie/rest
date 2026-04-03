@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
-import { Users, DollarSign, TrendingUp, TrendingDown, Download, Eye, Edit, CheckCircle, UserX, Package, Search, Calendar, UserPlus, Filter, Sparkles, ShieldAlert, Activity, LayoutGrid, Table2, Zap, ArrowUpRight } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, TrendingDown, Download, Eye, Edit, CheckCircle, UserX, Package, Search, Calendar, UserPlus, Filter, Sparkles, ShieldAlert, Activity, LayoutGrid, Table2, Zap, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { AddDriverDialog } from '@/components/dialogs/AddDriverDialog';
 import { RecordPaymentDialog } from '@/components/dialogs/RecordPaymentDialog';
 import { Driver as DriverType } from '@/types';
@@ -394,6 +394,7 @@ const Drivers = () => {
   const totalDebt = drivers.reduce((sum, d) => sum + Math.abs(d.debt || 0), 0);
   const totalAdvances = drivers.reduce((sum, d) => sum + (d.advances || 0), 0);
   const driversInDebt = drivers.filter(d => (d.balance || 0) < 0).length;
+  const isDriverClosed = (driver: DriverType) => Number(driver.debtThreshold || 0) > 0 && Number(driver.debt || 0) >= Number(driver.debtThreshold || 0);
 
   const filteredDrivers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -401,6 +402,7 @@ const Drivers = () => {
       const nameMatch = !term || (d.name || '').toLowerCase().includes(term);
       const statusMatch =
         statusFilter === 'all' ||
+        (statusFilter === 'closed' && isDriverClosed(d)) ||
         (statusFilter === 'debt' && (d.balance || 0) < 0) ||
         (statusFilter === 'credit' && (d.balance || 0) > 0) ||
         (statusFilter === 'balanced' && (d.balance || 0) === 0);
@@ -962,6 +964,7 @@ const Drivers = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('drivers.list.allStatuses', 'Tous les statuts')}</SelectItem>
+                    <SelectItem value="closed" className="text-rose-700">Clôture</SelectItem>
                     <SelectItem value="debt" className="text-red-600">{t('drivers.list.inDebt', 'En dette')}</SelectItem>
                     <SelectItem value="credit" className="text-emerald-600">{t('drivers.list.inCredit', 'En crédit')}</SelectItem>
                     <SelectItem value="balanced" className="text-slate-600">{t('drivers.status.balanced', 'Équilibré')}</SelectItem>
@@ -989,6 +992,8 @@ const Drivers = () => {
                 <TableHeader>
                   <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
                     <TableHead className="py-4 pl-6 font-semibold text-slate-700">{t('drivers.table.driverName', 'Nom du Chauffeur')}</TableHead>
+                    <TableHead className="py-4 font-semibold text-slate-700">Code</TableHead>
+                    <TableHead className="py-4 font-semibold text-slate-700">Aide livreurs</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.status.debt', 'Dette')}</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.table.advances', 'Avances')}</TableHead>
                     <TableHead className="py-4 font-semibold text-slate-700">{t('drivers.common.balance', 'Balance')}</TableHead>
@@ -999,7 +1004,9 @@ const Drivers = () => {
                 </TableHeader>
                 <TableBody>
                   {displayedDrivers.length > 0 ? displayedDrivers.map((driver) => {
-                    const balanceStatus = getBalanceStatus(driver.balance);
+                    const balanceStatus = isDriverClosed(driver)
+                      ? { variant: 'destructive' as const, icon: AlertTriangle, text: 'Clôture' }
+                      : getBalanceStatus(driver.balance);
                     const totalRC = Object.values(driver.remainingBottles || {}).reduce((a, b) => a + b, 0);
                     return (
                       <TableRow key={driver.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-50 last:border-0">
@@ -1010,6 +1017,12 @@ const Drivers = () => {
                             </div>
                             <span className="font-semibold text-slate-900">{driver.name}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <span className="text-slate-700 font-medium">{driver.code || '-'}</span>
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <span className="text-slate-700 font-medium">{driver.aideLivreurs || '-'}</span>
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-red-600 font-bold">
@@ -1121,7 +1134,7 @@ const Drivers = () => {
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-20">
+                      <TableCell colSpan={9} className="text-center py-20">
                         <div className="flex flex-col items-center justify-center">
                           <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
                             <Users className="w-8 h-8 text-slate-300" />
@@ -1141,7 +1154,9 @@ const Drivers = () => {
             <div className="p-5 grid md:grid-cols-2 xl:grid-cols-3 gap-4">
               {displayedDrivers.map((driver) => {
                 const totalRC = Object.values(driver.remainingBottles || {}).reduce((a, b) => a + b, 0);
-                const balanceStatus = getBalanceStatus(driver.balance);
+                const balanceStatus = isDriverClosed(driver)
+                  ? { variant: 'destructive' as const, icon: AlertTriangle, text: 'Clôture' }
+                  : getBalanceStatus(driver.balance);
                 return (
                   <div key={driver.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-center justify-between gap-3">
@@ -1151,6 +1166,9 @@ const Drivers = () => {
                         </div>
                         <div>
                           <div className="font-bold text-slate-900">{driver.name}</div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            Code: <span className="font-medium text-slate-700">{driver.code || '-'}</span> · Aide: <span className="font-medium text-slate-700">{driver.aideLivreurs || '-'}</span>
+                          </div>
                           <Badge variant={balanceStatus.variant} className="mt-1">{balanceStatus.text}</Badge>
                         </div>
                       </div>

@@ -15,7 +15,9 @@ export const AddDriverDialog = ({ trigger }: AddDriverDialogProps) => {
   const { addDriver } = useApp();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: ''
+    name: '',
+    code: '',
+    aideLivreurs: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -23,15 +25,18 @@ export const AddDriverDialog = ({ trigger }: AddDriverDialogProps) => {
     
     addDriver({
       id: crypto.randomUUID(),
-      name: formData.name,
+      name: formData.name.trim(),
+      code: formData.code.trim() || undefined,
+      aideLivreurs: formData.aideLivreurs.trim() || undefined,
       debt: 0,
       advances: 0,
-      balance: 0
+      balance: 0,
+      debtThreshold: 0
     });
     
     toast.success('Chauffeur ajouté avec succès');
     setOpen(false);
-    setFormData({ name: '' });
+    setFormData({ name: '', code: '', aideLivreurs: '' });
   };
 
   return (
@@ -73,6 +78,32 @@ export const AddDriverDialog = ({ trigger }: AddDriverDialogProps) => {
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="code" className="text-slate-700 font-semibold ml-1 flex items-center gap-1">
+              Code <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span>
+            </Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="Ex: D210"
+              className="h-12 bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-indigo-600 transition-all shadow-inner"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="aideLivreurs" className="text-slate-700 font-semibold ml-1 flex items-center gap-1">
+              Aide livreurs <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span>
+            </Label>
+            <Input
+              id="aideLivreurs"
+              value={formData.aideLivreurs}
+              onChange={(e) => setFormData({ ...formData, aideLivreurs: e.target.value })}
+              placeholder="Ex: 2 ou Nom aide"
+              className="h-12 bg-slate-50 border-none focus-visible:ring-2 focus-visible:ring-indigo-600 transition-all shadow-inner"
+            />
           </div>
           
           <div className="flex gap-3 pt-2">

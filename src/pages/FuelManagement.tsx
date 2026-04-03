@@ -166,6 +166,7 @@ const FuelManagement = () => {
     addFuelDrain,
     addCashOperation,
   } = useApp();
+  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
   const t = useT();
   const { language } = useLanguage();
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
@@ -1846,7 +1847,7 @@ const FuelManagement = () => {
                   <SelectValue placeholder={tr('Sélectionner un chauffeur', 'اختر سائقًا')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {drivers.map((driver) => (
+                  {availableDrivers.map((driver) => (
                     <SelectItem key={driver.id} value={driver.id}>
                       {driver.name}
                     </SelectItem>

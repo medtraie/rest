@@ -47,6 +47,8 @@ const Settings = () => {
     exportData, 
     importData, 
     clearAllData, 
+    drivers,
+    updateDriver,
     roles, 
     roleAssignments, 
     availablePermissions, 
@@ -88,14 +90,15 @@ const Settings = () => {
     id?: string;
     code: string;
     designation: string;
-    prix_dif: number;
-    prix_def: number;
-    prix_unitaire: number;
-    prix_achat: number;
+    prix_dif: string;
+    prix_def: string;
+    prix_unitaire: string;
+    prix_achat: string;
     zone: 0 | 1;
   }>>([]);
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingSaving, setPricingSaving] = useState(false);
+  const [thresholdDrafts, setThresholdDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!assignmentRoleId && roles.length > 0) {
@@ -138,10 +141,10 @@ const Settings = () => {
         id: String(r.id),
         code: String(r.code ?? ''),
         designation: String(r.designation ?? ''),
-        prix_dif: Number(r.prix_dif ?? 0),
-        prix_def: Number(r.prix_def ?? 0),
-        prix_unitaire: Number(r.prix_unitaire ?? 0),
-        prix_achat: Number(r.prix_achat ?? 0),
+        prix_dif: Number(r.prix_dif ?? 0) === 0 ? '' : String(r.prix_dif),
+        prix_def: Number(r.prix_def ?? 0) === 0 ? '' : String(r.prix_def),
+        prix_unitaire: Number(r.prix_unitaire ?? 0) === 0 ? '' : String(r.prix_unitaire),
+        prix_achat: Number(r.prix_achat ?? 0) === 0 ? '' : String(r.prix_achat),
         zone: Number(r.zone ?? 0) as 0 | 1,
       }));
       setPricing(rows);
@@ -153,19 +156,24 @@ const Settings = () => {
   const addPricingRow = () => {
     setPricing(prev => [
       ...prev,
-      { code: '', designation: '', prix_dif: 0, prix_def: 0, prix_unitaire: 0, prix_achat: 0, zone: priceZone }
+      { code: '', designation: '', prix_dif: '', prix_def: '', prix_unitaire: '', prix_achat: '', zone: priceZone }
     ]);
   };
+
+  useEffect(() => {
+    const nextDrafts = drivers.reduce<Record<string, string>>((acc, driver) => {
+      const threshold = Number(driver.debtThreshold || 0);
+      acc[driver.id] = threshold > 0 ? threshold.toString() : '';
+      return acc;
+    }, {});
+    setThresholdDrafts(nextDrafts);
+  }, [drivers]);
 
   const updateRowField = (index: number, field: keyof (typeof pricing)[number], value: string) => {
     setPricing(prev => {
       const next = [...prev];
       const row = { ...next[index] };
-      if (['prix_dif', 'prix_def', 'prix_unitaire', 'prix_achat'].includes(field as string)) {
-        (row as any)[field] = Number(value) || 0;
-      } else {
-        (row as any)[field] = value;
-      }
+      (row as any)[field] = value;
       next[index] = row;
       return next;
     });
@@ -173,14 +181,20 @@ const Settings = () => {
 
   const saveRow = async (index: number) => {
     const row = pricing[index];
+    const parsePrice = (value: string) => {
+      const normalized = value.trim();
+      if (!normalized) return null;
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
     const payload = {
       id: row.id,
       code: row.code?.trim() || null,
       designation: row.designation?.trim() || null,
-      prix_dif: Number(row.prix_dif) || 0,
-      prix_def: Number(row.prix_def) || 0,
-      prix_unitaire: Number(row.prix_unitaire) || 0,
-      prix_achat: Number(row.prix_achat) || 0,
+      prix_dif: parsePrice(row.prix_dif),
+      prix_def: parsePrice(row.prix_def),
+      prix_unitaire: parsePrice(row.prix_unitaire),
+      prix_achat: parsePrice(row.prix_achat),
       zone: row.zone,
       updated_at: new Date().toISOString()
     };
@@ -199,6 +213,16 @@ const Settings = () => {
         return next;
       });
     }
+  };
+
+  const saveDriverThreshold = async (driverId: string) => {
+    const raw = (thresholdDrafts[driverId] || '').trim();
+    const threshold = raw === '' ? 0 : Math.max(0, Number(raw) || 0);
+    await updateDriver(driverId, { debtThreshold: threshold });
+    toast({
+      title: tr('Seuil enregistré', 'تم حفظ السقف'),
+      description: tr('Le seuil de dette du chauffeur a été mis à jour.', 'تم تحديث سقف الدين للسائق.')
+    });
   };
 
   const handleImport = (e: React.FormEvent) => {
@@ -385,7 +409,7 @@ const Settings = () => {
               {tr('Système', 'النظام')}
             </TabsTrigger>
             <TabsTrigger value="pricing" className="text-slate-200 hover:text-white data-[state=active]:bg-slate-700 data-[state=active]:text-white">
-              {tr('Paramétrage', 'الإعدادات التفصيلية')}
+              Paramétrage
             </TabsTrigger>
           </TabsList>
 
@@ -394,9 +418,9 @@ const Settings = () => {
               <CardHeader className="border-b border-slate-800">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-slate-100">{tr('Paramétrage Tarifs', 'ضبط التعريفات')}</CardTitle>
+                    <CardTitle className="text-slate-100">Paramétrage Tarifs</CardTitle>
                     <CardDescription className="text-slate-300">
-                      {tr('أسعار حسب المنطقة. بدّل بين Zone 0 و Zone 1 وحرر القيم مباشرة.', 'Tarifs par zone. Basculez entre Zone 0 et Zone 1 et éditez directement.')}
+                      Tarifs par zone. Basculez entre Zone 0 et Zone 1 et éditez directement.
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -407,7 +431,7 @@ const Settings = () => {
                       Zone 1
                     </Button>
                     <Button onClick={addPricingRow} className="bg-emerald-600 hover:bg-emerald-700">
-                      + {tr('Ajouter', 'إضافة')}
+                      + Ajouter
                     </Button>
                   </div>
                 </div>
@@ -418,11 +442,11 @@ const Settings = () => {
                     <TableHeader className="bg-slate-800/60">
                       <TableRow>
                         <TableHead className="text-slate-200">Code</TableHead>
-                        <TableHead className="text-slate-200">{tr('Désignation', 'التعيين')}</TableHead>
+                        <TableHead className="text-slate-200">Désignation</TableHead>
                         <TableHead className="text-slate-200">Prix DIF</TableHead>
                         <TableHead className="text-slate-200">Prix DEF</TableHead>
-                        <TableHead className="text-slate-200">{tr('Prix Unitaire', 'السعر الوحدوي')}</TableHead>
-                        <TableHead className="text-slate-200">{tr("Prix d'achat", 'سعر الشراء')}</TableHead>
+                        <TableHead className="text-slate-200">Prix Unitaire</TableHead>
+                        <TableHead className="text-slate-200">Prix d'achat</TableHead>
                         <TableHead />
                       </TableRow>
                     </TableHeader>
@@ -430,13 +454,13 @@ const Settings = () => {
                       {pricingLoading ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-slate-300 py-6">
-                            {tr('Chargement...', 'جارٍ التحميل...')}
+                            Chargement...
                           </TableCell>
                         </TableRow>
                       ) : pricing.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-slate-400 py-6">
-                            {tr('Aucune ligne. Cliquez sur Ajouter.', 'لا توجد أسطر. اضغط إضافة.')}
+                            Aucune ligne. Cliquez sur Ajouter.
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -496,12 +520,71 @@ const Settings = () => {
                                 disabled={pricingSaving}
                                 className="bg-indigo-600 hover:bg-indigo-700"
                               >
-                                {pricingSaving ? tr('Sauvegarde...', 'جارٍ الحفظ...') : tr('Enregistrer', 'حفظ')}
+                                {pricingSaving ? 'Sauvegarde...' : 'Enregistrer'}
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))
                       )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardHeader className="border-b border-slate-800">
+                <CardTitle className="text-slate-100">Seuil de Dette par Chauffeur</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Dès que la dette actuelle dépasse le seuil, le chauffeur passe en état clôture automatiquement.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Chauffeur</TableHead>
+                        <TableHead className="text-slate-200">Dette Actuelle</TableHead>
+                        <TableHead className="text-slate-200">Seuil</TableHead>
+                        <TableHead className="text-slate-200">État</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {drivers.map((driver) => {
+                        const debt = Number(driver.debt || 0);
+                        const threshold = Number(driver.debtThreshold || 0);
+                        const isClosed = threshold > 0 && debt >= threshold;
+                        return (
+                          <TableRow key={driver.id}>
+                            <TableCell className="font-medium text-slate-100">{driver.name}</TableCell>
+                            <TableCell className={debt > 0 ? 'text-rose-300' : 'text-emerald-300'}>
+                              {debt.toLocaleString()} DH
+                            </TableCell>
+                            <TableCell className="w-[180px]">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={thresholdDrafts[driver.id] ?? ''}
+                                onChange={(e) => setThresholdDrafts((prev) => ({ ...prev, [driver.id]: e.target.value }))}
+                                placeholder="Ex: 5000"
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={isClosed ? 'bg-rose-100 text-rose-800 border-rose-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'} variant="outline">
+                                {isClosed ? 'Clôture' : 'Ouvert'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button onClick={() => saveDriverThreshold(driver.id)} className="bg-indigo-600 hover:bg-indigo-700">
+                                Enregistrer
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

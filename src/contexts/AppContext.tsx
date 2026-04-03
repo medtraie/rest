@@ -326,6 +326,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [driverDebtThresholds, setDriverDebtThresholds] = useStickyState<Record<string, number>>({}, 'driver-debt-thresholds');
 
   // Bootstrap financial data from Supabase on app start
   React.useEffect(() => {
@@ -630,7 +631,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const newDriver = { ...driver, id };
       const created = await supabaseService.create<Driver>("drivers", newDriver);
       if (created) {
-        setDrivers(prev => [...prev, created]);
+        setDrivers(prev => [...prev, { ...newDriver, ...created }]);
       }
     };
   
@@ -1807,9 +1808,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       lastRCUpdate: nextLastRCUpdate
     };
 
+    if (updates.debtThreshold !== undefined) {
+      const normalizedThreshold = Math.max(0, Number(updates.debtThreshold) || 0);
+      setDriverDebtThresholds(prev => ({ ...prev, [String(driverId)]: normalizedThreshold }));
+      updatedData.debtThreshold = normalizedThreshold;
+    }
+
     const updated = await supabaseService.update<Driver>("drivers", driverId, updatedData);
     if (updated) {
-      setDrivers(prev => prev.map(drv => String(drv.id) === String(driverId) ? updated : drv));
+      const localThreshold = updatedData.debtThreshold !== undefined
+        ? Number(updatedData.debtThreshold)
+        : Number(driverDebtThresholds[String(driverId)] ?? d.debtThreshold ?? 0);
+      setDrivers(prev => prev.map(drv => (
+        String(drv.id) === String(driverId)
+          ? { ...updated, debtThreshold: localThreshold }
+          : drv
+      )));
     }
   };
   const addForeignBottle = async (foreignBottle: ForeignBottle) => {
@@ -1912,9 +1926,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const driversWithTransactions = React.useMemo(() => {
     return drivers.map(driver => ({
       ...driver,
+      debtThreshold: Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0),
+      isClosedDueDebt:
+        Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0) > 0 &&
+        Number(driver.debt || 0) >= Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0),
       transactions: transactions.filter(t => String(t.driverId) === String(driver.id))
     }));
-  });
+  }, [drivers, transactions, driverDebtThresholds]);
   
   const value = {
     clients,

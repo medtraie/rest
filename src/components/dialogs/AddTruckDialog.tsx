@@ -26,6 +26,7 @@ const TrailerIcon = () => (
 
 export const AddTruckDialog = ({ trigger }: AddTruckDialogProps) => {
   const { addTruck, drivers = [] } = useApp();
+  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     matricule: '',
@@ -147,7 +148,7 @@ export const AddTruckDialog = ({ trigger }: AddTruckDialogProps) => {
                   <SelectValue placeholder="Sélectionner un chauffeur" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  {drivers.map(driver => (
+                  {availableDrivers.map(driver => (
                     <SelectItem key={driver.id} value={String(driver.id)} className="rounded-lg">
                       {driver.name}
                     </SelectItem>

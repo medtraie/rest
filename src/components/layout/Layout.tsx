@@ -16,6 +16,7 @@ export const Layout: React.FC = () => {
   const { language } = useLanguage();
   const t = useT();
   const pageTransition = usePageTransition();
+  const location = useLocation();
   const [cardMode, setCardMode] = useState<'classic' | 'cinematic'>(() => {
     if (typeof window === 'undefined') return 'cinematic';
     return window.localStorage.getItem('app-card-mode') === 'classic' ? 'classic' : 'cinematic';
@@ -79,15 +80,17 @@ export const Layout: React.FC = () => {
                 <InstallPrompt />
                 <NetworkStatus />
                 <div className="hidden md:inline-flex items-center rounded-xl border border-slate-200 bg-white p-1">
-                  <Button
-                    size="sm"
-                    variant={cardMode === 'classic' ? 'secondary' : 'ghost'}
-                    className={cardMode === 'classic' ? 'gap-1.5 bg-slate-100 text-slate-900 hover:bg-slate-100' : 'gap-1.5 text-slate-600 hover:text-slate-800'}
-                    onClick={() => applyCardMode('classic')}
-                  >
-                    <PanelsTopLeft className="w-4 h-4" />
-                    <span className="font-medium">{t("layout.cardClassic", "Classique")}</span>
-                  </Button>
+                  {!location.pathname.startsWith('/settings') && (
+                    <Button
+                      size="sm"
+                      variant={cardMode === 'classic' ? 'secondary' : 'ghost'}
+                      className={cardMode === 'classic' ? 'gap-1.5 bg-slate-100 text-slate-900 hover:bg-slate-100' : 'gap-1.5 text-slate-600 hover:text-slate-800'}
+                      onClick={() => applyCardMode('classic')}
+                    >
+                      <PanelsTopLeft className="w-4 h-4" />
+                      <span className="font-medium">{t("layout.cardClassic", "Classique")}</span>
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant={cardMode === 'cinematic' ? 'secondary' : 'ghost'}
@@ -113,7 +116,7 @@ export const Layout: React.FC = () => {
           <main className="flex-1 overflow-auto">
             <AnimatePresence mode="wait">
               <motion.div
-                key={useLocation().pathname}
+                key={location.pathname}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}

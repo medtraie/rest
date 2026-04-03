@@ -157,9 +157,13 @@ export interface TruckLoad {
 export interface Driver {
   id: string;
   name: string;
+  code?: string;
+  aideLivreurs?: string;
   debt: number;
   advances: number;
   balance: number;
+  debtThreshold?: number;
+  isClosedDueDebt?: boolean;
   remainingBottles?: Record<string, number>; // bottleTypeId -> quantity
   transactions?: Transaction[];
   lastRCUpdate?: string;
