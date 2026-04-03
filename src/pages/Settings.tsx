@@ -101,6 +101,7 @@ const Settings = () => {
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingSaving, setPricingSaving] = useState(false);
   const [thresholdDrafts, setThresholdDrafts] = useState<Record<string, string>>({});
+  const [foreignThresholdDrafts, setForeignThresholdDrafts] = useState<Record<string, string>>({});
   const [sectors, setSectors] = useState<Array<{
     id: string;
     code: string;
@@ -213,6 +214,14 @@ const Settings = () => {
     }, {});
     setThresholdDrafts(nextDrafts);
   }, [drivers]);
+  useEffect(() => {
+    const nextDrafts = drivers.reduce<Record<string, string>>((acc, driver) => {
+      const threshold = Number(driver.foreignBottlesThreshold || 0);
+      acc[driver.id] = threshold > 0 ? threshold.toString() : '';
+      return acc;
+    }, {});
+    setForeignThresholdDrafts(nextDrafts);
+  }, [drivers]);
 
   const updateRowField = (index: number, field: keyof (typeof pricing)[number], value: string) => {
     setPricing(prev => {
@@ -267,6 +276,15 @@ const Settings = () => {
     toast({
       title: tr('Seuil enregistré', 'تم حفظ السقف'),
       description: tr('Le seuil de dette du chauffeur a été mis à jour.', 'تم تحديث سقف الدين للسائق.')
+    });
+  };
+  const saveDriverForeignThreshold = async (driverId: string) => {
+    const raw = (foreignThresholdDrafts[driverId] || '').trim();
+    const threshold = raw === '' ? 0 : Math.max(0, Number(raw) || 0);
+    await updateDriver(driverId, { foreignBottlesThreshold: threshold });
+    toast({
+      title: 'Seuil enregistré',
+      description: 'Le seuil des bouteilles étrangères du chauffeur a été mis à jour.'
     });
   };
 
@@ -905,6 +923,65 @@ const Settings = () => {
                             </TableCell>
                             <TableCell className="text-right">
                               <Button onClick={() => saveDriverThreshold(driver.id)} className="bg-indigo-600 hover:bg-indigo-700">
+                                Enregistrer
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardHeader className="border-b border-slate-800">
+                <CardTitle className="text-slate-100">Seuil de Bouteilles Étrangères par Chauffeur</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Si le total des bouteilles étrangères dépasse le seuil, le chauffeur devient indisponible automatiquement.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Chauffeur</TableHead>
+                        <TableHead className="text-slate-200">Étrangères Actuelles</TableHead>
+                        <TableHead className="text-slate-200">Seuil</TableHead>
+                        <TableHead className="text-slate-200">État</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {drivers.map((driver) => {
+                        const totalForeign = Number(driver.totalForeignBottles || 0);
+                        const threshold = Number(driver.foreignBottlesThreshold || 0);
+                        const isClosed = threshold > 0 && totalForeign >= threshold;
+                        return (
+                          <TableRow key={`foreign-${driver.id}`}>
+                            <TableCell className="font-medium text-slate-100">{driver.name}</TableCell>
+                            <TableCell className={totalForeign > 0 ? 'text-amber-300' : 'text-emerald-300'}>
+                              {totalForeign.toLocaleString()} bouteilles
+                            </TableCell>
+                            <TableCell className="w-[180px]">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={foreignThresholdDrafts[driver.id] ?? ''}
+                                onChange={(e) => setForeignThresholdDrafts((prev) => ({ ...prev, [driver.id]: e.target.value }))}
+                                placeholder="Ex: 60"
+                                className="border-slate-700 bg-slate-950 text-slate-100"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={isClosed ? 'bg-rose-100 text-rose-800 border-rose-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'} variant="outline">
+                                {isClosed ? 'Clôture' : 'Ouvert'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button onClick={() => saveDriverForeignThreshold(driver.id)} className="bg-indigo-600 hover:bg-indigo-700">
                                 Enregistrer
                               </Button>
                             </TableCell>

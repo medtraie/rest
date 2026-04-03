@@ -327,6 +327,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [driverDebtThresholds, setDriverDebtThresholds] = useStickyState<Record<string, number>>({}, 'driver-debt-thresholds');
+  const [driverForeignThresholds, setDriverForeignThresholds] = useStickyState<Record<string, number>>({}, 'driver-foreign-thresholds');
 
   // Bootstrap financial data from Supabase on app start
   React.useEffect(() => {
@@ -1813,15 +1814,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setDriverDebtThresholds(prev => ({ ...prev, [String(driverId)]: normalizedThreshold }));
       updatedData.debtThreshold = normalizedThreshold;
     }
+    if (updates.foreignBottlesThreshold !== undefined) {
+      const normalizedForeignThreshold = Math.max(0, Number(updates.foreignBottlesThreshold) || 0);
+      setDriverForeignThresholds(prev => ({ ...prev, [String(driverId)]: normalizedForeignThreshold }));
+      updatedData.foreignBottlesThreshold = normalizedForeignThreshold;
+    }
 
     const updated = await supabaseService.update<Driver>("drivers", driverId, updatedData);
     if (updated) {
       const localThreshold = updatedData.debtThreshold !== undefined
         ? Number(updatedData.debtThreshold)
         : Number(driverDebtThresholds[String(driverId)] ?? d.debtThreshold ?? 0);
+      const localForeignThreshold = updatedData.foreignBottlesThreshold !== undefined
+        ? Number(updatedData.foreignBottlesThreshold)
+        : Number(driverForeignThresholds[String(driverId)] ?? d.foreignBottlesThreshold ?? 0);
       setDrivers(prev => prev.map(drv => (
         String(drv.id) === String(driverId)
-          ? { ...updated, debtThreshold: localThreshold }
+          ? { ...updated, debtThreshold: localThreshold, foreignBottlesThreshold: localForeignThreshold }
           : drv
       )));
     }
@@ -1924,15 +1933,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const driverHasActiveTruck = (driverId: string) => trucks.find(t => t.driverId === driverId && t.isActive);
 
   const driversWithTransactions = React.useMemo(() => {
+    const totalForeignByDriver: Record<string, number> = {};
+    (returnOrders || []).forEach((order: any) => {
+      const driverId = String(order?.driverId ?? '');
+      if (!driverId) return;
+      const foreignTotal = (order?.items || []).reduce((sum: number, item: any) => sum + (Number(item?.foreignQuantity || 0) || 0), 0);
+      totalForeignByDriver[driverId] = (totalForeignByDriver[driverId] || 0) + foreignTotal;
+    });
     return drivers.map(driver => ({
       ...driver,
       debtThreshold: Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0),
+      foreignBottlesThreshold: Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0),
+      totalForeignBottles: Number(totalForeignByDriver[String(driver.id)] || 0),
       isClosedDueDebt:
         Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0) > 0 &&
         Number(driver.debt || 0) >= Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0),
+      isClosedDueForeign:
+        Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0) > 0 &&
+        Number(totalForeignByDriver[String(driver.id)] || 0) >= Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0),
+      isUnavailable:
+        (
+          Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0) > 0 &&
+          Number(driver.debt || 0) >= Number(driver.debtThreshold ?? driverDebtThresholds[String(driver.id)] ?? 0)
+        ) ||
+        (
+          Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0) > 0 &&
+          Number(totalForeignByDriver[String(driver.id)] || 0) >= Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0)
+        ),
       transactions: transactions.filter(t => String(t.driverId) === String(driver.id))
     }));
-  }, [drivers, transactions, driverDebtThresholds]);
+  }, [drivers, transactions, driverDebtThresholds, driverForeignThresholds, returnOrders]);
   
   const value = {
     clients,

@@ -31,7 +31,8 @@ export const AddDriverDialog = ({ trigger }: AddDriverDialogProps) => {
       debt: 0,
       advances: 0,
       balance: 0,
-      debtThreshold: 0
+      debtThreshold: 0,
+      foreignBottlesThreshold: 0
     });
     
     toast.success('Chauffeur ajouté avec succès');

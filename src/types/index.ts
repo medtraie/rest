@@ -163,7 +163,11 @@ export interface Driver {
   advances: number;
   balance: number;
   debtThreshold?: number;
+  foreignBottlesThreshold?: number;
+  totalForeignBottles?: number;
   isClosedDueDebt?: boolean;
+  isClosedDueForeign?: boolean;
+  isUnavailable?: boolean;
   remainingBottles?: Record<string, number>; // bottleTypeId -> quantity
   transactions?: Transaction[];
   lastRCUpdate?: string;

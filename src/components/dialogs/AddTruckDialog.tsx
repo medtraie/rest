@@ -26,7 +26,7 @@ const TrailerIcon = () => (
 
 export const AddTruckDialog = ({ trigger }: AddTruckDialogProps) => {
   const { addTruck, drivers = [] } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
+  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     matricule: '',

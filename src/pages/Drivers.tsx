@@ -394,7 +394,7 @@ const Drivers = () => {
   const totalDebt = drivers.reduce((sum, d) => sum + Math.abs(d.debt || 0), 0);
   const totalAdvances = drivers.reduce((sum, d) => sum + (d.advances || 0), 0);
   const driversInDebt = drivers.filter(d => (d.balance || 0) < 0).length;
-  const isDriverClosed = (driver: DriverType) => Number(driver.debtThreshold || 0) > 0 && Number(driver.debt || 0) >= Number(driver.debtThreshold || 0);
+  const isDriverClosed = (driver: DriverType) => Boolean(driver.isUnavailable);
 
   const filteredDrivers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();

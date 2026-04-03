@@ -130,7 +130,7 @@ const TruckTypeBadge = ({
 
 const Trucks = () => {
   const { trucks, drivers, updateTruck, deleteTruck, clearAllTrucks, bulkSetRepos, bulkReactivate, bulkDissociateDriver, driverHasActiveTruck, truckAssignments } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
+  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
   const { toast } = useToast();
   const t = useT();
   const { language } = useLanguage();

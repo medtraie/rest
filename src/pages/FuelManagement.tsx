@@ -166,7 +166,7 @@ const FuelManagement = () => {
     addFuelDrain,
     addCashOperation,
   } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
+  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
   const t = useT();
   const { language } = useLanguage();
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);

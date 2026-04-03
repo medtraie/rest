@@ -56,7 +56,7 @@ import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const SupplyReturn = () => {
   const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isClosedDueDebt);
+  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
   console.log(supplyOrders);
   const { toast } = useToast();
   const t = useT();
