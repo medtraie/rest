@@ -72,6 +72,10 @@ const SupplyReturn = () => {
 
   const [selectedSupplyOrder, setSelectedSupplyOrder] = useState<SupplyOrder | null>(null);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnEntryMode, setReturnEntryMode] = useState<'standard' | 'par-code'>(() => {
+    const saved = localStorage.getItem('supplyReturn.returnEntryMode');
+    return saved === 'par-code' ? 'par-code' : 'standard';
+  });
   
   // Delete confirmation dialogs
   const [deleteSupplyDialogOpen, setDeleteSupplyDialogOpen] = useState(false);
@@ -187,6 +191,9 @@ const SupplyReturn = () => {
   useEffect(() => {
     localStorage.setItem("supplyReturn.historyOpen", String(supplyHistoryOpen));
   }, [supplyHistoryOpen]);
+  useEffect(() => {
+    localStorage.setItem('supplyReturn.returnEntryMode', returnEntryMode);
+  }, [returnEntryMode]);
   
 
   // Calculate total amount from products
@@ -1759,6 +1766,32 @@ const SupplyReturn = () => {
                   </div>
                 </div>
               </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{tr("Mode d'entrée retour", "وضع إدخال الرجوع")}</p>
+                    <p className="text-xs text-slate-500">{tr("Le mode Par code applique un formulaire grand format type document.", "وضع حسب الكود يفعّل نموذجًا كبيرًا مثل الوثيقة.")}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={returnEntryMode === 'standard' ? 'default' : 'outline'}
+                      className={returnEntryMode === 'standard' ? 'bg-slate-900 hover:bg-slate-800' : 'border-slate-300'}
+                      onClick={() => setReturnEntryMode('standard')}
+                    >
+                      {tr("Standard", "عادي")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={returnEntryMode === 'par-code' ? 'default' : 'outline'}
+                      className={returnEntryMode === 'par-code' ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-300'}
+                      onClick={() => setReturnEntryMode('par-code')}
+                    >
+                      {tr("Par code", "حسب الكود")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-slate-700 font-medium">{tr("Type de Destinataire", "نوع المستلم")}</Label>
@@ -2874,6 +2907,7 @@ const SupplyReturn = () => {
             }
           }}
           supplyOrder={selectedSupplyOrder}
+          mode={returnEntryMode}
         />
       )}
 

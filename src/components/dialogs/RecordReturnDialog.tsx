@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { SupplyOrder, ReturnOrderItem, ExpenseReport } from '@/types';
+import { supabaseService } from '@/lib/supabaseService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X, Receipt, DollarSign, Package, AlertCircle, Trash2, CreditCard, Wallet, Banknote, Save } from 'lucide-react';
@@ -59,6 +60,7 @@ interface RecordReturnDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   supplyOrder: SupplyOrder;
+  mode?: 'standard' | 'par-code';
 }
 
 interface ForeignBottleEntry {
@@ -66,10 +68,17 @@ interface ForeignBottleEntry {
   bottleType: string;
   quantity: number;
 }
+interface ExpenseCodeOption {
+  id: string;
+  code: string;
+  designation: string;
+  account: string;
+}
 
-export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, onOpenChange, supplyOrder }) => {
-  const { addReturnOrder, addExpense, updateBottleType, bottleTypes, drivers, addForeignBottle, updateEmptyBottlesStockByBottleType, addDefectiveBottle, addRevenue, brands } = useApp();
+export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, onOpenChange, supplyOrder, mode = 'standard' }) => {
+  const { addReturnOrder, addExpense, updateBottleType, bottleTypes, drivers, clients = [], addForeignBottle, updateEmptyBottlesStockByBottleType, addDefectiveBottle, addRevenue, brands } = useApp();
   const { toast } = useToast();
+  const isParCodeMode = mode === 'par-code';
 
   const [items, setItems] = useState<ReturnOrderItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseReport[]>([]);
@@ -87,6 +96,15 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
     quantity: 0,
   });
   const [foreignDetailsByItem, setForeignDetailsByItem] = useState<Record<string, ForeignBottleEntry[]>>({});
+  const [expenseCodeOptions, setExpenseCodeOptions] = useState<ExpenseCodeOption[]>([]);
+  const [selectedExpenseCode, setSelectedExpenseCode] = useState('');
+  const [selectedExpenseAmount, setSelectedExpenseAmount] = useState('');
+  const [difRows, setDifRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
+  const [defRows, setDefRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
+  const [selectedDifCode, setSelectedDifCode] = useState('');
+  const [selectedDefCode, setSelectedDefCode] = useState('');
+  const [clientRows, setClientRows] = useState<Array<{ client: string; bon: string; code: string; qte: number; prix: number; montant: number; payer: number; dif: number }>>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
 
   React.useEffect(() => {
     if (supplyOrder && supplyOrder.items) {
@@ -111,6 +129,26 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       );
     }
   }, [supplyOrder]);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const rows = await supabaseService.getAll<ExpenseCodeOption>('accounting_expense_codes');
+      if (!mounted) return;
+      setExpenseCodeOptions(
+        rows
+          .map((row) => ({
+            id: String(row.id),
+            code: String((row as any).code || '').trim(),
+            designation: String((row as any).designation || '').trim(),
+            account: String((row as any).account || '').trim(),
+          }))
+          .filter((row) => row.code && row.designation)
+      );
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const totalExpenses = React.useMemo(
     () => expenses.reduce((sum, e) => sum + (e.amount || 0), 0) + (newExpense.amount > 0 ? newExpense.amount : 0),
@@ -138,6 +176,132 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
     }, 0);
     return { totalVentes, totalPrix, consigneFeesTotal };
   }, [items, bottleTypes]);
+  const normalizeBottleKey = React.useCallback((value: string | undefined) => {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }, []);
+  const resolveBottleMeta = React.useCallback(
+    (bottleTypeId: string, bottleTypeName?: string) => {
+      const idRaw = String(bottleTypeId || '').trim();
+      const nameRaw = String(bottleTypeName || '').trim();
+      const idKey = normalizeBottleKey(idRaw);
+      const nameKey = normalizeBottleKey(nameRaw);
+      return bottleTypes.find((bt) => {
+        const btId = String(bt.id || '').trim();
+        const btName = String(bt.name || '').trim();
+        const btCode = String((bt as any).code || '').trim();
+        const btIdKey = normalizeBottleKey(btId);
+        const btNameKey = normalizeBottleKey(btName);
+        const btCodeKey = normalizeBottleKey(btCode);
+        return (
+          btId === idRaw ||
+          btCode === idRaw ||
+          btName === nameRaw ||
+          btIdKey === idKey ||
+          btCodeKey === idKey ||
+          btNameKey === idKey ||
+          btNameKey === nameKey
+        );
+      });
+    },
+    [bottleTypes, normalizeBottleKey]
+  );
+  const resolveBottleCode = React.useCallback(
+    (bottleTypeId: string, bottleTypeName?: string) => {
+      const matched = resolveBottleMeta(bottleTypeId, bottleTypeName);
+      const fromMeta = String((matched as any)?.code ?? (matched as any)?.codeArticle ?? (matched as any)?.code_article ?? '').trim();
+      if (fromMeta) return fromMeta;
+      return bottleTypeName || '-';
+    },
+    [resolveBottleMeta]
+  );
+  const resolveBottleColor = React.useCallback(
+    (bottleTypeId: string, bottleTypeName?: string) => {
+      const matched = resolveBottleMeta(bottleTypeId, bottleTypeName);
+      return String((matched as any)?.color || '#94a3b8');
+    },
+    [resolveBottleMeta]
+  );
+  const parCodeRows = React.useMemo(() => {
+    return items.map((item) => {
+      const soldQty = Math.max(0, (item.fullQuantity || 0) - (item.returnedFullQuantity || 0) - (item.defectiveQuantity || 0));
+      const unitPrice = Number(item.unitPrice || 0);
+      return {
+        code: resolveBottleCode(item.bottleTypeId, item.bottleTypeName),
+        designation: item.bottleTypeName,
+        sor: Number(item.fullQuantity || 0),
+        rtg: Number(item.returnedEmptyQuantity || 0),
+        rtr: Number(item.returnedFullQuantity || 0),
+        vte: soldQty,
+        pu: unitPrice,
+        montant: soldQty * unitPrice,
+      };
+    });
+  }, [items, resolveBottleCode]);
+  const parCodeTotals = React.useMemo(() => {
+    const ventes = parCodeRows.reduce((sum, row) => sum + row.montant, 0);
+    const encaisse = (parseFloat(paymentCashAmount) || 0) + (parseFloat(paymentCheckAmount) || 0) + (parseFloat(paymentMygazAmount) || 0);
+    const aEncaisser = Math.max(0, paymentTotals.total - encaisse);
+    return {
+      ventes,
+      depenses: totalExpenses,
+      difference: ventes - totalExpenses,
+      aEncaisser,
+      encaisse,
+      enPlus: encaisse - paymentTotals.total,
+    };
+  }, [parCodeRows, totalExpenses, paymentCashAmount, paymentCheckAmount, paymentMygazAmount, paymentTotals.total]);
+  const addSelectedExpenseCode = () => {
+    const picked = expenseCodeOptions.find((item) => item.id === selectedExpenseCode);
+    if (!picked) return;
+    const amount = Math.max(0, Number(selectedExpenseAmount || 0));
+    setExpenses((prev) => [
+      ...prev,
+      {
+        id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
+        date: new Date().toISOString(),
+        description: `${picked.code} - ${picked.designation}`,
+        amount,
+        type: 'note de frais',
+        paymentMethod: 'dette',
+        note: `Compte ${picked.account}`,
+      } as ExpenseReport,
+    ]);
+    setSelectedExpenseCode('');
+    setSelectedExpenseAmount('');
+  };
+  const addDifRowByCode = (code: string) => {
+    if (!code) return;
+    setDifRows((prev) => [...prev, { code, qte: 0, prix: 0 }]);
+    setSelectedDifCode('');
+  };
+  const addDefRowByCode = (code: string) => {
+    if (!code) return;
+    setDefRows((prev) => [...prev, { code, qte: 0, prix: 0 }]);
+    setSelectedDefCode('');
+  };
+  const addClientRow = (clientId: string) => {
+    if (!clientId) return;
+    const picked = clients.find((c) => String(c.id) === String(clientId));
+    if (!picked) return;
+    setClientRows((prev) => [
+      ...prev,
+      {
+        client: picked.name,
+        bon: supplyOrder.orderNumber || '',
+        code: picked.code || '',
+        qte: 0,
+        prix: 0,
+        montant: 0,
+        payer: 0,
+        dif: 0,
+      },
+    ]);
+    setSelectedClientId('');
+  };
 
   const handleQuantityChange = (bottleTypeId: string, field: keyof ReturnOrderItem, value: string) => {
     const quantity = (field === 'unitPrice' || field === 'consignePrice') ? (parseFloat(value) || 0) : (parseInt(value) || 0);
@@ -270,7 +434,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+      <DialogContent className={isParCodeMode ? "max-w-[96vw] max-h-[95vh] overflow-y-auto p-0 border-none shadow-2xl" : "max-w-6xl max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl"}>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col h-full">
           <div className="bg-indigo-600 p-6 text-white">
             <DialogHeader>
@@ -293,160 +457,422 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
           </div>
 
           <div className="p-6 space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <div className="flex flex-wrap gap-4">
-                <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Total Ventes</div>
-                  <div className="text-xl font-bold text-indigo-600">{(ventesSummary.totalPrix + ventesSummary.consigneFeesTotal).toFixed(2)} DH</div>
-                </div>
-                <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Dépenses</div>
-                  <div className="text-xl font-bold text-red-500">-{totalExpenses.toFixed(2)} DH</div>
-                </div>
-                <div className="bg-indigo-600 px-4 py-2 rounded-lg shadow-md">
-                <div className="text-[10px] uppercase font-bold text-indigo-200">Total TTC net à payer</div>
-                  <div className="text-xl font-bold text-white">{paymentTotals.total.toFixed(2)} DH</div>
-                </div>
-              </div>
-              <Button onClick={() => setPaymentDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 transition-all hover:scale-105 active:scale-95 w-full md:w-auto">
-                <DollarSign className="h-4 w-4 mr-2" /> Finaliser & Régler
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 bg-indigo-600 rounded-full" />
-                <h3 className="font-bold text-slate-800">Inventaire des Produits Retournés</h3>
-              </div>
-              <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="font-bold">Produit</TableHead>
-                      <TableHead className="text-center bg-blue-50/50">Vides</TableHead>
-                      <TableHead className="text-center bg-green-50/50">Pleins</TableHead>
-                      <TableHead className="text-center bg-orange-50/50">Consigne</TableHead>
-                      <TableHead className="text-center bg-purple-50/50">Étranger</TableHead>
-                      <TableHead className="text-center bg-red-50/50">Déf/RC</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={item.bottleTypeId} className="hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="font-semibold text-slate-700">{item.bottleTypeName}</TableCell>
-                        <TableCell className="bg-blue-50/20"><Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-blue-100" placeholder="0" /></TableCell>
-                        <TableCell className="bg-green-50/20"><Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-green-100" placeholder="0" /></TableCell>
-                        <TableCell className="bg-orange-50/20"><Input type="number" value={item.consigneQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'consigneQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-orange-100" placeholder="0" /></TableCell>
-                        <TableCell className="bg-purple-50/20">
-                          <div className="flex items-center justify-center gap-2">
-                            <span className="font-bold text-purple-700">{item.foreignQuantity || 0}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-600 hover:bg-purple-50" onClick={() => openForeignBottlesModal(index)}><Plus className="h-3 w-3" /></Button>
-                          </div>
-                        </TableCell>
-                        <TableCell className="bg-red-50/20">
-                          <div className="flex flex-col gap-1">
-                            <Input type="number" value={item.defectiveQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'defectiveQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="Déf" />
-                            <Input type="number" value={item.lostQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'lostQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="RC" />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${(item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity) === item.fullQuantity ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity} / {item.fullQuantity}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              <Card className="border-none shadow-sm bg-slate-50/50">
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><DollarSign className="w-5 h-5 text-indigo-600" /> Résumé Financier</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                      <span className="text-slate-500">Ventes Gaz:</span>
-                      <span className="font-bold text-slate-900">{ventesSummary.totalPrix.toFixed(2)} DH</span>
-                    </div>
-                    <div className="pb-2 border-b border-slate-100">
-                      <div className="text-slate-500 mb-2">Prix unitaire de produit:</div>
-                      <div className="space-y-2">
-                        {items.map((it) => (
-                          <div key={it.bottleTypeId} className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-slate-600 truncate">{it.bottleTypeName}</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={it.unitPrice ?? ''}
-                              onChange={(e) => handleQuantityChange(it.bottleTypeId, 'unitPrice', e.target.value)}
-                              className="w-28 h-8 text-right bg-white"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        ))}
+            {isParCodeMode ? (
+              <div className="space-y-6">
+                <div className="grid lg:grid-cols-3 gap-4">
+                  <Card className="lg:col-span-2 border border-slate-300 bg-white">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Tableau principal (Par code)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50">
+                              <TableHead>Article</TableHead>
+                              <TableHead>Désignation</TableHead>
+                              <TableHead className="text-center">Sor</TableHead>
+                              <TableHead className="text-center">RtG</TableHead>
+                              <TableHead className="text-center">RtR</TableHead>
+                              <TableHead className="text-center">Vte</TableHead>
+                              <TableHead className="text-right">PU</TableHead>
+                              <TableHead className="text-right">Montant</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {items.map((item) => {
+                              const soldQty = Math.max(0, (item.fullQuantity || 0) - (item.returnedFullQuantity || 0) - (item.defectiveQuantity || 0));
+                              return (
+                                <TableRow key={item.bottleTypeId}>
+                                  <TableCell>
+                                    <div className="inline-flex items-center gap-2">
+                                      <span
+                                        className="inline-block w-2.5 h-2.5 rounded-full border border-slate-300"
+                                        style={{ backgroundColor: resolveBottleColor(item.bottleTypeId, item.bottleTypeName) }}
+                                      />
+                                      <span>{resolveBottleCode(item.bottleTypeId, item.bottleTypeName)}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{item.bottleTypeName}</TableCell>
+                                  <TableCell className="text-center">{item.fullQuantity || 0}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
+                                  </TableCell>
+                                  <TableCell className="text-center font-bold">{soldQty}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Input type="number" step="0.01" value={item.unitPrice ?? ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'unitPrice', e.target.value)} className="w-24 h-8 ml-auto text-right" />
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold">{(soldQty * Number(item.unitPrice || 0)).toFixed(2)}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-orange-600">
-                      <span className="text-slate-500">Consigne (Dépôts):</span>
-                      <span className="font-bold">{ventesSummary.consigneFeesTotal.toFixed(2)} DH</span>
-                    </div>
-                    <div className="pb-2 border-b border-slate-100">
-                      <div className="text-slate-500 mb-2">Prix consigne (modifiable):</div>
-                      <div className="space-y-2">
-                        {items.map((it) => (
-                          <div key={it.bottleTypeId} className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-slate-600 truncate">{it.bottleTypeName}</span>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={it.consignePrice ?? ''}
-                              onChange={(e) => handleQuantityChange(it.bottleTypeId, 'consignePrice', e.target.value)}
-                              className="w-28 h-8 text-right bg-white"
-                              placeholder="0.00"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-red-500">
-                      <span className="text-slate-500">Total Dépenses:</span>
-                      <span className="font-bold">-{totalExpenses.toFixed(2)} DH</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-2 text-lg">
-                      <span className="font-bold text-slate-800">NET À PAYER:</span>
-                      <span className="font-black text-indigo-600">{paymentTotals.total.toFixed(2)} DH</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                  <Card className="border border-slate-300 bg-white">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Synthèse</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span>Ventes</span><span className="font-bold">{parCodeTotals.ventes.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Dépenses</span><span className="font-bold">{parCodeTotals.depenses.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Difference</span><span className="font-bold">{parCodeTotals.difference.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>A encaisser</span><span className="font-bold">{parCodeTotals.aEncaisser.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Encaisé</span><span className="font-bold">{parCodeTotals.encaisse.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>En plus</span><span className={`font-bold ${parCodeTotals.enPlus < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{parCodeTotals.enPlus.toFixed(2)}</span></div>
+                    </CardContent>
+                  </Card>
+                </div>
 
-              <Card className="border-none shadow-sm bg-slate-50/50">
-                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Receipt className="w-5 h-5 text-red-500" /> Note de Frais</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
+                <div className="grid lg:grid-cols-3 gap-4">
+                  <Card className="border border-slate-300 bg-white">
+                    <CardHeader className="pb-2"><CardTitle className="text-base">Dépenses</CardTitle></CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex gap-2">
+                        <Select value={selectedExpenseCode} onValueChange={setSelectedExpenseCode}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Sélectionner dépense codifiée" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {expenseCodeOptions.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id}>
+                                {opt.code} · {opt.designation}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input type="number" placeholder="0.00" value={selectedExpenseAmount} onChange={(e) => setSelectedExpenseAmount(e.target.value)} className="w-24" />
+                        <Button onClick={addSelectedExpenseCode} size="icon"><Plus className="h-4 w-4" /></Button>
+                      </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50"><TableHead>Dépense</TableHead><TableHead className="text-right">Montant</TableHead></TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {expenses.length === 0 ? (
+                              <TableRow><TableCell colSpan={2} className="text-center text-slate-400">Aucune dépense</TableCell></TableRow>
+                            ) : expenses.map((exp, idx) => (
+                              <TableRow key={idx}><TableCell>{exp.description || (exp as any).note}</TableCell><TableCell className="text-right">{exp.amount.toFixed(2)}</TableCell></TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border border-slate-300 bg-white">
+                    <CardHeader className="pb-2"><CardTitle className="text-base">DIF</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="flex gap-2 mb-3">
+                        <Select value={selectedDifCode} onValueChange={setSelectedDifCode}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Sélectionner un code" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((it) => (
+                              <SelectItem key={`dif-opt-${it.bottleTypeId}`} value={it.bottleTypeId}>
+                                {it.bottleTypeId} · {it.bottleTypeName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" onClick={() => addDifRowByCode(selectedDifCode)}>Ajouter</Button>
+                      </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50"><TableHead>Code</TableHead><TableHead>Qte</TableHead><TableHead>Prix</TableHead><TableHead className="text-right">Montant</TableHead></TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {difRows.length === 0 ? (
+                              <TableRow><TableCell colSpan={4} className="text-center text-slate-400">Tableau vide</TableCell></TableRow>
+                            ) : difRows.map((row, idx) => (
+                              <TableRow key={`dif-${row.code}-${idx}`}>
+                                <TableCell>{row.code}</TableCell>
+                                <TableCell><Input type="number" value={row.qte || ''} onChange={(e) => setDifRows(prev => prev.map((r, i) => i === idx ? { ...r, qte: Number(e.target.value || 0) } : r))} className="w-16 h-8" /></TableCell>
+                                <TableCell><Input type="number" value={row.prix || ''} onChange={(e) => setDifRows(prev => prev.map((r, i) => i === idx ? { ...r, prix: Number(e.target.value || 0) } : r))} className="w-20 h-8" /></TableCell>
+                                <TableCell className="text-right">{(row.qte * row.prix).toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border border-slate-300 bg-white">
+                    <CardHeader className="pb-2"><CardTitle className="text-base">DEF</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="flex gap-2 mb-3">
+                        <Select value={selectedDefCode} onValueChange={setSelectedDefCode}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Sélectionner un code" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((it) => (
+                              <SelectItem key={`def-opt-${it.bottleTypeId}`} value={it.bottleTypeId}>
+                                {it.bottleTypeId} · {it.bottleTypeName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" onClick={() => addDefRowByCode(selectedDefCode)}>Ajouter</Button>
+                      </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-slate-50"><TableHead>Code</TableHead><TableHead>Qte</TableHead><TableHead>Prix</TableHead><TableHead className="text-right">Montant</TableHead></TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {defRows.length === 0 ? (
+                              <TableRow><TableCell colSpan={4} className="text-center text-slate-400">Tableau vide</TableCell></TableRow>
+                            ) : defRows.map((row, idx) => (
+                              <TableRow key={`def-${row.code}-${idx}`}>
+                                <TableCell>{row.code}</TableCell>
+                                <TableCell><Input type="number" value={row.qte || ''} onChange={(e) => setDefRows(prev => prev.map((r, i) => i === idx ? { ...r, qte: Number(e.target.value || 0) } : r))} className="w-16 h-8" /></TableCell>
+                                <TableCell><Input type="number" value={row.prix || ''} onChange={(e) => setDefRows(prev => prev.map((r, i) => i === idx ? { ...r, prix: Number(e.target.value || 0) } : r))} className="w-20 h-8" /></TableCell>
+                                <TableCell className="text-right">{(row.qte * row.prix).toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="border border-slate-300 rounded-xl p-4 bg-white space-y-3">
                   <div className="flex gap-2">
-                    <Input placeholder="Description (ex: Gasoil, Péage...)" value={newExpense.description} onChange={(e) => setNewExpense(prev => ({ ...prev, description: e.target.value }))} className="flex-grow bg-white" />
-                    <Input type="number" placeholder="0.00" value={newExpense.amount || ''} onChange={(e) => setNewExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))} className="w-24 bg-white" />
-                    <Button onClick={() => { if (newExpense.description && newExpense.amount > 0) { setExpenses(prev => [...prev, { ...newExpense, id: Date.now().toString(), date: new Date().toISOString(), type: 'note de frais', paymentMethod: 'dette', note: newExpense.description } as ExpenseReport]); setNewExpense({ description: '', amount: 0 }); } }} size="icon" className="bg-red-500 hover:bg-red-600 text-white"><Plus className="h-4 w-4" /></Button>
+                    <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Sélectionner un client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((client) => (
+                          <SelectItem key={`client-opt-${client.id}`} value={String(client.id)}>
+                            {client.name}{client.code ? ` · ${client.code}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button type="button" onClick={() => addClientRow(selectedClientId)}>Ajouter client</Button>
                   </div>
-                  <AnimatePresence>
-                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
-                      {expenses.map((exp, idx) => (
-                        <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex items-center justify-between p-2 bg-white rounded-lg border border-red-100 group">
-                          <span className="text-sm font-medium text-slate-700">{exp.description || (exp as any).note}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-red-600">{exp.amount.toFixed(2)} DH</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setExpenses(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="h-3 w-3" /></Button>
-                          </div>
-                        </motion.div>
-                      ))}
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead>Client</TableHead>
+                          <TableHead>BON</TableHead>
+                          <TableHead>Code</TableHead>
+                          <TableHead className="text-center">Qte</TableHead>
+                          <TableHead className="text-right">Prix</TableHead>
+                          <TableHead className="text-right">Montant</TableHead>
+                          <TableHead className="text-right">Payer</TableHead>
+                          <TableHead className="text-right">Dif</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clientRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center text-slate-400">Aucune ligne</TableCell>
+                          </TableRow>
+                        ) : (
+                          clientRows.map((row, idx) => (
+                            <TableRow key={`client-row-${row.code}-${idx}`}>
+                              <TableCell>{row.client}</TableCell>
+                              <TableCell>{row.bon}</TableCell>
+                              <TableCell>{row.code}</TableCell>
+                              <TableCell className="text-center"><Input value={row.qte || ''} onChange={(e) => setClientRows(prev => prev.map((r, i) => i === idx ? { ...r, qte: Number(e.target.value || 0) } : r))} type="number" className="w-16 h-8 mx-auto" /></TableCell>
+                              <TableCell className="text-right"><Input value={row.prix || ''} onChange={(e) => setClientRows(prev => prev.map((r, i) => i === idx ? { ...r, prix: Number(e.target.value || 0) } : r))} type="number" className="w-20 h-8 ml-auto" /></TableCell>
+                              <TableCell className="text-right font-bold"><Input value={row.montant || ''} onChange={(e) => setClientRows(prev => prev.map((r, i) => i === idx ? { ...r, montant: Number(e.target.value || 0) } : r))} type="number" className="w-24 h-8 ml-auto" /></TableCell>
+                              <TableCell className="text-right text-emerald-700"><Input value={row.payer || ''} onChange={(e) => setClientRows(prev => prev.map((r, i) => i === idx ? { ...r, payer: Number(e.target.value || 0) } : r))} type="number" className="w-24 h-8 ml-auto" /></TableCell>
+                              <TableCell className="text-right text-amber-700"><Input value={row.dif || ''} onChange={(e) => setClientRows(prev => prev.map((r, i) => i === idx ? { ...r, dif: Number(e.target.value || 0) } : r))} type="number" className="w-20 h-8 ml-auto" /></TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                        <TableRow className="bg-slate-50">
+                          <TableCell colSpan={5} className="font-bold text-right">Total :</TableCell>
+                          <TableCell className="text-right font-bold">{clientRows.reduce((s, r) => s + r.montant, 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-bold text-emerald-700">{clientRows.reduce((s, r) => s + r.payer, 0).toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-bold text-amber-700">{clientRows.reduce((s, r) => s + r.dif, 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="border-t pt-3">
+                    <p className="font-bold text-slate-900">
+                      MONTANT A ENCAISSE EN LETTRE : {parCodeTotals.aEncaisser.toFixed(2)} DH
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => setPaymentDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <DollarSign className="h-4 w-4 mr-2" /> Finaliser & Régler
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Total Ventes</div>
+                      <div className="text-xl font-bold text-indigo-600">{(ventesSummary.totalPrix + ventesSummary.consigneFeesTotal).toFixed(2)} DH</div>
                     </div>
-                  </AnimatePresence>
-                </CardContent>
-              </Card>
-            </div>
+                    <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Dépenses</div>
+                      <div className="text-xl font-bold text-red-500">-{totalExpenses.toFixed(2)} DH</div>
+                    </div>
+                    <div className="bg-indigo-600 px-4 py-2 rounded-lg shadow-md">
+                    <div className="text-[10px] uppercase font-bold text-indigo-200">Total TTC net à payer</div>
+                      <div className="text-xl font-bold text-white">{paymentTotals.total.toFixed(2)} DH</div>
+                    </div>
+                  </div>
+                  <Button onClick={() => setPaymentDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 transition-all hover:scale-105 active:scale-95 w-full md:w-auto">
+                    <DollarSign className="h-4 w-4 mr-2" /> Finaliser & Régler
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-6 bg-indigo-600 rounded-full" />
+                    <h3 className="font-bold text-slate-800">Inventaire des Produits Retournés</h3>
+                  </div>
+                  <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+                    <Table>
+                      <TableHeader className="bg-slate-50">
+                        <TableRow>
+                          <TableHead className="font-bold">Produit</TableHead>
+                          <TableHead className="text-center bg-blue-50/50">Vides</TableHead>
+                          <TableHead className="text-center bg-green-50/50">Pleins</TableHead>
+                          <TableHead className="text-center bg-orange-50/50">Consigne</TableHead>
+                          <TableHead className="text-center bg-purple-50/50">Étranger</TableHead>
+                          <TableHead className="text-center bg-red-50/50">Déf/RC</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item, index) => (
+                          <TableRow key={item.bottleTypeId} className="hover:bg-slate-50/50 transition-colors">
+                            <TableCell className="font-semibold text-slate-700">{item.bottleTypeName}</TableCell>
+                            <TableCell className="bg-blue-50/20"><Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-blue-100" placeholder="0" /></TableCell>
+                            <TableCell className="bg-green-50/20"><Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-green-100" placeholder="0" /></TableCell>
+                            <TableCell className="bg-orange-50/20"><Input type="number" value={item.consigneQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'consigneQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-orange-100" placeholder="0" /></TableCell>
+                            <TableCell className="bg-purple-50/20">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="font-bold text-purple-700">{item.foreignQuantity || 0}</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-600 hover:bg-purple-50" onClick={() => openForeignBottlesModal(index)}><Plus className="h-3 w-3" /></Button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="bg-red-50/20">
+                              <div className="flex flex-col gap-1">
+                                <Input type="number" value={item.defectiveQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'defectiveQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="Déf" />
+                                <Input type="number" value={item.lostQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'lostQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="RC" />
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${(item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity) === item.fullQuantity ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity} / {item.fullQuantity}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                  <Card className="border-none shadow-sm bg-slate-50/50">
+                    <CardHeader><CardTitle className="text-lg flex items-center gap-2"><DollarSign className="w-5 h-5 text-indigo-600" /> Résumé Financier</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                          <span className="text-slate-500">Ventes Gaz:</span>
+                          <span className="font-bold text-slate-900">{ventesSummary.totalPrix.toFixed(2)} DH</span>
+                        </div>
+                        <div className="pb-2 border-b border-slate-100">
+                          <div className="text-slate-500 mb-2">Prix unitaire de produit:</div>
+                          <div className="space-y-2">
+                            {items.map((it) => (
+                              <div key={it.bottleTypeId} className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-slate-600 truncate">{it.bottleTypeName}</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={it.unitPrice ?? ''}
+                                  onChange={(e) => handleQuantityChange(it.bottleTypeId, 'unitPrice', e.target.value)}
+                                  className="w-28 h-8 text-right bg-white"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-orange-600">
+                          <span className="text-slate-500">Consigne (Dépôts):</span>
+                          <span className="font-bold">{ventesSummary.consigneFeesTotal.toFixed(2)} DH</span>
+                        </div>
+                        <div className="pb-2 border-b border-slate-100">
+                          <div className="text-slate-500 mb-2">Prix consigne (modifiable):</div>
+                          <div className="space-y-2">
+                            {items.map((it) => (
+                              <div key={it.bottleTypeId} className="flex items-center justify-between gap-3">
+                                <span className="text-xs text-slate-600 truncate">{it.bottleTypeName}</span>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={it.consignePrice ?? ''}
+                                  onChange={(e) => handleQuantityChange(it.bottleTypeId, 'consignePrice', e.target.value)}
+                                  className="w-28 h-8 text-right bg-white"
+                                  placeholder="0.00"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-100 text-red-500">
+                          <span className="text-slate-500">Total Dépenses:</span>
+                          <span className="font-bold">-{totalExpenses.toFixed(2)} DH</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 text-lg">
+                          <span className="font-bold text-slate-800">NET À PAYER:</span>
+                          <span className="font-black text-indigo-600">{paymentTotals.total.toFixed(2)} DH</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-none shadow-sm bg-slate-50/50">
+                    <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Receipt className="w-5 h-5 text-red-500" /> Note de Frais</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex gap-2">
+                        <Input placeholder="Description (ex: Gasoil, Péage...)" value={newExpense.description} onChange={(e) => setNewExpense(prev => ({ ...prev, description: e.target.value }))} className="flex-grow bg-white" />
+                        <Input type="number" placeholder="0.00" value={newExpense.amount || ''} onChange={(e) => setNewExpense(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))} className="w-24 bg-white" />
+                        <Button onClick={() => { if (newExpense.description && newExpense.amount > 0) { setExpenses(prev => [...prev, { ...newExpense, id: Date.now().toString(), date: new Date().toISOString(), type: 'note de frais', paymentMethod: 'dette', note: newExpense.description } as ExpenseReport]); setNewExpense({ description: '', amount: 0 }); } }} size="icon" className="bg-red-500 hover:bg-red-600 text-white"><Plus className="h-4 w-4" /></Button>
+                      </div>
+                      <AnimatePresence>
+                        <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
+                          {expenses.map((exp, idx) => (
+                            <motion.div key={idx} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex items-center justify-between p-2 bg-white rounded-lg border border-red-100 group">
+                              <span className="text-sm font-medium text-slate-700">{exp.description || (exp as any).note}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold text-red-600">{exp.amount.toFixed(2)} DH</span>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setExpenses(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="h-3 w-3" /></Button>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
           </div>
 
           <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>

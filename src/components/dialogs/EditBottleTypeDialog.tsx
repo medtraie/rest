@@ -18,6 +18,7 @@ export const EditBottleTypeDialog = ({ bottle, open, onOpenChange }: EditBottleT
   const displayTaxRate = '10';
   const colorPresets = ['#2563eb', '#16a34a', '#ef4444', '#f59e0b', '#111827', '#06b6d4', '#7c3aed', '#f97316'];
   const [formData, setFormData] = useState({
+    code: bottle?.code || '',
     name: bottle?.name || '',
     capacity: bottle?.capacity || '',
     totalQuantity: (
@@ -33,6 +34,7 @@ export const EditBottleTypeDialog = ({ bottle, open, onOpenChange }: EditBottleT
   useEffect(() => {
     if (open && bottle) {
       setFormData({
+        code: (bottle.code ?? (bottle as any).code ?? '').toString(),
         name: bottle.name || (bottle as any).name || '',
         capacity: bottle.capacity || (bottle as any).capacity || '',
         totalQuantity: (
@@ -74,6 +76,7 @@ export const EditBottleTypeDialog = ({ bottle, open, onOpenChange }: EditBottleT
     const quantityDifference = newTotalQuantity - Number(currentTotalQuantity || 0);
     
     const result = await updateBottleType(bottle.id, {
+      code: formData.code.trim() || undefined,
       name: formData.name,
       capacity: formData.capacity,
       totalQuantity: newTotalQuantity,
@@ -99,6 +102,15 @@ export const EditBottleTypeDialog = ({ bottle, open, onOpenChange }: EditBottleT
           <DialogTitle>Modifier {bottle.name}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="code">Code (Optionnel)</Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="Ex: 6003"
+            />
+          </div>
           <div>
             <Label htmlFor="name">Nom</Label>
             <Input
