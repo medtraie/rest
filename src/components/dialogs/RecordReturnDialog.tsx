@@ -233,8 +233,8 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
         code: resolveBottleCode(item.bottleTypeId, item.bottleTypeName),
         designation: item.bottleTypeName,
         sor: Number(item.fullQuantity || 0),
-        rtg: Number(item.returnedEmptyQuantity || 0),
-        rtr: Number(item.returnedFullQuantity || 0),
+        rtg: Number(item.returnedFullQuantity || 0),
+        rtr: Number(item.returnedEmptyQuantity || 0),
         vte: soldQty,
         pu: unitPrice,
         montant: soldQty * unitPrice,
@@ -496,10 +496,10 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                                   <TableCell>{item.bottleTypeName}</TableCell>
                                   <TableCell className="text-center">{item.fullQuantity || 0}</TableCell>
                                   <TableCell className="text-center">
-                                    <Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
+                                    <Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
                                   </TableCell>
                                   <TableCell className="text-center">
-                                    <Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
+                                    <Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-16 h-8 mx-auto text-center" />
                                   </TableCell>
                                   <TableCell className="text-center font-bold">{soldQty}</TableCell>
                                   <TableCell className="text-right">
