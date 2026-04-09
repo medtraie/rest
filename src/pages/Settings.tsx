@@ -119,6 +119,23 @@ const Settings = () => {
     region: ''
   });
 
+  const [reservoirs, setReservoirs] = useState<Array<{
+    id: string;
+    code: string;
+    designation: string;
+    prix: string;
+  }>>([]);
+  const [reservoirsLoading, setReservoirsLoading] = useState(false);
+  const [reservoirsSaving, setReservoirsSaving] = useState(false);
+  const [selectedReservoirId, setSelectedReservoirId] = useState<string | null>(null);
+  const [reservoirFilterInput, setReservoirFilterInput] = useState('');
+  const [reservoirFilter, setReservoirFilter] = useState('');
+  const [reservoirForm, setReservoirForm] = useState({
+    code: '',
+    designation: '',
+    prix: ''
+  });
+
   useEffect(() => {
     if (!assignmentRoleId && roles.length > 0) {
       setAssignmentRoleId(roles[0].id);
@@ -193,6 +210,28 @@ const Settings = () => {
       setSectorsLoading(false);
     };
     loadSectors();
+
+    const loadReservoirs = async () => {
+      setReservoirsLoading(true);
+      const { data, error } = await supabase
+        .from('reservoirs_pricing')
+        .select('*')
+        .order('code', { ascending: true });
+      if (error) {
+        toast({ title: 'Erreur chargement réservoirs', description: error.message, variant: 'destructive' });
+        setReservoirsLoading(false);
+        return;
+      }
+      const rows = (data ?? []).map((row: any) => ({
+        id: String(row.id),
+        code: String(row.code ?? ''),
+        designation: String(row.designation ?? ''),
+        prix: String(row.prix ?? '')
+      }));
+      setReservoirs(rows);
+      setReservoirsLoading(false);
+    };
+    loadReservoirs();
   }, []);
 
   const addPricingRow = () => {
@@ -296,6 +335,117 @@ const Settings = () => {
   const clearSectorForm = () => {
     setSelectedSectorId(null);
     setSectorForm({ code: '', secteurs: '', ville: '', region: '' });
+  };
+
+  const displayedReservoirs = React.useMemo(() => {
+    const keyword = reservoirFilter.trim().toLowerCase();
+    if (!keyword) return reservoirs;
+    return reservoirs.filter((row) =>
+      row.code.toLowerCase().includes(keyword) ||
+      row.designation.toLowerCase().includes(keyword)
+    );
+  }, [reservoirs, reservoirFilter]);
+
+  const clearReservoirForm = () => {
+    setSelectedReservoirId(null);
+    setReservoirForm({ code: '', designation: '', prix: '' });
+  };
+
+  const selectReservoir = (id: string) => {
+    if (selectedReservoirId === id) {
+      clearReservoirForm();
+      return;
+    }
+    const row = reservoirs.find(r => r.id === id);
+    if (row) {
+      setSelectedReservoirId(id);
+      setReservoirForm({
+        code: row.code,
+        designation: row.designation,
+        prix: row.prix
+      });
+    }
+  };
+
+  const handleReservoirFilter = () => {
+    setReservoirFilter(reservoirFilterInput.trim());
+  };
+
+  const handleReservoirConsult = () => {
+    if (!selectedReservoirId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un réservoir pour le consulter.', variant: 'destructive' });
+      return;
+    }
+    const row = reservoirs.find(r => r.id === selectedReservoirId);
+    if (row) {
+      toast({ title: `Consultation: ${row.code}`, description: `Désignation: ${row.designation} | Prix: ${row.prix} DH` });
+    }
+  };
+
+  const handleReservoirAdd = async () => {
+    if (!reservoirForm.code.trim() || !reservoirForm.designation.trim() || !reservoirForm.prix.trim()) {
+      toast({ title: 'Erreur', description: 'Tous les champs sont requis.', variant: 'destructive' });
+      return;
+    }
+    setReservoirsSaving(true);
+    const payload = {
+      code: reservoirForm.code.trim(),
+      designation: reservoirForm.designation.trim(),
+      prix: Number(reservoirForm.prix) || 0
+    };
+    const { data, error } = await supabase.from('reservoirs_pricing').insert(payload).select().single();
+    setReservoirsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else if (data) {
+      setReservoirs(prev => [...prev, { id: String(data.id), code: String(data.code), designation: String(data.designation), prix: String(data.prix) }]);
+      toast({ title: 'Succès', description: 'Réservoir ajouté' });
+      clearReservoirForm();
+    }
+  };
+
+  const handleReservoirUpdate = async () => {
+    if (!selectedReservoirId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un réservoir à modifier.', variant: 'destructive' });
+      return;
+    }
+    if (!reservoirForm.code.trim() || !reservoirForm.designation.trim() || !reservoirForm.prix.trim()) {
+      toast({ title: 'Erreur', description: 'Tous les champs sont requis.', variant: 'destructive' });
+      return;
+    }
+    setReservoirsSaving(true);
+    const payload = {
+      code: reservoirForm.code.trim(),
+      designation: reservoirForm.designation.trim(),
+      prix: Number(reservoirForm.prix) || 0
+    };
+    const { data, error } = await supabase.from('reservoirs_pricing').update(payload).eq('id', selectedReservoirId).select().single();
+    setReservoirsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else if (data) {
+      setReservoirs(prev => prev.map(r => r.id === selectedReservoirId ? { id: r.id, code: String(data.code), designation: String(data.designation), prix: String(data.prix) } : r));
+      toast({ title: 'Succès', description: 'Réservoir modifié' });
+      clearReservoirForm();
+    }
+  };
+
+  const handleReservoirDelete = async () => {
+    if (!selectedReservoirId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un réservoir à supprimer.', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm('Voulez-vous vraiment supprimer ce réservoir ?')) return;
+    setReservoirsSaving(true);
+    const { error } = await supabase.from('reservoirs_pricing').delete().eq('id', selectedReservoirId);
+    setReservoirsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else {
+      setReservoirs(prev => prev.filter(r => r.id !== selectedReservoirId));
+      toast({ title: 'Succès', description: 'Réservoir supprimé' });
+      clearReservoirForm();
+    }
   };
 
   const handleSectorFilter = () => {
@@ -702,7 +852,132 @@ const Settings = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-slate-800 bg-slate-900/60">
+            <Card className="border-slate-800 bg-slate-900/60 mt-6">
+              <CardHeader className="border-b border-slate-800">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-slate-100">Liste des Réservoirs</CardTitle>
+                    <CardDescription className="text-slate-300">
+                      Gestion des réservoirs avec consultation, ajout, modification, suppression et filtre.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-slate-900 text-slate-200 border-slate-700">
+                    {displayedReservoirs.length} lignes
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-slate-200 text-xs">Code</Label>
+                    <Input
+                      value={reservoirForm.code}
+                      onChange={(e) => setReservoirForm(p => ({ ...p, code: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: 9003"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-slate-200 text-xs">Désignation</Label>
+                    <Input
+                      value={reservoirForm.designation}
+                      onChange={(e) => setReservoirForm(p => ({ ...p, designation: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: TISSIR GAZ RESERVOIRS 03 KGS"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-slate-200 text-xs">Prix (DH)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={reservoirForm.prix}
+                      onChange={(e) => setReservoirForm(p => ({ ...p, prix: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: 30.00"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-800">
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <Label className="text-slate-200 text-sm font-semibold whitespace-nowrap">Filtre</Label>
+                    <div className="flex gap-2 flex-1">
+                      <Input
+                        value={reservoirFilterInput}
+                        onChange={(e) => setReservoirFilterInput(e.target.value)}
+                        className="border-slate-700 bg-slate-950 text-slate-100 min-w-[200px]"
+                        placeholder="Code, désignation..."
+                        onKeyDown={(e) => e.key === 'Enter' && handleReservoirFilter()}
+                      />
+                      <Button onClick={handleReservoirFilter} className="bg-sky-600 hover:bg-sky-700 shrink-0">
+                        <Filter className="w-4 h-4 mr-2" />
+                        Filtre
+                      </Button>
+                      <Button onClick={() => { setReservoirFilterInput(''); setReservoirFilter(''); }} variant="outline" className="shrink-0 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white">
+                        Réinitialiser
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                    <Button onClick={handleReservoirConsult} variant="secondary" className="bg-slate-200 text-slate-900 hover:bg-white whitespace-nowrap" disabled={!selectedReservoirId}>
+                      Consulter
+                    </Button>
+                    <Button onClick={handleReservoirAdd} className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap" disabled={reservoirsSaving}>
+                      + Ajouter
+                    </Button>
+                    <Button onClick={handleReservoirUpdate} className="bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap" disabled={!selectedReservoirId || reservoirsSaving}>
+                      Modifier
+                    </Button>
+                    <Button onClick={handleReservoirDelete} className="bg-red-600 hover:bg-red-700 whitespace-nowrap" disabled={!selectedReservoirId || reservoirsSaving}>
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700 overflow-hidden bg-slate-950 max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60 sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Code</TableHead>
+                        <TableHead className="text-slate-200">Désignation</TableHead>
+                        <TableHead className="text-slate-200 text-right">Prix (DH)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {reservoirsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="py-6 text-center text-slate-300">
+                            Chargement...
+                          </TableCell>
+                        </TableRow>
+                      ) : displayedReservoirs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="py-6 text-center text-slate-400">
+                            Aucune ligne réservoir.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        displayedReservoirs.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            className={`cursor-pointer ${selectedReservoirId === row.id ? 'bg-indigo-500/20 hover:bg-indigo-500/20' : 'hover:bg-slate-800/40'}`}
+                            onClick={() => selectReservoir(row.id)}
+                          >
+                            <TableCell className="text-slate-100 font-medium">{row.code || '-'}</TableCell>
+                            <TableCell className="text-slate-100">{row.designation || '-'}</TableCell>
+                            <TableCell className="text-slate-200 text-right font-bold text-emerald-400">{Number(row.prix || 0).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60 mt-6">
               <CardHeader className="border-b border-slate-800">
                 <div className="flex items-center justify-between gap-4">
                   <div>
