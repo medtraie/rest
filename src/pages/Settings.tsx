@@ -136,6 +136,25 @@ const Settings = () => {
     prix: ''
   });
 
+  const [difs, setDifs] = useState<Array<{
+    id: string;
+    code: string;
+    designation: string;
+    qte_dif: string;
+    prix_dif: string;
+  }>>([]);
+  const [difsLoading, setDifsLoading] = useState(false);
+  const [difsSaving, setDifsSaving] = useState(false);
+  const [selectedDifId, setSelectedDifId] = useState<string | null>(null);
+  const [difFilterInput, setDifFilterInput] = useState('');
+  const [difFilter, setDifFilter] = useState('');
+  const [difForm, setDifForm] = useState({
+    code: '',
+    designation: '',
+    qte_dif: '',
+    prix_dif: ''
+  });
+
   useEffect(() => {
     if (!assignmentRoleId && roles.length > 0) {
       setAssignmentRoleId(roles[0].id);
@@ -232,6 +251,29 @@ const Settings = () => {
       setReservoirsLoading(false);
     };
     loadReservoirs();
+
+    const loadDifs = async () => {
+      setDifsLoading(true);
+      const { data, error } = await supabase
+        .from('dif_pricing')
+        .select('*')
+        .order('code', { ascending: true });
+      if (error) {
+        toast({ title: 'Erreur chargement DIF', description: error.message, variant: 'destructive' });
+        setDifsLoading(false);
+        return;
+      }
+      const rows = (data ?? []).map((row: any) => ({
+        id: String(row.id),
+        code: String(row.code ?? ''),
+        designation: String(row.designation ?? ''),
+        qte_dif: String(row.qte_dif ?? ''),
+        prix_dif: String(row.prix_dif ?? '')
+      }));
+      setDifs(rows);
+      setDifsLoading(false);
+    };
+    loadDifs();
   }, []);
 
   const addPricingRow = () => {
@@ -445,6 +487,138 @@ const Settings = () => {
       setReservoirs(prev => prev.filter(r => r.id !== selectedReservoirId));
       toast({ title: 'Succès', description: 'Réservoir supprimé' });
       clearReservoirForm();
+    }
+  };
+
+  const handleReservoirDelete = async () => {
+    if (!selectedReservoirId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un réservoir à supprimer.', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm('Voulez-vous vraiment supprimer ce réservoir ?')) return;
+    setReservoirsSaving(true);
+    const { error } = await supabase.from('reservoirs_pricing').delete().eq('id', selectedReservoirId);
+    setReservoirsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else {
+      setReservoirs(prev => prev.filter(r => r.id !== selectedReservoirId));
+      toast({ title: 'Succès', description: 'Réservoir supprimé' });
+      clearReservoirForm();
+    }
+  };
+
+  const displayedDifs = React.useMemo(() => {
+    const keyword = difFilter.trim().toLowerCase();
+    if (!keyword) return difs;
+    return difs.filter((row) =>
+      row.code.toLowerCase().includes(keyword) ||
+      row.designation.toLowerCase().includes(keyword)
+    );
+  }, [difs, difFilter]);
+
+  const clearDifForm = () => {
+    setSelectedDifId(null);
+    setDifForm({ code: '', designation: '', qte_dif: '', prix_dif: '' });
+  };
+
+  const selectDif = (id: string) => {
+    if (selectedDifId === id) {
+      clearDifForm();
+      return;
+    }
+    const row = difs.find(r => r.id === id);
+    if (row) {
+      setSelectedDifId(id);
+      setDifForm({
+        code: row.code,
+        designation: row.designation,
+        qte_dif: row.qte_dif,
+        prix_dif: row.prix_dif
+      });
+    }
+  };
+
+  const handleDifFilter = () => {
+    setDifFilter(difFilterInput.trim());
+  };
+
+  const handleDifConsult = () => {
+    if (!selectedDifId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un élément pour le consulter.', variant: 'destructive' });
+      return;
+    }
+    const row = difs.find(r => r.id === selectedDifId);
+    if (row) {
+      toast({ title: `Consultation: ${row.code}`, description: `Désignation: ${row.designation} | Qté: ${row.qte_dif} | Prix: ${row.prix_dif} DH` });
+    }
+  };
+
+  const handleDifAdd = async () => {
+    if (!difForm.code.trim() || !difForm.designation.trim() || !difForm.prix_dif.trim()) {
+      toast({ title: 'Erreur', description: 'Le code, la désignation et le prix sont requis.', variant: 'destructive' });
+      return;
+    }
+    setDifsSaving(true);
+    const payload = {
+      code: difForm.code.trim(),
+      designation: difForm.designation.trim(),
+      qte_dif: Number(difForm.qte_dif) || 0,
+      prix_dif: Number(difForm.prix_dif) || 0
+    };
+    const { data, error } = await supabase.from('dif_pricing').insert(payload).select().single();
+    setDifsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else if (data) {
+      setDifs(prev => [...prev, { id: String(data.id), code: String(data.code), designation: String(data.designation), qte_dif: String(data.qte_dif), prix_dif: String(data.prix_dif) }]);
+      toast({ title: 'Succès', description: 'Élément DIF ajouté' });
+      clearDifForm();
+    }
+  };
+
+  const handleDifUpdate = async () => {
+    if (!selectedDifId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un élément à modifier.', variant: 'destructive' });
+      return;
+    }
+    if (!difForm.code.trim() || !difForm.designation.trim() || !difForm.prix_dif.trim()) {
+      toast({ title: 'Erreur', description: 'Le code, la désignation et le prix sont requis.', variant: 'destructive' });
+      return;
+    }
+    setDifsSaving(true);
+    const payload = {
+      code: difForm.code.trim(),
+      designation: difForm.designation.trim(),
+      qte_dif: Number(difForm.qte_dif) || 0,
+      prix_dif: Number(difForm.prix_dif) || 0
+    };
+    const { data, error } = await supabase.from('dif_pricing').update(payload).eq('id', selectedDifId).select().single();
+    setDifsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else if (data) {
+      setDifs(prev => prev.map(r => r.id === selectedDifId ? { id: r.id, code: String(data.code), designation: String(data.designation), qte_dif: String(data.qte_dif), prix_dif: String(data.prix_dif) } : r));
+      toast({ title: 'Succès', description: 'Élément DIF modifié' });
+      clearDifForm();
+    }
+  };
+
+  const handleDifDelete = async () => {
+    if (!selectedDifId) {
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un élément à supprimer.', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm('Voulez-vous vraiment supprimer cet élément ?')) return;
+    setDifsSaving(true);
+    const { error } = await supabase.from('dif_pricing').delete().eq('id', selectedDifId);
+    setDifsSaving(false);
+    if (error) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } else {
+      setDifs(prev => prev.filter(r => r.id !== selectedDifId));
+      toast({ title: 'Succès', description: 'Élément DIF supprimé' });
+      clearDifForm();
     }
   };
 
@@ -843,6 +1017,143 @@ const Settings = () => {
                                 {pricingSaving ? 'Sauvegarde...' : 'Enregistrer'}
                               </Button>
                             </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60 mt-6">
+              <CardHeader className="border-b border-slate-800">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-slate-100">Commission Differences (DIF)</CardTitle>
+                    <CardDescription className="text-slate-300">
+                      Gestion des articles DIF (Code, Désignation, Qté DIF, Prix DIF).
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-slate-900 text-slate-200 border-slate-700">
+                    {displayedDifs.length} lignes
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="space-y-1">
+                    <Label className="text-slate-200 text-xs">Code</Label>
+                    <Input
+                      value={difForm.code}
+                      onChange={(e) => setDifForm(p => ({ ...p, code: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: 6003"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-slate-200 text-xs">Désignation</Label>
+                    <Input
+                      value={difForm.designation}
+                      onChange={(e) => setDifForm(p => ({ ...p, designation: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: TISSIR GAZ CHARGES 3 KG"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-slate-200 text-xs">Qté DIF</Label>
+                    <Input
+                      type="number"
+                      value={difForm.qte_dif}
+                      onChange={(e) => setDifForm(p => ({ ...p, qte_dif: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: 40"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-slate-200 text-xs">Prix DIF</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={difForm.prix_dif}
+                      onChange={(e) => setDifForm(p => ({ ...p, prix_dif: e.target.value }))}
+                      className="border-slate-700 bg-slate-950 text-slate-100"
+                      placeholder="Ex: 0.50"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-800">
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <Label className="text-slate-200 text-sm font-semibold whitespace-nowrap">Filtre</Label>
+                    <div className="flex gap-2 flex-1">
+                      <Input
+                        value={difFilterInput}
+                        onChange={(e) => setDifFilterInput(e.target.value)}
+                        className="border-slate-700 bg-slate-950 text-slate-100 min-w-[200px]"
+                        placeholder="Code, désignation..."
+                        onKeyDown={(e) => e.key === 'Enter' && handleDifFilter()}
+                      />
+                      <Button onClick={handleDifFilter} className="bg-sky-600 hover:bg-sky-700 shrink-0">
+                        <Filter className="w-4 h-4 mr-2" />
+                        Filtre
+                      </Button>
+                      <Button onClick={() => { setDifFilterInput(''); setDifFilter(''); }} variant="outline" className="shrink-0 bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white">
+                        Réinitialiser
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                    <Button onClick={handleDifConsult} variant="secondary" className="bg-slate-200 text-slate-900 hover:bg-white whitespace-nowrap" disabled={!selectedDifId}>
+                      Consulter
+                    </Button>
+                    <Button onClick={handleDifAdd} className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap" disabled={difsSaving}>
+                      + Ajouter
+                    </Button>
+                    <Button onClick={handleDifUpdate} className="bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap" disabled={!selectedDifId || difsSaving}>
+                      Modifier
+                    </Button>
+                    <Button onClick={handleDifDelete} className="bg-red-600 hover:bg-red-700 whitespace-nowrap" disabled={!selectedDifId || difsSaving}>
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-700 overflow-hidden bg-slate-950 max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60 sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Code</TableHead>
+                        <TableHead className="text-slate-200">Désignation</TableHead>
+                        <TableHead className="text-slate-200 text-center">Qté DIF</TableHead>
+                        <TableHead className="text-slate-200 text-right">Prix DIF</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {difsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-6 text-center text-slate-300">
+                            Chargement...
+                          </TableCell>
+                        </TableRow>
+                      ) : displayedDifs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-6 text-center text-slate-400">
+                            Aucune ligne DIF.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        displayedDifs.map((row) => (
+                          <TableRow
+                            key={row.id}
+                            className={`cursor-pointer ${selectedDifId === row.id ? 'bg-indigo-500/20 hover:bg-indigo-500/20' : 'hover:bg-slate-800/40'}`}
+                            onClick={() => selectDif(row.id)}
+                          >
+                            <TableCell className="text-slate-100 font-medium">{row.code || '-'}</TableCell>
+                            <TableCell className="text-slate-100">{row.designation || '-'}</TableCell>
+                            <TableCell className="text-slate-200 text-center">{row.qte_dif || '0'}</TableCell>
+                            <TableCell className="text-slate-200 text-right font-bold text-emerald-400">{Number(row.prix_dif || 0).toFixed(2)}</TableCell>
                           </TableRow>
                         ))
                       )}
