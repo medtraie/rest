@@ -92,8 +92,6 @@ const Settings = () => {
     id?: string;
     code: string;
     designation: string;
-    prix_dif: string;
-    prix_def: string;
     prix_unitaire: string;
     prix_achat: string;
     zone: 0 | 1;
@@ -158,12 +156,10 @@ const Settings = () => {
         setPricingLoading(false);
         return;
       }
-      const rows = (data ?? []).map((r: any) => ({
-        id: String(r.id),
+      const rows = (data || []).map((r: any) => ({
+        id: r.id,
         code: String(r.code ?? ''),
         designation: String(r.designation ?? ''),
-        prix_dif: Number(r.prix_dif ?? 0) === 0 ? '' : String(r.prix_dif),
-        prix_def: Number(r.prix_def ?? 0) === 0 ? '' : String(r.prix_def),
         prix_unitaire: Number(r.prix_unitaire ?? 0) === 0 ? '' : String(r.prix_unitaire),
         prix_achat: Number(r.prix_achat ?? 0) === 0 ? '' : String(r.prix_achat),
         zone: Number(r.zone ?? 0) as 0 | 1,
@@ -202,7 +198,7 @@ const Settings = () => {
   const addPricingRow = () => {
     setPricing(prev => [
       ...prev,
-      { code: '', designation: '', prix_dif: '', prix_def: '', prix_unitaire: '', prix_achat: '', zone: priceZone }
+      { code: '', designation: '', prix_unitaire: '', prix_achat: '', zone: priceZone }
     ]);
   };
 
@@ -245,8 +241,6 @@ const Settings = () => {
       id: row.id,
       code: row.code?.trim() || null,
       designation: row.designation?.trim() || null,
-      prix_dif: parsePrice(row.prix_dif),
-      prix_def: parsePrice(row.prix_def),
       prix_unitaire: parsePrice(row.prix_unitaire),
       prix_achat: parsePrice(row.prix_achat),
       zone: row.zone,
@@ -637,8 +631,6 @@ const Settings = () => {
                       <TableRow>
                         <TableHead className="text-slate-200">Code</TableHead>
                         <TableHead className="text-slate-200">Désignation</TableHead>
-                        <TableHead className="text-slate-200">Prix DIF</TableHead>
-                        <TableHead className="text-slate-200">Prix DEF</TableHead>
                         <TableHead className="text-slate-200">Prix Unitaire</TableHead>
                         <TableHead className="text-slate-200">Prix d'achat</TableHead>
                         <TableHead />
@@ -647,13 +639,13 @@ const Settings = () => {
                     <TableBody>
                       {pricingLoading ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-slate-300 py-6">
+                          <TableCell colSpan={5} className="text-center text-slate-300 py-6">
                             Chargement...
                           </TableCell>
                         </TableRow>
                       ) : pricing.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-slate-400 py-6">
+                          <TableCell colSpan={5} className="text-center text-slate-400 py-6">
                             Aucune ligne. Cliquez sur Ajouter.
                           </TableCell>
                         </TableRow>
@@ -674,22 +666,6 @@ const Settings = () => {
                                 onChange={(e) => updateRowField(idx, 'designation', e.target.value)}
                                 className="border-slate-700 bg-slate-950 text-slate-100"
                                 placeholder="TISSIR BNG 12KG"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                value={row.prix_dif}
-                                onChange={(e) => updateRowField(idx, 'prix_dif', e.target.value)}
-                                className="border-slate-700 bg-slate-950 text-slate-100"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                value={row.prix_def}
-                                onChange={(e) => updateRowField(idx, 'prix_def', e.target.value)}
-                                className="border-slate-700 bg-slate-950 text-slate-100"
                               />
                             </TableCell>
                             <TableCell>
