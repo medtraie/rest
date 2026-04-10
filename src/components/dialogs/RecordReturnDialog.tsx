@@ -241,7 +241,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       const soldQty = Math.max(0, (item.fullQuantity || 0) - (item.returnedFullQuantity || 0) - (item.defectiveQuantity || 0));
       const unitPrice = Number(item.unitPrice || 0);
       const code = resolveBottleCode(item.bottleTypeId, item.bottleTypeName);
-      const pricing = difPricingOptions.find(p => p.code === code);
+      const pricing = difPricingOptions.find(p => String(p.code).trim() === String(code).trim());
       const difPrix = pricing ? pricing.prix_dif : 0;
       return {
         code,
@@ -585,29 +585,58 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                   <Card className="border border-slate-300 bg-white">
                     <CardHeader className="pb-2"><CardTitle className="text-base">DIF</CardTitle></CardHeader>
                     <CardContent>
+                      <div className="flex gap-2 mb-3">
+                        <Select value={selectedDifCode} onValueChange={setSelectedDifCode}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Sélectionner un code supplémentaire" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {difPricingOptions.map((it) => (
+                              <SelectItem key={`dif-opt-${it.code}`} value={it.code}>
+                                {it.code}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" onClick={() => addDifRowByCode(selectedDifCode)}>Ajouter</Button>
+                      </div>
                       <div className="border rounded-lg overflow-hidden mt-2">
                         <Table>
                           <TableHeader>
                             <TableRow className="bg-slate-50"><TableHead>Code</TableHead><TableHead className="text-center">Qte (VTE)</TableHead><TableHead className="text-right">Prix</TableHead><TableHead className="text-right">Montant</TableHead></TableRow>
                           </TableHeader>
                           <TableBody>
-                            {parCodeRows.length === 0 ? (
+                            {parCodeRows.length === 0 && difRows.length === 0 ? (
                               <TableRow><TableCell colSpan={4} className="text-center text-slate-400">Tableau vide</TableCell></TableRow>
-                            ) : parCodeRows.map((row, idx) => (
-                              <TableRow key={`dif-${row.code}-${idx}`}>
-                                <TableCell>{row.code}</TableCell>
-                                <TableCell className="text-center font-bold text-slate-700">{row.vte}</TableCell>
-                                <TableCell className="text-right">{row.difPrix.toFixed(2)}</TableCell>
-                                <TableCell className="text-right font-bold text-emerald-600">{(row.vte * row.difPrix).toFixed(2)}</TableCell>
-                              </TableRow>
-                            ))}
-                            {parCodeRows.length > 0 && (
-                              <TableRow className="bg-slate-50 font-bold">
-                                <TableCell colSpan={3} className="text-right">Total DIF :</TableCell>
-                                <TableCell className="text-right text-emerald-700">
-                                  {parCodeRows.reduce((sum, row) => sum + (row.vte * row.difPrix), 0).toFixed(2)}
-                                </TableCell>
-                              </TableRow>
+                            ) : (
+                              <>
+                                {parCodeRows.map((row, idx) => (
+                                  <TableRow key={`auto-dif-${row.code}-${idx}`}>
+                                    <TableCell>{row.code}</TableCell>
+                                    <TableCell className="text-center font-bold text-slate-700">{row.vte}</TableCell>
+                                    <TableCell className="text-right">{row.difPrix.toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-bold text-emerald-600">{(row.vte * row.difPrix).toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                {difRows.map((row, idx) => (
+                                  <TableRow key={`manual-dif-${row.code}-${idx}`}>
+                                    <TableCell>{row.code}</TableCell>
+                                    <TableCell>
+                                      <Input type="number" value={row.qte || ''} onChange={(e) => setDifRows(prev => prev.map((r, i) => i === idx ? { ...r, qte: Number(e.target.value || 0) } : r))} className="w-16 h-8 mx-auto text-center" />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input type="number" value={row.prix || ''} onChange={(e) => setDifRows(prev => prev.map((r, i) => i === idx ? { ...r, prix: Number(e.target.value || 0) } : r))} className="w-20 h-8 ml-auto text-right" />
+                                    </TableCell>
+                                    <TableCell className="text-right font-bold text-emerald-600">{(row.qte * row.prix).toFixed(2)}</TableCell>
+                                  </TableRow>
+                                ))}
+                                <TableRow className="bg-slate-50 font-bold">
+                                  <TableCell colSpan={3} className="text-right">Total DIF :</TableCell>
+                                  <TableCell className="text-right text-emerald-700">
+                                    {(parCodeRows.reduce((sum, row) => sum + (row.vte * row.difPrix), 0) + difRows.reduce((sum, row) => sum + (row.qte * row.prix), 0)).toFixed(2)}
+                                  </TableCell>
+                                </TableRow>
+                              </>
                             )}
                           </TableBody>
                         </Table>
