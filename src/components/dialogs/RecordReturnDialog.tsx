@@ -14,6 +14,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { SupplyOrder, ReturnOrderItem, ExpenseReport } from '@/types';
 import { supabaseService } from '@/lib/supabaseService';
+import { supabase } from '@/lib/supabaseClient';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X, Receipt, DollarSign, Package, AlertCircle, Trash2, CreditCard, Wallet, Banknote, Save } from 'lucide-react';
@@ -134,7 +135,9 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
     let mounted = true;
     (async () => {
       const rows = await supabaseService.getAll<ExpenseCodeOption>('accounting_expense_codes');
-      const difRowsData = await supabaseService.getAll<{ code: string; prix_dif: number }>('dif_pricing');
+      const { data: difRowsData } = await supabase
+        .from('dif_pricing')
+        .select('code, prix_dif');
       
       if (!mounted) return;
       
@@ -150,10 +153,10 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       );
 
       setDifPricingOptions(
-        difRowsData
+        (difRowsData || [])
           .map((row) => ({
             code: String((row as any).code || '').trim(),
-            prix_dif: Number((row as any).prix_dif ?? (row as any).prixDif ?? 0),
+            prix_dif: Number((row as any).prix_dif ?? 0),
           }))
           .filter((row) => row.code)
       );
