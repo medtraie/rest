@@ -150,10 +150,12 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       );
 
       setDifPricingOptions(
-        difRowsData.map((row) => ({
-          code: String((row as any).code || '').trim(),
-          prix_dif: Number((row as any).prix_dif || 0),
-        }))
+        difRowsData
+          .map((row) => ({
+            code: String((row as any).code || '').trim(),
+            prix_dif: Number((row as any).prix_dif ?? (row as any).prixDif ?? 0),
+          }))
+          .filter((row) => row.code)
       );
     })();
     return () => {
@@ -236,12 +238,15 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
     },
     [resolveBottleMeta]
   );
+  const normalizeDifCode = React.useCallback((value: string | undefined) => {
+    return String(value || '').trim().toUpperCase();
+  }, []);
   const parCodeRows = React.useMemo(() => {
     return items.map((item) => {
       const soldQty = Math.max(0, (item.fullQuantity || 0) - (item.returnedFullQuantity || 0) - (item.defectiveQuantity || 0));
       const unitPrice = Number(item.unitPrice || 0);
       const code = resolveBottleCode(item.bottleTypeId, item.bottleTypeName);
-      const pricing = difPricingOptions.find(p => String(p.code).trim() === String(code).trim());
+      const pricing = difPricingOptions.find(p => normalizeDifCode(p.code) === normalizeDifCode(code));
       const difPrix = pricing ? pricing.prix_dif : 0;
       return {
         code,
@@ -255,7 +260,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
         difPrix,
       };
     });
-  }, [items, resolveBottleCode, difPricingOptions]);
+  }, [items, resolveBottleCode, difPricingOptions, normalizeDifCode]);
   const parCodeTotals = React.useMemo(() => {
     const ventes = parCodeRows.reduce((sum, row) => sum + row.montant, 0);
     const encaisse = (parseFloat(paymentCashAmount) || 0) + (parseFloat(paymentCheckAmount) || 0) + (parseFloat(paymentMygazAmount) || 0);
@@ -290,7 +295,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   };
   const addDifRowByCode = (code: string) => {
     if (!code) return;
-    const pricing = difPricingOptions.find(p => p.code === code);
+    const pricing = difPricingOptions.find(p => normalizeDifCode(p.code) === normalizeDifCode(code));
     const prix = pricing ? pricing.prix_dif : 0;
     setDifRows((prev) => [...prev, { code, qte: 0, prix }]);
     setSelectedDifCode('');
