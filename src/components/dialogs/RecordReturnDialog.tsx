@@ -99,6 +99,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   const [expenseCodeOptions, setExpenseCodeOptions] = useState<ExpenseCodeOption[]>([]);
   const [selectedExpenseCode, setSelectedExpenseCode] = useState('');
   const [selectedExpenseAmount, setSelectedExpenseAmount] = useState('');
+  const [difPricingOptions, setDifPricingOptions] = useState<Array<{ code: string; prix_dif: number }>>([]);
   const [difRows, setDifRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
   const [defRows, setDefRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
   const [selectedDifCode, setSelectedDifCode] = useState('');
@@ -133,7 +134,10 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
     let mounted = true;
     (async () => {
       const rows = await supabaseService.getAll<ExpenseCodeOption>('accounting_expense_codes');
+      const difRowsData = await supabaseService.getAll<{ code: string; prix_dif: number }>('dif_pricing');
+      
       if (!mounted) return;
+      
       setExpenseCodeOptions(
         rows
           .map((row) => ({
@@ -143,6 +147,13 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
             account: String((row as any).account || '').trim(),
           }))
           .filter((row) => row.code && row.designation)
+      );
+
+      setDifPricingOptions(
+        difRowsData.map((row) => ({
+          code: String((row as any).code || '').trim(),
+          prix_dif: Number((row as any).prix_dif || 0),
+        }))
       );
     })();
     return () => {
@@ -275,7 +286,9 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   };
   const addDifRowByCode = (code: string) => {
     if (!code) return;
-    setDifRows((prev) => [...prev, { code, qte: 0, prix: 0 }]);
+    const pricing = difPricingOptions.find(p => p.code === code);
+    const prix = pricing ? pricing.prix_dif : 0;
+    setDifRows((prev) => [...prev, { code, qte: 0, prix }]);
     setSelectedDifCode('');
   };
   const addDefRowByCode = (code: string) => {
@@ -574,9 +587,9 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                             <SelectValue placeholder="Sélectionner un code" />
                           </SelectTrigger>
                           <SelectContent>
-                            {items.map((it) => (
-                              <SelectItem key={`dif-opt-${it.bottleTypeId}`} value={it.bottleTypeId}>
-                                {it.bottleTypeId} · {it.bottleTypeName}
+                            {parCodeRows.map((it) => (
+                              <SelectItem key={`dif-opt-${it.code}`} value={it.code}>
+                                {it.code} · {it.designation}
                               </SelectItem>
                             ))}
                           </SelectContent>
