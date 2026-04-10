@@ -490,24 +490,6 @@ const Settings = () => {
     }
   };
 
-  const handleReservoirDelete = async () => {
-    if (!selectedReservoirId) {
-      toast({ title: 'Erreur', description: 'Veuillez sélectionner un réservoir à supprimer.', variant: 'destructive' });
-      return;
-    }
-    if (!window.confirm('Voulez-vous vraiment supprimer ce réservoir ?')) return;
-    setReservoirsSaving(true);
-    const { error } = await supabase.from('reservoirs_pricing').delete().eq('id', selectedReservoirId);
-    setReservoirsSaving(false);
-    if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
-    } else {
-      setReservoirs(prev => prev.filter(r => r.id !== selectedReservoirId));
-      toast({ title: 'Succès', description: 'Réservoir supprimé' });
-      clearReservoirForm();
-    }
-  };
-
   const displayedDifs = React.useMemo(() => {
     const keyword = difFilter.trim().toLowerCase();
     if (!keyword) return difs;
