@@ -75,6 +75,11 @@ interface ExpenseCodeOption {
   designation: string;
   account: string;
 }
+interface ReservoirOption {
+  code: string;
+  designation: string;
+  prix: number;
+}
 
 export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, onOpenChange, supplyOrder, mode = 'standard' }) => {
   const { addReturnOrder, addExpense, updateBottleType, bottleTypes, drivers, clients = [], addForeignBottle, updateEmptyBottlesStockByBottleType, addDefectiveBottle, addRevenue, brands } = useApp();
@@ -87,6 +92,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   const [paymentCashAmount, setPaymentCashAmount] = useState<string>('');
   const [paymentCheckAmount, setPaymentCheckAmount] = useState<string>('');
   const [paymentMygazAmount, setPaymentMygazAmount] = useState<string>('');
+  const [enPlusOverride, setEnPlusOverride] = useState<string>('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [foreignBottlesModalOpen, setForeignBottlesModalOpen] = useState(false);
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
@@ -101,10 +107,15 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   const [selectedExpenseCode, setSelectedExpenseCode] = useState('');
   const [selectedExpenseAmount, setSelectedExpenseAmount] = useState('');
   const [difPricingOptions, setDifPricingOptions] = useState<Array<{ code: string; prix_dif: number }>>([]);
+  const [reservoirOptions, setReservoirOptions] = useState<ReservoirOption[]>([]);
   const [difRows, setDifRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
   const [defRows, setDefRows] = useState<Array<{ code: string; qte: number; prix: number }>>([]);
+  const [achatLivreurRows, setAchatLivreurRows] = useState<Array<{ code: string; designation: string; qte: number; prixAchat: number }>>([]);
+  const [defForeignMode, setDefForeignMode] = useState<'enter' | 'accorder'>('accorder');
+  const [accorderEnabled, setAccorderEnabled] = useState(true);
   const [selectedDifCode, setSelectedDifCode] = useState('');
   const [selectedDefCode, setSelectedDefCode] = useState('');
+  const [selectedAchatLivreurCode, setSelectedAchatLivreurCode] = useState('');
   const [clientRows, setClientRows] = useState<Array<{ client: string; bon: string; code: string; qte: number; prix: number; montant: number; payer: number; dif: number }>>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
 
@@ -138,6 +149,9 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       const { data: difRowsData } = await supabase
         .from('dif_pricing')
         .select('code, prix_dif');
+      const { data: reservoirRowsData } = await supabase
+        .from('reservoirs_pricing')
+        .select('code, designation, prix');
       
       if (!mounted) return;
       
@@ -159,6 +173,16 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
             prix_dif: Number((row as any).prix_dif ?? 0),
           }))
           .filter((row) => row.code)
+      );
+
+      setReservoirOptions(
+        (reservoirRowsData || [])
+          .map((row) => ({
+            code: String((row as any).code || '').trim(),
+            designation: String((row as any).designation || '').trim(),
+            prix: Number((row as any).prix || 0),
+          }))
+          .filter((row) => row.code.length > 0)
       );
     })();
     return () => {
@@ -244,6 +268,13 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   const normalizeDifCode = React.useCallback((value: string | undefined) => {
     return String(value || '').trim().toUpperCase();
   }, []);
+  const normalizeDesignationKey = React.useCallback((value: string | undefined) => {
+    return String(value || '')
+      .toUpperCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z0-9]/g, '');
+  }, []);
   const parCodeRows = React.useMemo(() => {
     return items.map((item) => {
       const soldQty = Math.max(0, (item.fullQuantity || 0) - (item.returnedFullQuantity || 0) - (item.defectiveQuantity || 0));
@@ -264,19 +295,55 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       };
     });
   }, [items, resolveBottleCode, difPricingOptions, normalizeDifCode]);
+  const parCodeReservoirRows = React.useMemo(() => {
+    return parCodeRows.flatMap((row) => {
+      const totalRes = Math.max(0, Number(row.sor || 0) - Number(row.rtg || 0) - Number(row.rtr || 0));
+      if (totalRes <= 0) return [];
+
+      const sourceCode = normalizeDifCode(row.code);
+      const mappedCode = sourceCode.length > 0 ? `9${sourceCode.slice(1)}` : '';
+      const targetDesignation = String(row.designation || '').replace(/CHARGES?/gi, 'RESERVOIRS');
+      const targetKey = normalizeDesignationKey(targetDesignation);
+
+      const matched =
+        reservoirOptions.find((it) => normalizeDifCode(it.code) === mappedCode) ||
+        reservoirOptions.find((it) => normalizeDesignationKey(it.designation) === targetKey) ||
+        reservoirOptions.find((it) => normalizeDesignationKey(it.designation).includes(targetKey) || targetKey.includes(normalizeDesignationKey(it.designation)));
+
+      if (!matched) return [];
+
+      return [{
+        sourceCode: row.code,
+        code: matched.code,
+        designation: matched.designation,
+        totalRes,
+        pu: matched.prix,
+        montant: totalRes * Number(matched.prix || 0),
+      }];
+    });
+  }, [parCodeRows, reservoirOptions, normalizeDifCode, normalizeDesignationKey]);
   const parCodeTotals = React.useMemo(() => {
-    const ventes = parCodeRows.reduce((sum, row) => sum + row.montant, 0);
+    const ventesGaz = parCodeRows.reduce((sum, row) => sum + row.montant, 0);
+    const ventesReservoirs = parCodeReservoirRows.reduce((sum, row) => sum + row.montant, 0);
+    const ventes = ventesGaz + ventesReservoirs;
+    const difAutoTotal = parCodeRows.reduce((sum, row) => sum + (row.vte * row.difPrix), 0);
+    const difManualTotal = difRows.reduce((sum, row) => sum + (row.qte * row.prix), 0);
+    const difTotal = difAutoTotal + difManualTotal;
+    const defTotal = defRows.reduce((sum, row) => sum + (row.qte * row.prix), 0);
     const encaisse = (parseFloat(paymentCashAmount) || 0) + (parseFloat(paymentCheckAmount) || 0) + (parseFloat(paymentMygazAmount) || 0);
     const aEncaisser = Math.max(0, paymentTotals.total - encaisse);
+    const computedEnPlus = encaisse - paymentTotals.total;
+    const parsedOverride = Number(enPlusOverride);
+    const hasOverride = enPlusOverride.trim().length > 0 && !Number.isNaN(parsedOverride);
     return {
       ventes,
       depenses: totalExpenses,
-      difference: ventes - totalExpenses,
+      difference: difTotal + defTotal,
       aEncaisser,
       encaisse,
-      enPlus: encaisse - paymentTotals.total,
+      enPlus: hasOverride ? parsedOverride : computedEnPlus,
     };
-  }, [parCodeRows, totalExpenses, paymentCashAmount, paymentCheckAmount, paymentMygazAmount, paymentTotals.total]);
+  }, [parCodeRows, parCodeReservoirRows, difRows, defRows, totalExpenses, paymentCashAmount, paymentCheckAmount, paymentMygazAmount, paymentTotals.total, enPlusOverride]);
   const addSelectedExpenseCode = () => {
     const picked = expenseCodeOptions.find((item) => item.id === selectedExpenseCode);
     if (!picked) return;
@@ -305,8 +372,25 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
   };
   const addDefRowByCode = (code: string) => {
     if (!code) return;
-    setDefRows((prev) => [...prev, { code, qte: 0, prix: 0 }]);
+    const effectiveMode = defForeignMode === 'accorder' && !accorderEnabled ? 'enter' : defForeignMode;
+    const defaultPrix = effectiveMode === 'enter' ? 15 : -15;
+    setDefRows((prev) => [...prev, { code, qte: 0, prix: defaultPrix }]);
     setSelectedDefCode('');
+  };
+  const addAchatLivreurRowByCode = (code: string) => {
+    if (!code) return;
+    const matched = reservoirOptions.find((item) => normalizeDifCode(item.code) === normalizeDifCode(code));
+    if (!matched) return;
+    setAchatLivreurRows((prev) => [
+      ...prev,
+      {
+        code: matched.code,
+        designation: matched.designation,
+        qte: 0,
+        prixAchat: Number(matched.prix || 0),
+      },
+    ]);
+    setSelectedAchatLivreurCode('');
   };
   const addClientRow = (clientId: string) => {
     if (!clientId) return;
@@ -534,6 +618,23 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                                 </TableRow>
                               );
                             })}
+                            {parCodeReservoirRows.map((row, idx) => (
+                              <TableRow key={`res-line-${row.code}-${idx}`} className="bg-amber-50/60">
+                                <TableCell>
+                                  <div className="inline-flex items-center gap-2">
+                                    <span className="inline-block w-2.5 h-2.5 rounded-full border border-amber-300 bg-amber-400" />
+                                    <span>{row.code}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{row.designation}</TableCell>
+                                <TableCell className="text-center">-</TableCell>
+                                <TableCell className="text-center">-</TableCell>
+                                <TableCell className="text-center">-</TableCell>
+                                <TableCell className="text-center font-bold text-amber-700">{row.totalRes}</TableCell>
+                                <TableCell className="text-right font-semibold">{Number(row.pu || 0).toFixed(2)}</TableCell>
+                                <TableCell className="text-right font-bold text-amber-700">{Number(row.montant || 0).toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
                           </TableBody>
                         </Table>
                       </div>
@@ -549,7 +650,17 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                       <div className="flex justify-between"><span>Difference</span><span className="font-bold">{parCodeTotals.difference.toFixed(2)}</span></div>
                       <div className="flex justify-between"><span>A encaisser</span><span className="font-bold">{parCodeTotals.aEncaisser.toFixed(2)}</span></div>
                       <div className="flex justify-between"><span>Encaisé</span><span className="font-bold">{parCodeTotals.encaisse.toFixed(2)}</span></div>
-                      <div className="flex justify-between"><span>En plus</span><span className={`font-bold ${parCodeTotals.enPlus < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{parCodeTotals.enPlus.toFixed(2)}</span></div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>En plus</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={enPlusOverride}
+                          onChange={(e) => setEnPlusOverride(e.target.value)}
+                          placeholder={parCodeTotals.enPlus.toFixed(2)}
+                          className={`w-28 h-8 text-right font-bold ${parCodeTotals.enPlus < 0 ? 'text-red-600' : 'text-emerald-600'}`}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -655,14 +766,49 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                     <CardHeader className="pb-2"><CardTitle className="text-base">DEF</CardTitle></CardHeader>
                     <CardContent>
                       <div className="flex gap-2 mb-3">
+                        <Button
+                          type="button"
+                          variant={defForeignMode === 'enter' ? 'default' : 'outline'}
+                          className={defForeignMode === 'enter' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                          onClick={() => setDefForeignMode('enter')}
+                        >
+                          Entrer étranger
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={defForeignMode === 'accorder' ? 'default' : 'outline'}
+                          className={defForeignMode === 'accorder' ? 'bg-rose-600 hover:bg-rose-700' : ''}
+                          onClick={() => setDefForeignMode('accorder')}
+                          disabled={!accorderEnabled}
+                        >
+                          Accorder étranger
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setAccorderEnabled((prev) => {
+                              const next = !prev;
+                              if (!next && defForeignMode === 'accorder') {
+                                setDefForeignMode('enter');
+                              }
+                              return next;
+                            });
+                          }}
+                          className={accorderEnabled ? 'border-emerald-500 text-emerald-700' : 'border-slate-400 text-slate-600'}
+                        >
+                          {accorderEnabled ? 'Désactiver Accorder' : 'Activer Accorder'}
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 mb-3">
                         <Select value={selectedDefCode} onValueChange={setSelectedDefCode}>
                           <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Sélectionner un code" />
+                            <SelectValue placeholder={`Sélectionner un code (${defForeignMode === 'enter' || !accorderEnabled ? 'prix +' : 'prix -'})`} />
                           </SelectTrigger>
                           <SelectContent>
-                            {items.map((it) => (
-                              <SelectItem key={`def-opt-${it.bottleTypeId}`} value={it.bottleTypeId}>
-                                {it.bottleTypeId} · {it.bottleTypeName}
+                            {reservoirOptions.map((item) => (
+                              <SelectItem key={`def-opt-${item.code}`} value={item.code}>
+                                {item.code}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -691,6 +837,84 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                     </CardContent>
                   </Card>
                 </div>
+
+                <Card className="border border-slate-300 bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      Achat Livreur · {(supplyOrder.driverName || (drivers.find(d => d.id === supplyOrder.driverId)?.name) || 'N/A')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2 mb-3">
+                      <Select value={selectedAchatLivreurCode} onValueChange={setSelectedAchatLivreurCode}>
+                        <SelectTrigger className="w-72 max-w-full">
+                          <SelectValue placeholder="Sélectionner un code" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {reservoirOptions.map((item) => (
+                            <SelectItem key={`achat-opt-${item.code}`} value={item.code}>
+                              {item.code}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" onClick={() => addAchatLivreurRowByCode(selectedAchatLivreurCode)}>Ajouter</Button>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead>Code</TableHead>
+                            <TableHead>Désignation</TableHead>
+                            <TableHead className="text-center">Qte</TableHead>
+                            <TableHead className="text-right">Prix d'achat</TableHead>
+                            <TableHead className="text-right">Montant</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {achatLivreurRows.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={5} className="text-center text-slate-400">Tableau vide</TableCell>
+                            </TableRow>
+                          ) : (
+                            <>
+                              {achatLivreurRows.map((row, idx) => (
+                                <TableRow key={`achat-row-${row.code}-${idx}`}>
+                                  <TableCell>{row.code}</TableCell>
+                                  <TableCell>{row.designation}</TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      value={row.qte || ''}
+                                      onChange={(e) => setAchatLivreurRows(prev => prev.map((r, i) => i === idx ? { ...r, qte: Number(e.target.value || 0) } : r))}
+                                      className="w-20 h-8 mx-auto text-center"
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={row.prixAchat || ''}
+                                      onChange={(e) => setAchatLivreurRows(prev => prev.map((r, i) => i === idx ? { ...r, prixAchat: Number(e.target.value || 0) } : r))}
+                                      className="w-24 h-8 ml-auto text-right"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right font-bold">{(row.qte * row.prixAchat).toFixed(2)}</TableCell>
+                                </TableRow>
+                              ))}
+                              <TableRow className="bg-slate-50 font-bold">
+                                <TableCell colSpan={4} className="text-right">Total Achat Livreur :</TableCell>
+                                <TableCell className="text-right text-indigo-700">
+                                  {achatLivreurRows.reduce((sum, row) => sum + (row.qte * row.prixAchat), 0).toFixed(2)}
+                                </TableCell>
+                              </TableRow>
+                            </>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="border border-slate-300 rounded-xl p-4 bg-white space-y-3">
                   <div className="flex gap-2">

@@ -118,6 +118,8 @@ const Settings = () => {
     ville: '',
     region: ''
   });
+  const [driverSectorAssignments, setDriverSectorAssignments] = useState<Record<string, string[]>>({});
+  const [driverSectorSavingId, setDriverSectorSavingId] = useState<string | null>(null);
 
   const [reservoirs, setReservoirs] = useState<Array<{
     id: string;
@@ -274,6 +276,29 @@ const Settings = () => {
       setDifsLoading(false);
     };
     loadDifs();
+
+    const loadDriverSectorAssignments = async () => {
+      const { data, error } = await supabase
+        .from('driver_sector_assignments')
+        .select('driver_id, sector_id');
+      if (error) {
+        toast({ title: 'Erreur chargement affectations', description: error.message, variant: 'destructive' });
+        return;
+      }
+      const mapping = (data ?? []).reduce<Record<string, string[]>>((acc, row: any) => {
+        const driverId = String(row.driver_id ?? '').trim();
+        const sectorIds = String(row.sector_id ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+        if (!driverId || sectorIds.length === 0) return acc;
+        const existing = acc[driverId] || [];
+        acc[driverId] = Array.from(new Set([...existing, ...sectorIds]));
+        return acc;
+      }, {});
+      setDriverSectorAssignments(mapping);
+    };
+    loadDriverSectorAssignments();
   }, []);
 
   const addPricingRow = () => {
@@ -717,6 +742,39 @@ const Settings = () => {
     setSectors((prev) => prev.filter((row) => row.id !== selectedSectorId));
     clearSectorForm();
     toast({ title: 'Secteur supprimé' });
+  };
+
+  const saveDriverSectorAssignment = async (driverId: string) => {
+    const sectorIds = (driverSectorAssignments[driverId] || []).filter(Boolean);
+    setDriverSectorSavingId(driverId);
+    if (sectorIds.length === 0) {
+      const { error } = await supabase.from('driver_sector_assignments').delete().eq('driver_id', driverId);
+      setDriverSectorSavingId(null);
+      if (error) {
+        toast({ title: 'Échec suppression affectation', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Affectation supprimée' });
+      return;
+    }
+
+    const selectedSectors = sectors.filter((s) => sectorIds.includes(s.id));
+    const payload = {
+      driver_id: driverId,
+      sector_id: sectorIds.join(','),
+      sector_code: selectedSectors.map((s) => s.code).filter(Boolean).join(',') || null,
+      sector_name: selectedSectors.map((s) => s.secteurs).filter(Boolean).join(' | ') || null,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supabase
+      .from('driver_sector_assignments')
+      .upsert(payload, { onConflict: 'driver_id' });
+    setDriverSectorSavingId(null);
+    if (error) {
+      toast({ title: 'Échec affectation', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Affectation enregistrée' });
   };
 
   const handleImport = (e: React.FormEvent) => {
@@ -1414,6 +1472,77 @@ const Settings = () => {
                           </TableRow>
                         ))
                       )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60 mt-6">
+              <CardHeader className="border-b border-slate-800">
+                <CardTitle className="text-slate-100">Affectation Chauffeurs → Secteurs</CardTitle>
+                <CardDescription className="text-slate-300">
+                  Définissez un secteur dédié pour chaque chauffeur.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="rounded-xl border border-slate-700 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200">Chauffeur</TableHead>
+                        <TableHead className="text-slate-200">Code Chauffeur</TableHead>
+                        <TableHead className="text-slate-200">Secteur attribué</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {drivers.map((driver) => (
+                        <TableRow key={`driver-sector-${driver.id}`}>
+                          <TableCell className="font-medium text-slate-100">{driver.name}</TableCell>
+                          <TableCell className="text-slate-300">{driver.code || '-'}</TableCell>
+                          <TableCell className="w-[420px]">
+                            <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950 p-2 space-y-2">
+                              {sectors.length === 0 ? (
+                                <div className="text-slate-400 text-sm">Aucun secteur disponible.</div>
+                              ) : (
+                                sectors.map((sector) => {
+                                  const checked = (driverSectorAssignments[driver.id] || []).includes(sector.id);
+                                  return (
+                                    <label
+                                      key={`assign-sector-${driver.id}-${sector.id}`}
+                                      className="flex items-center gap-2 text-slate-100 text-sm cursor-pointer"
+                                    >
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(state) =>
+                                          setDriverSectorAssignments((prev) => {
+                                            const current = prev[driver.id] || [];
+                                            if (state) {
+                                              return { ...prev, [driver.id]: Array.from(new Set([...current, sector.id])) };
+                                            }
+                                            return { ...prev, [driver.id]: current.filter((id) => id !== sector.id) };
+                                          })
+                                        }
+                                      />
+                                      <span>{sector.code || '-'} · {sector.secteurs || '-'} · {sector.ville || '-'}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              onClick={() => saveDriverSectorAssignment(driver.id)}
+                              className="bg-indigo-600 hover:bg-indigo-700"
+                              disabled={driverSectorSavingId === driver.id}
+                            >
+                              Enregistrer
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>

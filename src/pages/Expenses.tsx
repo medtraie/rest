@@ -93,6 +93,8 @@ const Expenses = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expenseType, setExpenseType] = useState<string>('');
   const [customExpenseType, setCustomExpenseType] = useState<string>('');
+  const [showAddTypeInline, setShowAddTypeInline] = useState(false);
+  const [newExpenseTypeName, setNewExpenseTypeName] = useState('');
   const [code, setCode] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
@@ -166,10 +168,30 @@ const Expenses = () => {
     setDialogOpen(true);
   };
 
+  const handleAddExpenseTypeToList = async () => {
+    const nextType = newExpenseTypeName.trim();
+    if (!nextType) {
+      toast.error(tu('toast.specifyExpenseType', 'Veuillez préciser le type de dépense'));
+      return;
+    }
+    const exists = expenseTypes.some((t) => t.trim().toLowerCase() === nextType.toLowerCase());
+    if (exists) {
+      toast.error(tr('Ce type existe déjà dans la liste', 'هذا النوع موجود بالفعل في القائمة'));
+      return;
+    }
+    await addExpenseType(nextType);
+    setExpenseType(nextType);
+    setNewExpenseTypeName('');
+    setShowAddTypeInline(false);
+    toast.success(tr('Type de dépense ajouté avec succès', 'تمت إضافة نوع المصروف بنجاح'));
+  };
+
   const resetForm = () => {
     setExpenseToEdit(null);
     setExpenseType('');
     setCustomExpenseType('');
+    setShowAddTypeInline(false);
+    setNewExpenseTypeName('');
     setCode('');
     setAmount('');
     setPaymentMethod('');
@@ -1407,6 +1429,29 @@ const Expenses = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  onClick={() => setShowAddTypeInline((prev) => !prev)}
+                >
+                  Ajouter un dépense dans la liste
+                </Button>
+              </div>
+              {showAddTypeInline && (
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    value={newExpenseTypeName}
+                    onChange={(e) => setNewExpenseTypeName(e.target.value)}
+                    placeholder="Dépense"
+                    className="h-10 bg-slate-50 border-slate-100"
+                  />
+                  <Button type="button" className="h-10 bg-indigo-600 hover:bg-indigo-700" onClick={handleAddExpenseTypeToList}>
+                    Ajouter
+                  </Button>
+                </div>
+              )}
             </div>
 
             {expenseType === 'autre' && (

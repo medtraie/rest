@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/lib/supabaseClient';
 
 import { Package, FileText, Plus, Printer, Download, Search, Calendar, RotateCcw, Trash2, Edit, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileSpreadsheet, Loader2, Settings, DollarSign, Calculator, ArrowUpRight, ArrowDownLeft, Truck, AlertTriangle, Zap, Sparkles, RefreshCw, Eye, EyeOff, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -93,6 +94,14 @@ const SupplyReturn = () => {
   const [showInternalReference, setShowInternalReference] = useState(true);
   const [orderNumber, setOrderNumber] = useState('');
   const [orderDate, setOrderDate] = useState<Date | undefined>(new Date());
+  const selectedDriverData = React.useMemo(
+    () => drivers.find((driver: any) => String(driver.id) === String(selectedDriverId)),
+    [drivers, selectedDriverId]
+  );
+  const selectedDriverAideLivreur = String((selectedDriverData as any)?.aideLivreurs || '').trim();
+  const selectedDriverAideCode = String((selectedDriverData as any)?.codeAL || '').trim();
+  const [driverSectorLabels, setDriverSectorLabels] = useState<Record<string, string>>({});
+  const selectedDriverSectors = String(driverSectorLabels[selectedDriverId] || '').trim();
   
   // Load last reference from localStorage when component mounts
   useEffect(() => {
@@ -118,6 +127,28 @@ const SupplyReturn = () => {
       setOrderNumber(`BS-${maxNum + 1}`);
     }
   }, [supplyOrders]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('driver_sector_assignments')
+        .select('driver_id, sector_name, sector_code');
+      if (!mounted || error) return;
+      const mapping = (data ?? []).reduce<Record<string, string>>((acc, row: any) => {
+        const driverId = String(row.driver_id || '').trim();
+        const sectorName = String(row.sector_name || '').trim();
+        const sectorCode = String(row.sector_code || '').trim();
+        if (!driverId) return acc;
+        acc[driverId] = sectorName || sectorCode;
+        return acc;
+      }, {});
+      setDriverSectorLabels(mapping);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
   
   const [items, setItems] = useState<SupplyOrderItem[]>([]);
   
@@ -1905,6 +1936,17 @@ const SupplyReturn = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                        <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm">
+                          <span className="font-semibold text-indigo-700">{tr('Aide Livreur', 'مساعد السائق')}:</span>{' '}
+                          <span className="text-indigo-900">{selectedDriverAideLivreur || '-'}</span>
+                          {selectedDriverAideCode ? (
+                            <span className="text-indigo-700"> · Code AL: {selectedDriverAideCode}</span>
+                          ) : null}
+                          <div className="mt-1">
+                            <span className="font-semibold text-indigo-700">{tr('Secteurs', 'القطاعات')}:</span>{' '}
+                            <span className="text-indigo-900">{selectedDriverSectors || '-'}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     
@@ -1953,6 +1995,17 @@ const SupplyReturn = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      <div className="rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm">
+                        <span className="font-semibold text-indigo-700">{tr('Aide Livreur', 'مساعد السائق')}:</span>{' '}
+                        <span className="text-indigo-900">{selectedDriverAideLivreur || '-'}</span>
+                        {selectedDriverAideCode ? (
+                          <span className="text-indigo-700"> · Code AL: {selectedDriverAideCode}</span>
+                        ) : null}
+                        <div className="mt-1">
+                          <span className="font-semibold text-indigo-700">{tr('Secteurs', 'القطاعات')}:</span>{' '}
+                          <span className="text-indigo-900">{selectedDriverSectors || '-'}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-2">
