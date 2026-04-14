@@ -1974,17 +1974,30 @@ const Inventory = () => {
                         <span>{t('inventory.empty.bottles', 'Bouteilles vides')}</span>
                         <span className="font-medium text-2xl">{qty}</span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 hover:bg-purple-50 hover:text-purple-600"
-                        onClick={() => {
-                          setHistoryBottle({ bottle, type: 'empty' });
-                          setStockHistoryDialogOpen(true);
-                        }}
-                      >
-                        <History className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-purple-50 hover:text-purple-600"
+                          onClick={() => {
+                            setHistoryBottle({ bottle, type: 'empty' });
+                            setStockHistoryDialogOpen(true);
+                          }}
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => {
+                            setBottleToDelete(bottle);
+                            setDeleteConfirmDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <svg viewBox="0 0 120 28" className="h-8 w-[120px] shrink-0">
