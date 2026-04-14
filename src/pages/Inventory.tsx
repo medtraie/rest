@@ -110,7 +110,7 @@ const Inventory = () => {
   const { language } = useLanguage();
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
   const dayUnit = language === 'ar' ? 'ي' : 'j';
-  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, addStockHistory, currentUserEmail } = useApp();
+  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, updateEmptyBottlesStockByBottleType, addStockHistory, currentUserEmail } = useApp();
   const [selectedBottleId, setSelectedBottleId] = useState<string | null>(null);
   const selectedBottle = React.useMemo(() => 
     bottleTypes.find(b => b.id === selectedBottleId) || null,
@@ -144,6 +144,9 @@ const Inventory = () => {
   const [stockAdjustByBottle, setStockAdjustByBottle] = useState<Record<string, string>>({});
   const [adjustModeByBottle, setAdjustModeByBottle] = useState<Record<string, 'add' | 'remove'>>({});
   const [adjustingBottleId, setAdjustingBottleId] = useState<string | null>(null);
+  const [emptyAdjustByBottle, setEmptyAdjustByBottle] = useState<Record<string, string>>({});
+  const [emptyAdjustModeByBottle, setEmptyAdjustModeByBottle] = useState<Record<string, 'add' | 'remove'>>({});
+  const [adjustingEmptyBottleId, setAdjustingEmptyBottleId] = useState<string | null>(null);
   const MotionTableRow = motion(TableRow);
 
   const { deleteBottleType } = useApp();
@@ -296,6 +299,32 @@ const Inventory = () => {
       setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: '' }));
     } finally {
       setAdjustingBottleId(null);
+    }
+  };
+
+  const handleAdjustVidesStock = async (stock: any) => {
+    const bottleTypeId = String(stock?.bottleTypeId || '');
+    const bottleTypeName = String(stock?.bottleTypeName || '');
+    if (!bottleTypeId) return;
+    const rawQty = emptyAdjustByBottle[bottleTypeId] ?? '';
+    const qty = Math.floor(Number(rawQty));
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    const mode = emptyAdjustModeByBottle[bottleTypeId] ?? 'add';
+    const currentQty = Number(stock?.quantity || 0);
+    if (mode === 'remove' && qty > currentQty) return;
+    const delta = mode === 'add' ? qty : -qty;
+
+    setAdjustingEmptyBottleId(bottleTypeId);
+    try {
+      await updateEmptyBottlesStockByBottleType(
+        bottleTypeId,
+        delta,
+        mode,
+        `Ajustement manuel vides (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
+      );
+      setEmptyAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
+    } finally {
+      setAdjustingEmptyBottleId(null);
     }
   };
 
@@ -2027,6 +2056,41 @@ const Inventory = () => {
                           : t('inventory.trend.stable', '→ Stable')}
                       </Badge>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <ToggleGroup
+                        type="single"
+                        value={emptyAdjustModeByBottle[bottle.id] ?? 'add'}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          setEmptyAdjustModeByBottle((prev) => ({ ...prev, [bottle.id]: value as 'add' | 'remove' }));
+                        }}
+                      >
+                        <ToggleGroupItem value="add" className="h-8 px-2">
+                          <Plus className="w-3.5 h-3.5" />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="remove" className="h-8 px-2">
+                          <Minus className="w-3.5 h-3.5" />
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={emptyAdjustByBottle[bottle.id] ?? ''}
+                        onChange={(e) => setEmptyAdjustByBottle((prev) => ({ ...prev, [bottle.id]: e.target.value }))}
+                        className="h-8 bg-white"
+                        placeholder="0"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3"
+                        disabled={adjustingEmptyBottleId === bottle.id}
+                        onClick={() => handleAdjustVidesStock({ bottleTypeId: bottle.id, bottleTypeName: bottle.name, quantity: qty })}
+                      >
+                        {t('inventory.card.apply', 'Appliquer')}
+                      </Button>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
@@ -2221,6 +2285,7 @@ const Inventory = () => {
                     <TableRow>
                       <TableHead className="font-bold text-slate-700 py-4">{t('inventory.table.product', 'Produit')}</TableHead>
                       <TableHead className="text-center font-bold text-slate-700 py-4">{t('inventory.table.quantity', 'Quantité')}</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700 py-4">{t('inventory.card.adjustStock', 'Ajuster le stock')}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700 py-4">{t('inventory.table.lastUpdate', 'Dernière Mise à Jour')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -2327,6 +2392,43 @@ const Inventory = () => {
                             {stock.quantity}
                           </Badge>
                         </TableCell>
+                        <TableCell className="py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <ToggleGroup
+                              type="single"
+                              value={emptyAdjustModeByBottle[stock.bottleTypeId] ?? 'add'}
+                              onValueChange={(value) => {
+                                if (!value) return;
+                                setEmptyAdjustModeByBottle((prev) => ({ ...prev, [stock.bottleTypeId]: value as 'add' | 'remove' }));
+                              }}
+                            >
+                              <ToggleGroupItem value="add" className="h-7 px-2">
+                                <Plus className="w-3.5 h-3.5" />
+                              </ToggleGroupItem>
+                              <ToggleGroupItem value="remove" className="h-7 px-2">
+                                <Minus className="w-3.5 h-3.5" />
+                              </ToggleGroupItem>
+                            </ToggleGroup>
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              value={emptyAdjustByBottle[stock.bottleTypeId] ?? ''}
+                              onChange={(e) => setEmptyAdjustByBottle((prev) => ({ ...prev, [stock.bottleTypeId]: e.target.value }))}
+                              className="h-8 w-20 bg-white"
+                              placeholder="0"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              disabled={adjustingEmptyBottleId === stock.bottleTypeId}
+                              onClick={() => handleAdjustVidesStock(stock)}
+                            >
+                              {t('inventory.card.apply', 'Appliquer')}
+                            </Button>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right text-slate-500 text-sm py-4 font-mono">
                           {safeDate(stock.lastUpdated).toLocaleString(uiLocale)}
                         </TableCell>
@@ -2334,7 +2436,7 @@ const Inventory = () => {
                     ))}
                     {visibleEmptyRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-12 text-slate-400 italic">
+                        <TableCell colSpan={4} className="text-center py-12 text-slate-400 italic">
                           {emptyCriticalOnly ? t('inventory.empty.noCritical', 'Aucune bouteille vide critique') : t('inventory.empty.noStock', 'Aucune bouteille vide en stock')}
                         </TableCell>
                       </TableRow>
@@ -2613,6 +2715,7 @@ const Inventory = () => {
                             (entry.changeType === 'factory' && entry.newQuantity > entry.previousQuantity);
                           
                           let label = entry.changeType;
+                          const manualEmptyNote = String((entry as any).note || '').toLowerCase().includes('ajustement manuel vides');
                           if (entry.changeType === 'add') label = t('inventory.history.change.addManual', 'Ajout Manuel');
                           else if (entry.changeType === 'return') label = t('inventory.history.change.returnBd', 'Retour B.D');
                           else if (entry.changeType === 'remove') label = t('inventory.history.change.stockOut', 'Sortie Stock');
@@ -2620,6 +2723,9 @@ const Inventory = () => {
                             label = entry.newQuantity > entry.previousQuantity
                               ? t('inventory.history.change.factoryReturn', 'Retour Usine')
                               : t('inventory.history.change.factorySend', 'Envoi Usine');
+                          }
+                          if (manualEmptyNote) {
+                            label = isAdd ? t('inventory.history.change.manualPlus', 'Ajustement manuel (+)') : t('inventory.history.change.manualMinus', 'Ajustement manuel (-)');
                           }
 
                           return (
