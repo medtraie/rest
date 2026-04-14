@@ -13,10 +13,10 @@ interface BottleHistoryDialogProps {
 }
 
 export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistoryDialogProps) => {
-  const { transactions, returnOrders, foreignBottles, supplyOrders, emptyBottlesStock = [], defectiveBottles = [] } = useApp();
+  const { transactions, returnOrders, foreignBottles, supplyOrders, emptyBottlesStock = [], defectiveBottles = [], stockHistory = [] } = useApp();
 
   const bottleMovements = React.useMemo(() => {
-    const entries: Array<{ id: string; date: string | number; type: string; label: string; quantity: number; }> = [];
+    const entries: Array<{ id: string; date: string | number; type: string; label: string; quantity: number; note?: string }> = [];
 
     const safeTransactions = Array.isArray(transactions) ? transactions : [];
     safeTransactions.forEach((tx: any) => {
@@ -70,8 +70,33 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
         });
       });
 
+    const normalize = (value: string) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9]/g, '');
+    const fullAliases = ['full', 'plein', 'pleins', 'fullstock', 'stockplein'];
+    const safeStockHistory = Array.isArray(stockHistory) ? stockHistory : [];
+    safeStockHistory
+      .filter((entry: any) => String(entry?.bottleTypeId) === String(bottle.id))
+      .filter((entry: any) => {
+        const stockTypeKey = normalize(String(entry?.stockType || ''));
+        return fullAliases.includes(stockTypeKey);
+      })
+      .forEach((entry: any) => {
+        const isAdd = String(entry?.changeType || '').toLowerCase() === 'add';
+        entries.push({
+          id: `manual-full-${entry.id}`,
+          date: entry.date || Date.now(),
+          type: isAdd ? 'manual_add' : 'manual_remove',
+          label: isAdd ? 'Ajustement manuel (+)' : 'Ajustement manuel (-)',
+          quantity: Number(entry.quantity || 0),
+          note: String(entry.note || ''),
+        });
+      });
+
     return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, returnOrders, foreignBottles, bottle.id, bottle.name]);
+  }, [transactions, returnOrders, foreignBottles, stockHistory, bottle.id, bottle.name]);
 
   const getPendingCirculation = React.useCallback((bottleTypeId: string) => {
     if (!supplyOrders || !Array.isArray(supplyOrders)) return 0;
@@ -162,6 +187,8 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
       case 'return': return <TrendingUp className="w-4 h-4 text-success" />;
       case 'exchange': return <RefreshCw className="w-4 h-4 text-warning" />;
       case 'factory': return <Factory className="w-4 h-4 text-primary" />;
+      case 'manual_add': return <TrendingUp className="w-4 h-4 text-success" />;
+      case 'manual_remove': return <TrendingDown className="w-4 h-4 text-destructive" />;
       default: return <Package className="w-4 h-4" />;
     }
   };
@@ -172,6 +199,8 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
       case 'return': return 'Retour camion';
       case 'exchange': return 'Échange';
       case 'factory': return 'Envoi usine';
+      case 'manual_add': return 'Ajustement manuel (+)';
+      case 'manual_remove': return 'Ajustement manuel (-)';
       default: return type;
     }
   };
@@ -272,6 +301,11 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
                       <div className="text-xs text-muted-foreground mt-2">
                         Valeur: {(mv.quantity * bottle.unitPrice).toLocaleString()} DH
                       </div>
+                      {mv.note ? (
+                        <div className="text-[11px] text-muted-foreground mt-1 italic">
+                          {mv.note}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

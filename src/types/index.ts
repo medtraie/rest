@@ -233,6 +233,7 @@ export interface Client {
 export interface Supplier {
   id: string;
   name: string;
+  bankAccountName?: string;
   debts: Array<{
     bottleTypeId: string;
     emptyDebt: number;

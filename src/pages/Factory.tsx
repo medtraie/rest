@@ -741,6 +741,7 @@ const Factory = () => {
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [newSupplierName, setNewSupplierName] = useState('');
+  const [newSupplierBankAccount, setNewSupplierBankAccount] = useState('');
   const [showSettlementForm, setShowSettlementForm] = useState(false);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [selectedSupplierForInvoice, setSelectedSupplierForInvoice] = useState<string | null>(null);
@@ -749,6 +750,7 @@ const Factory = () => {
   const [originalInvoiceId, setOriginalInvoiceId] = useState<string | null>(null);
   const [showEditInvoice, setShowEditInvoice] = useState(false);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState<'banque' | 'none'>('none');
+  const selectedInvoiceSupplier = safeSuppliers.find(s => s.id === selectedSupplierForInvoice) || null;
 
   // Opération actuelle
   const [currentOperation, setCurrentOperation] = useState<Partial<FactoryOperation>>({});
@@ -1096,11 +1098,12 @@ const Factory = () => {
     if (!newSupplierName.trim()) return;
     
     if (editingSupplier) {
-      updateSupplier(editingSupplier.id, { name: newSupplierName });
+      updateSupplier(editingSupplier.id, { name: newSupplierName, bankAccountName: newSupplierBankAccount.trim() || undefined });
     } else {
       addSupplier({
         id: Date.now().toString(),
         name: newSupplierName,
+        bankAccountName: newSupplierBankAccount.trim() || undefined,
         debts: bottleTypes.map(bt => ({
           bottleTypeId: bt.id,
           emptyDebt: 0,
@@ -1111,6 +1114,7 @@ const Factory = () => {
     }
     
     setNewSupplierName('');
+    setNewSupplierBankAccount('');
     setEditingSupplier(null);
     setShowAddSupplier(false);
   };
@@ -1126,7 +1130,20 @@ const Factory = () => {
   const handleEditSupplier = (supplier: Supplier) => {
     setEditingSupplier(supplier);
     setNewSupplierName(supplier.name);
+    setNewSupplierBankAccount(String((supplier as any).bankAccountName || ''));
     setShowAddSupplier(true);
+  };
+
+  const handleSetSupplierBankAccount = async (supplierId: string) => {
+    const supplier = safeSuppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+    const current = String((supplier as any).bankAccountName || '').trim();
+    const next = window.prompt(
+      tr('Saisir le nom du compte banque du fournisseur', 'أدخل اسم الحساب البنكي للمورد'),
+      current
+    );
+    if (next === null) return;
+    await updateSupplier(supplier.id, { bankAccountName: next.trim() || undefined });
   };
 
   const handleSendToFactory = async () => {
@@ -1402,6 +1419,12 @@ const Factory = () => {
 
     const { totalSentSelected, totalReceivedSelected, totalAmountSelected } = selectedInvoiceTotals;
     const status = invoicePaymentMethod === 'banque' ? 'paid' : 'pending';
+    const supplierBankAccount = String((selectedInvoiceSupplier as any)?.bankAccountName || '').trim();
+
+    if (invoicePaymentMethod === 'banque' && !supplierBankAccount) {
+      alert(tr('Veuillez renseigner le compte fournisseur avant paiement banque.', 'يرجى إدخال حساب المورد قبل الدفع البنكي.'));
+      return;
+    }
 
     const newInvoice: Invoice = {
       id: `INV-${Date.now()}`,
@@ -1438,10 +1461,11 @@ const Factory = () => {
     if (status === 'paid' && (finalInvoice.totalAmount || 0) > 0) {
       await addCashOperation({
         date: new Date().toISOString(),
-        name: `Paiement Facture ${finalInvoice.id}`,
+        name: `Paiement Facture ${finalInvoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
         amount: finalInvoice.totalAmount || 0,
         type: 'retrait',
         accountAffected: 'banque',
+        accountDetails: supplierBankAccount || undefined,
         status: 'validated',
       });
     }
@@ -1455,15 +1479,22 @@ const Factory = () => {
   };
   
   const handleToggleInvoicePaid = async (invoice: Invoice) => {
+    const invoiceSupplier = safeSuppliers.find(s => s.id === invoice.supplierId);
+    const supplierBankAccount = String((invoiceSupplier as any)?.bankAccountName || '').trim();
     if (invoice.status === 'pending') {
       const amount = invoice.totalAmount || 0;
+      if (!supplierBankAccount) {
+        alert(tr('Ce fournisseur n’a pas de compte banque configuré.', 'هذا المورد ليس لديه حساب بنك مضبوط.'));
+        return;
+      }
       if (amount > 0) {
         await addCashOperation({
           date: new Date().toISOString(),
-          name: `Paiement Facture ${invoice.id}`,
+          name: `Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
           amount,
           type: 'retrait',
           accountAffected: 'banque',
+          accountDetails: supplierBankAccount || undefined,
           status: 'validated',
         });
       }
@@ -1476,10 +1507,11 @@ const Factory = () => {
       if (amount > 0) {
         await addCashOperation({
           date: new Date().toISOString(),
-          name: `Annulation Paiement Facture ${invoice.id}`,
+          name: `Annulation Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
           amount,
           type: 'versement',
           accountAffected: 'banque',
+          accountDetails: supplierBankAccount || undefined,
           status: 'validated',
         });
       }
@@ -2325,6 +2357,15 @@ const Factory = () => {
                 className="h-12 border-slate-200 bg-slate-50 rounded-xl"
               />
             </div>
+            <div className="space-y-4">
+              <Label className="text-sm font-bold text-slate-700">{tr('Compte Banque Fournisseur', 'حساب بنك المورّد')}</Label>
+              <Input
+                value={newSupplierBankAccount}
+                onChange={(e) => setNewSupplierBankAccount(e.target.value)}
+                placeholder={tr('Ex: Caisse Banque ZAGORA', 'مثال: Caisse Banque ZAGORA')}
+                className="h-12 border-slate-200 bg-slate-50 rounded-xl"
+              />
+            </div>
           </div>
           <div className="p-8 bg-slate-50 border-t border-slate-100 flex items-center gap-4">
             <Button 
@@ -2333,6 +2374,7 @@ const Factory = () => {
                 setShowAddSupplier(false);
                 setEditingSupplier(null);
                 setNewSupplierName('');
+                setNewSupplierBankAccount('');
               }}
               className="flex-1 h-12 rounded-xl font-bold"
             >
@@ -2410,6 +2452,9 @@ const Factory = () => {
                               {factoryOperations.filter(op => op.supplierId === supplier.id && op.blReference).length} {tr('BL(s)', 'BL')}
                             </span>
                           </div>
+                          <p className="text-xs text-slate-500 mt-2">
+                            {tr('Compte Banque', 'الحساب البنكي')}: {String((supplier as any).bankAccountName || tr('Non défini', 'غير محدد'))}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2637,6 +2682,22 @@ const Factory = () => {
                   <SelectItem value="banque">{tr('Banque', 'بنكي')}</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase">{tr('Compte Fournisseur', 'حساب المورّد')}</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {String((selectedInvoiceSupplier as any)?.bankAccountName || tr('Non défini', 'غير محدد'))}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => selectedSupplierForInvoice && handleSetSupplierBankAccount(selectedSupplierForInvoice)}
+                  className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                >
+                  {tr('Ajouter / Modifier compte', 'إضافة / تعديل الحساب')}
+                </Button>
+              </div>
             </div>
           </div>
 

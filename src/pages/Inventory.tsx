@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
-import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Package2, ChevronDown, ChevronUp, History, Trash2 } from 'lucide-react';
+import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Minus, Package2, ChevronDown, ChevronUp, History, Trash2 } from 'lucide-react';
 import { AddBottleTypeDialog } from '@/components/dialogs/AddBottleTypeDialog';
 import { EditBottleTypeDialog } from '@/components/dialogs/EditBottleTypeDialog';
 import { BottleHistoryDialog } from '@/components/dialogs/BottleHistoryDialog';
@@ -110,7 +110,7 @@ const Inventory = () => {
   const { language } = useLanguage();
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
   const dayUnit = language === 'ar' ? 'ي' : 'j';
-  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory } = useApp();
+  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, addStockHistory, currentUserEmail } = useApp();
   const [selectedBottleId, setSelectedBottleId] = useState<string | null>(null);
   const selectedBottle = React.useMemo(() => 
     bottleTypes.find(b => b.id === selectedBottleId) || null,
@@ -141,6 +141,9 @@ const Inventory = () => {
   const [emptyCriticalOnly, setEmptyCriticalOnly] = useState(false);
   const [defectiveCriticalOnly, setDefectiveCriticalOnly] = useState(false);
   const [thresholdsByBottle, setThresholdsByBottle] = useState<Record<string, number>>({});
+  const [stockAdjustByBottle, setStockAdjustByBottle] = useState<Record<string, string>>({});
+  const [adjustModeByBottle, setAdjustModeByBottle] = useState<Record<string, 'add' | 'remove'>>({});
+  const [adjustingBottleId, setAdjustingBottleId] = useState<string | null>(null);
   const MotionTableRow = motion(TableRow);
 
   const { deleteBottleType } = useApp();
@@ -259,6 +262,42 @@ const Inventory = () => {
 
   const getDefectiveQuantity = (id: string) =>
     defectiveBottles.filter(b => b.bottleTypeId === id).reduce((sum, b) => sum + b.quantity, 0);
+
+  const handleAdjustPleinStock = async (bottle: BottleType, stockPlein: number, distributed: number) => {
+    const rawQty = stockAdjustByBottle[bottle.id] ?? '';
+    const qty = Math.floor(Number(rawQty));
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    const mode = adjustModeByBottle[bottle.id] ?? 'add';
+    const currentTotal = Number((bottle as any).totalQuantity ?? (bottle as any).totalquantity ?? 0);
+
+    if (mode === 'remove' && qty > stockPlein) return;
+
+    const delta = mode === 'add' ? qty : -qty;
+    const nextTotal = Math.max(distributed, currentTotal + delta);
+    const nextRemaining = Math.max(0, nextTotal - distributed);
+
+    setAdjustingBottleId(bottle.id);
+    try {
+      await updateBottleType(bottle.id, {
+        totalQuantity: nextTotal,
+        remainingQuantity: nextRemaining,
+      });
+      await addStockHistory({
+        date: new Date().toISOString(),
+        bottleTypeId: bottle.id,
+        bottleTypeName: bottle.name,
+        stockType: 'full',
+        changeType: mode === 'add' ? 'add' : 'remove',
+        quantity: qty,
+        previousQuantity: stockPlein,
+        newQuantity: Math.max(0, stockPlein + delta),
+        note: `Ajustement manuel plein (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
+      });
+      setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: '' }));
+    } finally {
+      setAdjustingBottleId(null);
+    }
+  };
 
   const simpleStatus = (qty: number) => {
     if (qty === 0) return { status: t('inventory.status.empty', 'Vide'), variant: 'destructive' as const, icon: TrendingDown };
@@ -1534,6 +1573,45 @@ const Inventory = () => {
                       }}
                     >
                       {t('inventory.card.auto', 'Auto')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-2.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('inventory.card.adjustStock', 'Ajuster le stock')}</span>
+                  <div className="flex items-center gap-2">
+                    <ToggleGroup
+                      type="single"
+                      value={adjustModeByBottle[bottle.id] ?? 'add'}
+                      onValueChange={(value) => {
+                        if (!value) return;
+                        setAdjustModeByBottle((prev) => ({ ...prev, [bottle.id]: value as 'add' | 'remove' }));
+                      }}
+                    >
+                      <ToggleGroupItem value="add" className="h-8 px-2">
+                        <Plus className="w-3.5 h-3.5" />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="remove" className="h-8 px-2">
+                        <Minus className="w-3.5 h-3.5" />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={stockAdjustByBottle[bottle.id] ?? ''}
+                      onChange={(e) => setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: e.target.value }))}
+                      className="h-8 w-20 bg-white"
+                      placeholder="0"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={adjustingBottleId === bottle.id}
+                      onClick={() => handleAdjustPleinStock(bottle, stockPlein, distributed)}
+                    >
+                      {t('inventory.card.apply', 'Appliquer')}
                     </Button>
                   </div>
                 </div>

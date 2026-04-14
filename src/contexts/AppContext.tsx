@@ -1714,10 +1714,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
     if (updated) {
       const merged = { id, ...updated, ...patch };
-      setBottleTypes(prev => prev.map(b => (b.id === id ? { ...b, ...merged } : b)));
+      setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
       return merged;
     }
-    setBottleTypes(prev => prev.map(b => (b.id === id ? { ...b, ...patch } : b)));
+    setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
     return { id, ...(patch as any) } as BottleType;
   };
   const deleteBottleType = async (id: string) => {
