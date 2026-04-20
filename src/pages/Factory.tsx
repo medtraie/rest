@@ -751,6 +751,8 @@ const Factory = () => {
   const [showEditInvoice, setShowEditInvoice] = useState(false);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState<'banque' | 'none'>('none');
   const selectedInvoiceSupplier = safeSuppliers.find(s => s.id === selectedSupplierForInvoice) || null;
+  const [supplierFilterFromDate, setSupplierFilterFromDate] = useState('');
+  const [supplierFilterToDate, setSupplierFilterToDate] = useState('');
 
   // Opération actuelle
   const [currentOperation, setCurrentOperation] = useState<Partial<FactoryOperation>>({});
@@ -906,6 +908,47 @@ const Factory = () => {
     const grouped = invoices.map(inv => ({ ...inv, source: 'invoice' as const }));
     return [...grouped, ...standalone].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [invoices, factoryOperations, bottleTypes]);
+  const historySearchValue = commandCenterSearch.trim().toLowerCase();
+  const filteredFactoryOperations = useMemo(() => {
+    const base = factoryOperations.slice().reverse();
+    if (!historySearchValue) return base;
+    return base.filter((operation) => {
+      const supplierName = safeSuppliers.find((s) => s.id === operation.supplierId)?.name || '';
+      const haystack = [
+        operation.driverName,
+        operation.blReference || '',
+        supplierName,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(historySearchValue);
+    });
+  }, [factoryOperations, safeSuppliers, historySearchValue]);
+  const filteredDebtSettlements = useMemo(() => {
+    if (!historySearchValue) return debtSettlements;
+    return debtSettlements.filter((settlement) => {
+      const supplierName = safeSuppliers.find((s) => s.id === settlement.supplierId)?.name || '';
+      const bottleTypeName = bottleTypes.find((bt) => bt.id === settlement.bottleTypeId)?.name || '';
+      const haystack = [
+        supplierName,
+        bottleTypeName,
+        settlement.description || '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(historySearchValue);
+    });
+  }, [debtSettlements, safeSuppliers, bottleTypes, historySearchValue]);
+  const filteredInvoiceRows = useMemo(() => {
+    if (!historySearchValue) return invoiceRows;
+    return invoiceRows.filter((invoice) => {
+      const supplierName = safeSuppliers.find((s) => s.id === invoice.supplierId)?.name || '';
+      const blRefs = (invoice.blReferences || []).join(' ');
+      const statusLabel = invoice.status === 'paid' ? 'payee paid' : 'en attente pending';
+      const haystack = [invoice.id, supplierName, blRefs, statusLabel].join(' ').toLowerCase();
+      return haystack.includes(historySearchValue);
+    });
+  }, [invoiceRows, safeSuppliers, historySearchValue]);
   const selectedInvoiceOps = useMemo(
     () =>
       factoryOperations.filter(op =>
@@ -1541,6 +1584,20 @@ const Factory = () => {
     })
     .filter((op) => op.diffDays >= 2)
     .sort((a, b) => b.diffDays - a.diffDays);
+  const supplierPurchaseStats = useMemo(() => {
+    const bySupplier: Record<string, { total: number; count: number }> = {};
+    invoices.forEach((inv) => {
+      const invDay = String(inv.date || '').slice(0, 10);
+      if (supplierFilterFromDate && invDay < supplierFilterFromDate) return;
+      if (supplierFilterToDate && invDay > supplierFilterToDate) return;
+      const sid = String(inv.supplierId || '');
+      if (!sid) return;
+      if (!bySupplier[sid]) bySupplier[sid] = { total: 0, count: 0 };
+      bySupplier[sid].total += Number(inv.totalAmount || 0);
+      bySupplier[sid].count += 1;
+    });
+    return bySupplier;
+  }, [invoices, supplierFilterFromDate, supplierFilterToDate]);
   const timelineOperations = [...factoryOperations]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 6);
@@ -2419,6 +2476,34 @@ const Factory = () => {
           </div>
 
           <div className="p-8 space-y-6 bg-white max-h-[70vh] overflow-y-auto">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">
+                {tr('Filtre Achats par Date', 'فلتر المشتريات حسب التاريخ')}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-600">{tr('Du', 'من')}</Label>
+                  <Input type="date" value={supplierFilterFromDate} onChange={(e) => setSupplierFilterFromDate(e.target.value)} className="h-10 bg-white" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-slate-600">{tr('Au', 'إلى')}</Label>
+                  <Input type="date" value={supplierFilterToDate} onChange={(e) => setSupplierFilterToDate(e.target.value)} className="h-10 bg-white" />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full"
+                    onClick={() => {
+                      setSupplierFilterFromDate('');
+                      setSupplierFilterToDate('');
+                    }}
+                  >
+                    {tr('Réinitialiser', 'إعادة التعيين')}
+                  </Button>
+                </div>
+              </div>
+            </div>
             {safeSuppliers.length === 0 ? (
               <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                 <div className="p-4 bg-white rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-sm">
@@ -2455,6 +2540,14 @@ const Factory = () => {
                           <p className="text-xs text-slate-500 mt-2">
                             {tr('Compte Banque', 'الحساب البنكي')}: {String((supplier as any).bankAccountName || tr('Non défini', 'غير محدد'))}
                           </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md">
+                              {tr('Total achat', 'إجمالي المشتريات')}: {Number(supplierPurchaseStats[supplier.id]?.total || 0).toFixed(3)}
+                            </span>
+                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md">
+                              {tr('Factures', 'الفواتير')}: {Number(supplierPurchaseStats[supplier.id]?.count || 0)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -3135,7 +3228,15 @@ const Factory = () => {
                 <div className="relative group min-w-[200px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
                   <Input 
-                    placeholder={tr('Rechercher une opération...', 'ابحث عن عملية...')} 
+                    value={commandCenterSearch}
+                    onChange={(e) => setCommandCenterSearch(e.target.value)}
+                    placeholder={
+                      historyTab === 'invoices'
+                        ? tr('Rechercher facture, fournisseur ou BL...', 'ابحث عن فاتورة أو مورد أو BL...')
+                        : historyTab === 'settlements'
+                        ? tr('Rechercher règlement, fournisseur...', 'ابحث عن تسوية أو مورد...')
+                        : tr('Rechercher une opération...', 'ابحث عن عملية...')
+                    }
                     className="pl-10 h-11 bg-slate-50 border-none rounded-xl focus-visible:ring-2 focus-visible:ring-slate-900/10 transition-all text-left"
                   />
                 </div>
@@ -3170,8 +3271,8 @@ const Factory = () => {
                 </TableHeader>
                 <TableBody>
                   <AnimatePresence mode="popLayout">
-                    {factoryOperations.length > 0 ? (
-                      factoryOperations.slice().reverse().map((operation, idx) => {
+                    {filteredFactoryOperations.length > 0 ? (
+                      filteredFactoryOperations.map((operation, idx) => {
                         const totalSentOp = (operation.sentBottles || []).reduce((sum, bottle) => sum + bottle.quantity, 0);
                         const totalReceivedOp = (operation.receivedBottles || []).reduce((sum, bottle) => sum + bottle.quantity, 0);
                         const isPending = (operation.receivedBottles || []).length === 0;
@@ -3417,8 +3518,8 @@ const Factory = () => {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence mode="popLayout">
-                      {debtSettlements.length > 0 ? (
-                        debtSettlements.map((settlement, idx) => {
+                      {filteredDebtSettlements.length > 0 ? (
+                        filteredDebtSettlements.map((settlement, idx) => {
                           const supplier = safeSuppliers.find(s => s.id === settlement.supplierId);
                           const bottleType = bottleTypes.find(bt => bt.id === settlement.bottleTypeId);
 
@@ -3500,8 +3601,8 @@ const Factory = () => {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence mode="popLayout">
-                      {invoiceRows.length > 0 ? (
-                        invoiceRows.map((invoice, idx) => {
+                      {filteredInvoiceRows.length > 0 ? (
+                        filteredInvoiceRows.map((invoice, idx) => {
                           const supplier = safeSuppliers.find(s => s.id === invoice.supplierId);
                           const isGrouped = invoice.source === 'invoice' && (invoice.blReferences?.length || 0) > 1;
                           const isSingle = invoice.source === 'single-bl';

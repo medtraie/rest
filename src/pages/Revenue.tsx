@@ -84,6 +84,7 @@ type OpRow =
       amount: number;
       sourceAccount: 'espece' | 'cheque' | 'banque';
       destinationAccount: 'espece' | 'cheque' | 'banque';
+      accountDetails?: string;
       status: 'pending' | 'validated';
     }
   | {
@@ -126,6 +127,7 @@ function Revenue() {
     addFinancialTransaction,
     deleteFinancialTransaction,
     getAccountBalance,
+    suppliers,
   } = useApp();
   const t = useT();
   const uiLocale = 'fr-MA';
@@ -213,6 +215,20 @@ function Revenue() {
   const [whatIfDailyOut, setWhatIfDailyOut] = useState<string>('0');
   const [whatIfHorizon, setWhatIfHorizon] = useState<'15' | '30' | '60'>('30');
   const [anomalyMode, setAnomalyMode] = useState<'all' | 'positive' | 'negative'>('all');
+  const normalizeAccountText = (value: string) => String(value || '').trim().toLowerCase();
+  const supplierBankAccounts = useMemo(() => {
+    const fromSuppliers = (suppliers || [])
+      .map((s: any) => String(s?.bankAccountName || '').trim())
+      .filter(Boolean);
+    const fromOps = (cashOperations || [])
+      .filter((op: any) => String(op?.accountAffected || '').toLowerCase() === 'banque')
+      .map((op: any) => String(op?.accountDetails || '').trim())
+      .filter(Boolean);
+    const fromFinancial = (financialTransactions || [])
+      .map((tx: any) => String(tx?.accountDetails || '').trim())
+      .filter(Boolean);
+    return Array.from(new Set([...fromSuppliers, ...fromOps, ...fromFinancial])).sort((a, b) => a.localeCompare(b));
+  }, [suppliers, cashOperations, financialTransactions]);
 
   // Normalize operations for "Gestion de Transfert"
   const opRows: OpRow[] = useMemo(() => {
@@ -228,6 +244,7 @@ function Revenue() {
           amount: t.amount,
           sourceAccount: t.sourceAccount as any,
           destinationAccount: t.destinationAccount as any,
+          accountDetails: t.accountDetails,
           status: bt?.status || 'validated',
         };
       }
@@ -266,6 +283,13 @@ function Revenue() {
   };
   const passesAccount = (row: OpRow) => {
     if (filterAccount === 'all') return true;
+    if (filterAccount.startsWith('supplier_bank:')) {
+      const target = normalizeAccountText(filterAccount.replace('supplier_bank:', ''));
+      if (row.kind === 'operation') {
+        return normalizeAccountText(String(row.accountDetails || '')) === target && row.accountAffected === 'banque';
+      }
+      return normalizeAccountText(String(row.accountDetails || '')) === target;
+    }
     if (row.kind === 'transfert') {
       return row.sourceAccount === filterAccount || row.destinationAccount === filterAccount;
     }
@@ -510,8 +534,14 @@ function Revenue() {
 
       // Account
       if (filterAccount !== 'all') {
-        const affected = [r.sourceAccount, r.destinationAccount].filter(Boolean);
-        if (affected.length > 0 && !affected.includes(filterAccount)) return false;
+        if (filterAccount.startsWith('supplier_bank:')) {
+          const target = normalizeAccountText(filterAccount.replace('supplier_bank:', ''));
+          const detailsMatch = normalizeAccountText(String((r as any).accountDetails || '')) === target;
+          if (!detailsMatch) return false;
+        } else {
+          const affected = [r.sourceAccount, r.destinationAccount].filter(Boolean);
+          if (affected.length > 0 && !affected.includes(filterAccount)) return false;
+        }
       }
 
       // Amount
@@ -944,6 +974,9 @@ function Revenue() {
             <div className="flex items-center mt-1 text-xs text-blue-600 font-medium">
               <Check className="h-3 w-3 mr-1" />
               {t('revenue.accounts.banqueAvail', 'Solde bancaire')}
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500">
+              {tr('Comptes fournisseurs', 'حسابات الموردين')}: {supplierBankAccounts.length}
             </div>
           </CardContent>
         </Card>
@@ -1393,6 +1426,11 @@ function Revenue() {
                       <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
                       <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
                       <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
+                      {supplierBankAccounts.map((account) => (
+                        <SelectItem key={`mgmt-${account}`} value={`supplier_bank:${account}`}>
+                          {tr('Banque fournisseur', 'بنك المورّد')}: {account}
+                        </SelectItem>
+                      ))}
                       <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1670,6 +1708,11 @@ function Revenue() {
                       <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
                       <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
                       <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
+                      {supplierBankAccounts.map((account) => (
+                        <SelectItem key={`hist-${account}`} value={`supplier_bank:${account}`}>
+                          {tr('Banque fournisseur', 'بنك المورّد')}: {account}
+                        </SelectItem>
+                      ))}
                       <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
                     </SelectContent>
                   </Select>

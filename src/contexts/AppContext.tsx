@@ -590,8 +590,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const updateSupplier = async (id: string, patch: Partial<Supplier>) => {
       const updated = await supabaseService.update<Supplier>("suppliers", id, patch);
       if (updated) {
-        setSuppliers((prev) => prev.map((s) => (s.id === id ? updated : s)));
+        setSuppliers((prev) => prev.map((s) => (String(s.id) === String(id) ? { ...s, ...updated } : s)));
+        return;
       }
+      const hasBankPatch = Object.prototype.hasOwnProperty.call(patch as Record<string, any>, 'bankAccountName');
+      if (hasBankPatch) {
+        const bankAccountName = (patch as any).bankAccountName || null;
+        const { error } = await supabase
+          .from("suppliers")
+          .update({ bank_account_name: bankAccountName })
+          .eq("id", id);
+        if (!error) {
+          setSuppliers((prev) =>
+            prev.map((s) => (String(s.id) === String(id) ? { ...s, bankAccountName: (patch as any).bankAccountName } : s))
+          );
+          return;
+        }
+      }
+      setSuppliers((prev) => prev.map((s) => (String(s.id) === String(id) ? { ...s, ...patch } : s)));
     };
 
     const deleteSupplier = async (id: string) => {

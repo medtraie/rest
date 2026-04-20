@@ -30,6 +30,7 @@ const toCamelKey = (key: string) => {
   if (lower === 'truckid') return 'truckId';
   if (lower === 'clientid') return 'clientId';
   if (lower === 'supplierid') return 'supplierId';
+  if (lower === 'bankaccountname') return 'bankAccountName';
   if (lower === 'sentbottles') return 'sentBottles';
   if (lower === 'receivedbottles') return 'receivedBottles';
   if (lower === 'debtchange') return 'debtChange';
@@ -114,13 +115,16 @@ const columnMap: Record<string, Record<string, string>> = {
     debtAmount: 'debt_amount',
     paymentMethod: 'payment_method',
   },
+  suppliers: {
+    bankAccountName: 'bank_account_name',
+  },
 };
 const tableColumnHints: Record<string, string[]> = {};
 const resolveColumnName = (table: string, key: string) => {
   const tableMap = columnMap[table] || {};
   const columns = tableColumnHints[table] || [];
   const explicit = tableMap[key];
-  if (explicit && (!columns.length || columns.includes(explicit))) return explicit;
+  if (explicit) return explicit;
   const normalizedTarget = key.toLowerCase();
   if (columns.length) {
     const direct = columns.find(col => col.toLowerCase() === normalizedTarget);
