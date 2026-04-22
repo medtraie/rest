@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
@@ -50,6 +50,7 @@ const Settings = () => {
     importData, 
     clearAllData, 
     drivers,
+    returnOrders,
     updateDriver,
     roles, 
     roleAssignments, 
@@ -120,6 +121,25 @@ const Settings = () => {
   });
   const [driverSectorAssignments, setDriverSectorAssignments] = useState<Record<string, string[]>>({});
   const [driverSectorSavingId, setDriverSectorSavingId] = useState<string | null>(null);
+  const toMonthStart = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  };
+  const toMonthEnd = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  };
+  const [commissionFromDate, setCommissionFromDate] = useState<string>(toMonthStart);
+  const [commissionToDate, setCommissionToDate] = useState<string>(toMonthEnd);
+  const [driverCommissionDrafts, setDriverCommissionDrafts] = useState<Record<string, {
+    saJ: string;
+    saV: string;
+    comm: string;
+    salaire: string;
+    primes: string;
+  }>>({});
+  const [commissionDraftsLoading, setCommissionDraftsLoading] = useState(false);
+  const [commissionSavingId, setCommissionSavingId] = useState<string | null>(null);
 
   const [reservoirs, setReservoirs] = useState<Array<{
     id: string;
@@ -325,6 +345,156 @@ const Settings = () => {
     setForeignThresholdDrafts(nextDrafts);
   }, [drivers]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadDriverCommissionDrafts = async () => {
+      setCommissionDraftsLoading(true);
+      let fallbackStored: Record<string, { saJ?: string; saV?: string; comm?: string; salaire?: string; primes?: string }> = {};
+      try {
+        const raw = window.localStorage.getItem('driver-commission-settings-v1');
+        if (raw) fallbackStored = JSON.parse(raw);
+      } catch {}
+
+      const getFallbackDrafts = () =>
+        drivers.reduce<Record<string, { saJ: string; saV: string; comm: string; salaire: string; primes: string }>>((acc, driver) => {
+          const current = fallbackStored[driver.id] || {};
+          acc[driver.id] = {
+            saJ: String(current.saJ || ''),
+            saV: String(current.saV || ''),
+            comm: String(current.comm || ''),
+            salaire: String(current.salaire || ''),
+            primes: String(current.primes || ''),
+          };
+          return acc;
+        }, {});
+
+      const uid = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+      if (!uid) {
+        if (!cancelled) {
+          setDriverCommissionDrafts(getFallbackDrafts());
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('driver_commission_settings')
+        .select('driver_id, sa_j, sa_v, comm, salaire, primes')
+        .eq('user_id', uid);
+
+      if (error) {
+        const msg = String(error.message || '').toLowerCase();
+        if (!cancelled) {
+          setDriverCommissionDrafts(getFallbackDrafts());
+          if (!msg.includes('aborted')) {
+            toast({
+              title: language === 'ar' ? 'تحميل Supabase غير متاح' : 'Chargement Supabase indisponible',
+              description: `${language === 'ar' ? 'سيتم استخدام القيم المحلية.' : 'Utilisation des valeurs locales.'} ${error.message}`,
+              variant: 'destructive'
+            });
+          }
+        }
+        return;
+      }
+
+      const byDriver = (data || []).reduce<Record<string, { saJ: string; saV: string; comm: string; salaire: string; primes: string }>>((acc, row: any) => {
+        const key = String(row.driver_id || '');
+        if (!key) return acc;
+        acc[key] = {
+          saJ: String(row.sa_j ?? ''),
+          saV: String(row.sa_v ?? ''),
+          comm: String(row.comm ?? ''),
+          salaire: String(row.salaire ?? ''),
+          primes: String(row.primes ?? ''),
+        };
+        return acc;
+      }, {});
+
+      const next = drivers.reduce<Record<string, { saJ: string; saV: string; comm: string; salaire: string; primes: string }>>((acc, driver) => {
+        const current = byDriver[driver.id] || fallbackStored[driver.id] || {};
+        acc[driver.id] = {
+          saJ: String((current as any).saJ || ''),
+          saV: String((current as any).saV || ''),
+          comm: String((current as any).comm || ''),
+          salaire: String((current as any).salaire || ''),
+          primes: String((current as any).primes || ''),
+        };
+        return acc;
+      }, {});
+      if (!cancelled) {
+        setDriverCommissionDrafts(next);
+      }
+    };
+    loadDriverCommissionDrafts().finally(() => {
+      if (!cancelled) setCommissionDraftsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [drivers, toast, language]);
+
+  const commissionRows = useMemo(() => {
+    const fromTime = commissionFromDate ? new Date(`${commissionFromDate}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+    const toTime = commissionToDate ? new Date(`${commissionToDate}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+    return drivers.map((driver) => {
+      const related = (returnOrders || []).filter((order: any) => {
+        if (String(order?.driverId || '') !== String(driver.id)) return false;
+        const dateValue = String(order?.date || '');
+        if (!dateValue) return false;
+        const orderMs = new Date(dateValue).getTime();
+        if (Number.isNaN(orderMs)) return false;
+        return orderMs >= fromTime && orderMs <= toTime;
+      });
+      const nbv = related.length;
+      const distinctDays = new Set(
+        related
+          .map((order: any) => String(order?.date || '').slice(0, 10))
+          .filter(Boolean)
+      );
+      const nbj = distinctDays.size;
+      const draft = driverCommissionDrafts[driver.id] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' };
+      const saJ = Number(draft.saJ || 0);
+      const saV = Number(draft.saV || 0);
+      const comm = Number(draft.comm || 0);
+      const salaire = Number(draft.salaire || 0);
+      const primes = Number(draft.primes || 0);
+      const mtJ = nbj * saJ;
+      const mtV = nbv * saV;
+      const total = mtJ + mtV + comm + salaire;
+      const totalGeneral = total + primes;
+      return {
+        driverId: driver.id,
+        driverName: driver.name,
+        nbv,
+        nbj,
+        saJ,
+        saV,
+        comm,
+        salaire,
+        primes,
+        mtJ,
+        mtV,
+        total,
+        totalGeneral
+      };
+    });
+  }, [drivers, returnOrders, commissionFromDate, commissionToDate, driverCommissionDrafts]);
+
+  const commissionTotals = useMemo(() => {
+    return commissionRows.reduce(
+      (acc, row) => {
+        acc.nbv += row.nbv;
+        acc.nbj += row.nbj;
+        acc.mtJ += row.mtJ;
+        acc.mtV += row.mtV;
+        acc.total += row.total;
+        acc.primes += row.primes;
+        acc.totalGeneral += row.totalGeneral;
+        return acc;
+      },
+      { nbv: 0, nbj: 0, mtJ: 0, mtV: 0, total: 0, primes: 0, totalGeneral: 0 }
+    );
+  }, [commissionRows]);
+
   const updateRowField = (index: number, field: keyof (typeof pricing)[number], value: string) => {
     setPricing(prev => {
       const next = [...prev];
@@ -385,6 +555,48 @@ const Settings = () => {
     toast({
       title: 'Seuil enregistré',
       description: 'Le seuil des bouteilles étrangères du chauffeur a été mis à jour.'
+    });
+  };
+  const saveDriverCommissionDraft = async (driverId: string) => {
+    const uid = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+    if (!uid) {
+      toast({
+        title: tr('Session requise', 'مطلوب تسجيل الدخول'),
+        description: tr('Veuillez vous reconnecter pour sauvegarder.', 'يرجى إعادة تسجيل الدخول للحفظ.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+    const draft = driverCommissionDrafts[driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' };
+    const payload = {
+      user_id: uid,
+      driver_id: driverId,
+      sa_j: Number(draft.saJ || 0),
+      sa_v: Number(draft.saV || 0),
+      comm: Number(draft.comm || 0),
+      salaire: Number(draft.salaire || 0),
+      primes: Number(draft.primes || 0),
+      updated_at: new Date().toISOString()
+    };
+    setCommissionSavingId(driverId);
+    const { error } = await supabase
+      .from('driver_commission_settings')
+      .upsert(payload, { onConflict: 'user_id,driver_id' });
+    setCommissionSavingId(null);
+    if (error) {
+      toast({
+        title: tr('Échec sauvegarde commission', 'فشل حفظ العمولة'),
+        description: error.message,
+        variant: 'destructive'
+      });
+      return;
+    }
+    try {
+      window.localStorage.setItem('driver-commission-settings-v1', JSON.stringify(driverCommissionDrafts));
+    } catch {}
+    toast({
+      title: tr('Commission enregistrée', 'تم حفظ العمولة'),
+      description: tr('Paramètres du chauffeur sauvegardés sur Supabase.', 'تم حفظ إعدادات السائق على Supabase.')
     });
   };
 
@@ -1661,6 +1873,184 @@ const Settings = () => {
                           </TableRow>
                         );
                       })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-800 bg-slate-900/60">
+              <CardHeader className="border-b border-slate-800">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <CardTitle className="text-slate-100">{tr('Situation par Livreur - Commission', 'وضعية السائقين - العمولة')}</CardTitle>
+                    <CardDescription className="text-slate-300">
+                      {tr('Nbv: bons de sortie | Nbj: jours actifs | MtJ = SaJ x Nbj | MTv = SaV x Nbv', 'Nbv: عدد سندات الخروج | Nbj: عدد الأيام النشطة | MtJ = SaJ × Nbj | MTv = SaV × Nbv')}
+                    </CardDescription>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-slate-200 text-xs">{tr('Du', 'من')}</Label>
+                      <Input
+                        type="date"
+                        value={commissionFromDate}
+                        onChange={(e) => setCommissionFromDate(e.target.value)}
+                        className="border-slate-700 bg-slate-950 text-slate-100"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-slate-200 text-xs">{tr('Au', 'إلى')}</Label>
+                      <Input
+                        type="date"
+                        value={commissionToDate}
+                        onChange={(e) => setCommissionToDate(e.target.value)}
+                        className="border-slate-700 bg-slate-950 text-slate-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="rounded-xl border border-slate-700 overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-800/60">
+                      <TableRow>
+                        <TableHead className="text-slate-200 min-w-[220px]">{tr('Livreur', 'السائق')}</TableHead>
+                        <TableHead className="text-slate-200 text-right">Nbv</TableHead>
+                        <TableHead className="text-slate-200 text-right">Nbj</TableHead>
+                        <TableHead className="text-slate-200 text-right">MtJ</TableHead>
+                        <TableHead className="text-slate-200 text-right">MTv</TableHead>
+                        <TableHead className="text-slate-200 min-w-[90px]">SaJ</TableHead>
+                        <TableHead className="text-slate-200 min-w-[90px]">SaV</TableHead>
+                        <TableHead className="text-slate-200 min-w-[110px]">Comm</TableHead>
+                        <TableHead className="text-slate-200 min-w-[110px]">{tr('Salaire', 'الراتب')}</TableHead>
+                        <TableHead className="text-slate-200 text-right">{tr('Total', 'المجموع')}</TableHead>
+                        <TableHead className="text-slate-200 min-w-[110px]">{tr('Primes', 'المنح')}</TableHead>
+                        <TableHead className="text-slate-200 text-right">{tr('Total Général', 'المجموع العام')}</TableHead>
+                        <TableHead className="text-slate-200 text-right">{tr('Action', 'إجراء')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {commissionDraftsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={13} className="py-6 text-center text-slate-300">
+                            {tr('Chargement des commissions...', 'جاري تحميل إعدادات العمولات...')}
+                          </TableCell>
+                        </TableRow>
+                      ) : commissionRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={13} className="py-6 text-center text-slate-400">
+                            {tr('Aucun chauffeur disponible.', 'لا يوجد سائقون متاحون.')}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        commissionRows.map((row) => (
+                          <TableRow key={`commission-${row.driverId}`}>
+                            <TableCell className="font-medium text-slate-100">{row.driverName}</TableCell>
+                            <TableCell className="text-right text-slate-200">{row.nbv}</TableCell>
+                            <TableCell className="text-right text-slate-200">{row.nbj}</TableCell>
+                            <TableCell className="text-right text-slate-200 font-semibold">{row.mtJ.toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-slate-200 font-semibold">{row.mtV.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={driverCommissionDrafts[row.driverId]?.saJ ?? ''}
+                                onChange={(e) =>
+                                  setDriverCommissionDrafts((prev) => ({
+                                    ...prev,
+                                    [row.driverId]: { ...(prev[row.driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' }), saJ: e.target.value }
+                                  }))
+                                }
+                                className="border-slate-700 bg-slate-950 text-slate-100 h-9"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={driverCommissionDrafts[row.driverId]?.saV ?? ''}
+                                onChange={(e) =>
+                                  setDriverCommissionDrafts((prev) => ({
+                                    ...prev,
+                                    [row.driverId]: { ...(prev[row.driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' }), saV: e.target.value }
+                                  }))
+                                }
+                                className="border-slate-700 bg-slate-950 text-slate-100 h-9"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={driverCommissionDrafts[row.driverId]?.comm ?? ''}
+                                onChange={(e) =>
+                                  setDriverCommissionDrafts((prev) => ({
+                                    ...prev,
+                                    [row.driverId]: { ...(prev[row.driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' }), comm: e.target.value }
+                                  }))
+                                }
+                                className="border-slate-700 bg-slate-950 text-slate-100 h-9"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={driverCommissionDrafts[row.driverId]?.salaire ?? ''}
+                                onChange={(e) =>
+                                  setDriverCommissionDrafts((prev) => ({
+                                    ...prev,
+                                    [row.driverId]: { ...(prev[row.driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' }), salaire: e.target.value }
+                                  }))
+                                }
+                                className="border-slate-700 bg-slate-950 text-slate-100 h-9"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-slate-100 font-bold">{row.total.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={driverCommissionDrafts[row.driverId]?.primes ?? ''}
+                                onChange={(e) =>
+                                  setDriverCommissionDrafts((prev) => ({
+                                    ...prev,
+                                    [row.driverId]: { ...(prev[row.driverId] || { saJ: '', saV: '', comm: '', salaire: '', primes: '' }), primes: e.target.value }
+                                  }))
+                                }
+                                className="border-slate-700 bg-slate-950 text-slate-100 h-9"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-emerald-300 font-black">{row.totalGeneral.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                onClick={() => saveDriverCommissionDraft(row.driverId)}
+                                disabled={commissionSavingId === row.driverId}
+                                className="bg-indigo-600 hover:bg-indigo-700 h-9"
+                              >
+                                {commissionSavingId === row.driverId ? tr('Sauvegarde...', 'جارٍ الحفظ...') : tr('Enregistrer', 'حفظ')}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                      <TableRow className="bg-slate-800/60">
+                        <TableCell className="text-slate-100 font-black">{tr('TOTAL', 'الإجمالي')}</TableCell>
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.nbv}</TableCell>
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.nbj}</TableCell>
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.mtJ.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.mtV.toFixed(2)}</TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.total.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-slate-100 font-black">{commissionTotals.primes.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-emerald-300 font-black">{commissionTotals.totalGeneral.toFixed(2)}</TableCell>
+                        <TableCell />
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </div>

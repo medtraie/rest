@@ -584,30 +584,81 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const created = await supabaseService.create<Supplier>("suppliers", newSupplier);
       if (created) {
         setSuppliers((prev) => [...prev, created]);
+        return;
       }
+      alert("Erreur lors de la création du fournisseur / حدث خطأ أثناء إنشاء المورّد. تحقّق من الاتصال ثم أعد المحاولة.");
     };
 
     const updateSupplier = async (id: string, patch: Partial<Supplier>) => {
-      const updated = await supabaseService.update<Supplier>("suppliers", id, patch);
+      const hasBankPatch = Object.prototype.hasOwnProperty.call(patch as Record<string, any>, 'bankAccountName');
+      const bankAccountName = hasBankPatch ? (String((patch as any).bankAccountName || '').trim() || null) : undefined;
+      const localPatch: Partial<Supplier> = hasBankPatch
+        ? { ...patch, bankAccountName: bankAccountName ?? undefined }
+        : patch;
+
+      const updated = await supabaseService.update<Supplier>("suppliers", id, localPatch);
       if (updated) {
         setSuppliers((prev) => prev.map((s) => (String(s.id) === String(id) ? { ...s, ...updated } : s)));
         return;
       }
-      const hasBankPatch = Object.prototype.hasOwnProperty.call(patch as Record<string, any>, 'bankAccountName');
-      if (hasBankPatch) {
-        const bankAccountName = (patch as any).bankAccountName || null;
-        const { error } = await supabase
-          .from("suppliers")
-          .update({ bank_account_name: bankAccountName })
-          .eq("id", id);
-        if (!error) {
-          setSuppliers((prev) =>
-            prev.map((s) => (String(s.id) === String(id) ? { ...s, bankAccountName: (patch as any).bankAccountName } : s))
-          );
+
+      const uid = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+      const bankColumns = hasBankPatch ? ["bank_account_name", "bankaccountname"] : [null];
+      let lastErrorMessage = '';
+
+      for (const bankColumn of bankColumns) {
+        const fallbackPayload: Record<string, any> = {};
+        for (const [key, value] of Object.entries(localPatch as Record<string, any>)) {
+          if (value === undefined) continue;
+          if (key === 'bankAccountName') {
+            if (bankColumn) fallbackPayload[bankColumn] = value;
+            continue;
+          }
+          fallbackPayload[key] = value;
+        }
+        if (uid) {
+          fallbackPayload.user_id = uid;
+        }
+        if (Object.keys(fallbackPayload).length === 0) continue;
+
+        let response = uid
+          ? await supabase
+              .from("suppliers")
+              .update(fallbackPayload)
+              .eq("id", id)
+              .eq("user_id", uid)
+              .select("*")
+              .single()
+          : await supabase.from("suppliers").update(fallbackPayload).eq("id", id).select("*").single();
+
+        if (response.error && uid) {
+          response = await supabase.from("suppliers").update(fallbackPayload).eq("id", id).select("*").single();
+        }
+
+        if (!response.error && response.data) {
+          const row = response.data as Record<string, any>;
+          const serverPatch: Partial<Supplier> = {
+            ...localPatch,
+            bankAccountName:
+              row.bank_account_name !== undefined
+                ? (String(row.bank_account_name || '').trim() || undefined)
+                : row.bankaccountname !== undefined
+                  ? (String(row.bankaccountname || '').trim() || undefined)
+                  : (localPatch as any).bankAccountName,
+          };
+          setSuppliers((prev) => prev.map((s) => (String(s.id) === String(id) ? { ...s, ...serverPatch } : s)));
           return;
         }
+
+        lastErrorMessage = response.error?.message || '';
       }
-      setSuppliers((prev) => prev.map((s) => (String(s.id) === String(id) ? { ...s, ...patch } : s)));
+
+      if (lastErrorMessage) {
+        alert(`Erreur lors de l'enregistrement du fournisseur / حدث خطأ أثناء حفظ المورّد.\n\nDétails: ${lastErrorMessage}`);
+        return;
+      }
+
+      alert("Erreur lors de l'enregistrement du fournisseur / حدث خطأ أثناء حفظ المورّد. تحقّق من الاتصال ثم أعد المحاولة.");
     };
 
     const deleteSupplier = async (id: string) => {

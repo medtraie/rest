@@ -140,6 +140,8 @@ const Factory = () => {
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
   const uiDateLocale = language === 'ar' ? 'ar-MA' : 'fr-FR';
   const safeSuppliers = suppliers || [];
+  const sameId = (a: string | number | null | undefined, b: string | number | null | undefined) =>
+    String(a ?? '') === String(b ?? '');
   const [localPurchasePrices, setLocalPurchasePrices] = useState<Record<string, number>>({});
 
   const handleDownloadInvoicePDF = (invoice: Invoice) => {
@@ -750,7 +752,7 @@ const Factory = () => {
   const [originalInvoiceId, setOriginalInvoiceId] = useState<string | null>(null);
   const [showEditInvoice, setShowEditInvoice] = useState(false);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState<'banque' | 'none'>('none');
-  const selectedInvoiceSupplier = safeSuppliers.find(s => s.id === selectedSupplierForInvoice) || null;
+  const selectedInvoiceSupplier = safeSuppliers.find(s => sameId(s.id, selectedSupplierForInvoice)) || null;
   const [supplierFilterFromDate, setSupplierFilterFromDate] = useState('');
   const [supplierFilterToDate, setSupplierFilterToDate] = useState('');
 
@@ -1137,13 +1139,13 @@ const Factory = () => {
     }
   };
 
-  const handleAddSupplier = () => {
+  const handleAddSupplier = async () => {
     if (!newSupplierName.trim()) return;
     
     if (editingSupplier) {
-      updateSupplier(editingSupplier.id, { name: newSupplierName, bankAccountName: newSupplierBankAccount.trim() || undefined });
+      await updateSupplier(editingSupplier.id, { name: newSupplierName, bankAccountName: newSupplierBankAccount.trim() || undefined });
     } else {
-      addSupplier({
+      await addSupplier({
         id: Date.now().toString(),
         name: newSupplierName,
         bankAccountName: newSupplierBankAccount.trim() || undefined,
@@ -1178,7 +1180,7 @@ const Factory = () => {
   };
 
   const handleSetSupplierBankAccount = async (supplierId: string) => {
-    const supplier = safeSuppliers.find(s => s.id === supplierId);
+    const supplier = safeSuppliers.find(s => sameId(s.id, supplierId));
     if (!supplier) return;
     const current = String((supplier as any).bankAccountName || '').trim();
     const next = window.prompt(
@@ -2686,7 +2688,7 @@ const Factory = () => {
             <div className="space-y-4">
               <Label className="text-sm font-bold text-slate-700">{tr('Fournisseur', 'المورّد')}</Label>
               <Input 
-                value={safeSuppliers.find(s => s.id === selectedSupplierForInvoice)?.name || ''} 
+                value={safeSuppliers.find(s => sameId(s.id, selectedSupplierForInvoice))?.name || ''} 
                 disabled 
                 className="h-12 bg-slate-50 border-slate-100 rounded-xl font-bold"
               />
