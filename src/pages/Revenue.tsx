@@ -179,11 +179,13 @@ function Revenue() {
 
   // Transfer modal state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const [transferType, setTransferType] = useState<'versement_espece' | 'remise_cheques' | 'retrait_bancaire'>(
+  const [transferType, setTransferType] = useState<'versement_espece' | 'remise_cheques' | 'retrait_bancaire' | 'banque_a_banque'>(
     'versement_espece'
   );
   const [transferAmount, setTransferAmount] = useState<string>('');
   const [transferDescription, setTransferDescription] = useState<string>('');
+  const [transferSourceSupplierId, setTransferSourceSupplierId] = useState<string>('none');
+  const [transferDestinationSupplierId, setTransferDestinationSupplierId] = useState<string>('none');
   const [transferDate, setTransferDate] = useState<string>(() => new Date().toISOString());
 
   // Cash operation modal state
@@ -692,15 +694,31 @@ function Revenue() {
     }
     let source: BankTransfer['sourceAccount'] = 'espece';
     let dest: BankTransfer['destinationAccount'] = 'banque';
+    let finalDescription = transferDescription.trim();
     if (transferType === 'versement_espece') {
       source = 'espece';
       dest = 'banque';
     } else if (transferType === 'remise_cheques') {
       source = 'cheque';
       dest = 'banque';
-    } else {
+    } else if (transferType === 'retrait_bancaire') {
       source = 'banque';
       dest = 'espece';
+    } else {
+      const sourceSupplier = supplierBankProfiles.find((s) => s.id === transferSourceSupplierId);
+      const destinationSupplier = supplierBankProfiles.find((s) => s.id === transferDestinationSupplierId);
+      if (!sourceSupplier || !destinationSupplier) {
+        toast.error(tr('Veuillez choisir les deux comptes fournisseurs', 'يرجى اختيار حسابي المورّد (المصدر والوجهة)'));
+        return;
+      }
+      if (sourceSupplier.id === destinationSupplier.id) {
+        toast.error(tr('Le compte source et destination doivent être différents', 'يجب أن يكون حساب المصدر مختلفا عن حساب الوجهة'));
+        return;
+      }
+      source = 'banque';
+      dest = 'banque';
+      const flowLabel = `${sourceSupplier.bankAccountName} -> ${destinationSupplier.bankAccountName}`;
+      finalDescription = finalDescription ? `${flowLabel} | ${finalDescription}` : flowLabel;
     }
 
     const id = (crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
@@ -711,7 +729,7 @@ function Revenue() {
       sourceAccount: source,
       destinationAccount: dest,
       amount,
-      description: transferDescription || '',
+      description: finalDescription,
       status: 'pending',
     });
     // Validation immédiate pour mettre à jour les cartes et appliquer les effets
@@ -721,6 +739,8 @@ function Revenue() {
     setTransferDialogOpen(false);
     setTransferAmount('');
     setTransferDescription('');
+    setTransferSourceSupplierId('none');
+    setTransferDestinationSupplierId('none');
     setTransferDate(new Date().toISOString());
     setTransferType('versement_espece');
   };
@@ -778,9 +798,12 @@ function Revenue() {
     } else if (editingTransfer.type === 'remise_cheques') {
       source = 'cheque';
       dest = 'banque';
-    } else {
+    } else if (editingTransfer.type === 'retrait_bancaire') {
       source = 'banque';
       dest = 'espece';
+    } else {
+      source = 'banque';
+      dest = 'banque';
     }
 
     updateBankTransfer(editingTransfer.id, {
@@ -1933,7 +1956,17 @@ function Revenue() {
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label className="text-slate-700 font-medium">{t('revenue.transfer.type', 'Type de Transfert')}</Label>
-                <Select value={transferType} onValueChange={(v) => setTransferType(v as any)}>
+                <Select
+                  value={transferType}
+                  onValueChange={(v) => {
+                    const next = v as 'versement_espece' | 'remise_cheques' | 'retrait_bancaire' | 'banque_a_banque';
+                    setTransferType(next);
+                    if (next !== 'banque_a_banque') {
+                      setTransferSourceSupplierId('none');
+                      setTransferDestinationSupplierId('none');
+                    }
+                  }}
+                >
                   <SelectTrigger className="border-slate-200 focus:ring-blue-500">
                     <SelectValue placeholder={t('revenue.transfer.chooseType', 'Choisir le type')} />
                   </SelectTrigger>
@@ -1941,9 +1974,46 @@ function Revenue() {
                     <SelectItem value="versement_espece">{t('revenue.transfer.depositCash', 'Versement Espèce -> Banque')}</SelectItem>
                     <SelectItem value="remise_cheques">{t('revenue.transfer.chequeDeposit', 'Remise Chèque -> Banque')}</SelectItem>
                     <SelectItem value="retrait_bancaire">{t('revenue.transfer.bankWithdrawal', 'Retrait Banque -> Espèce')}</SelectItem>
+                    <SelectItem value="banque_a_banque">{tr('Banque fournisseur -> Banque fournisseur', 'بنك مورد -> بنك مورد')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {transferType === 'banque_a_banque' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 font-medium">{tr('Compte Source', 'الحساب المصدر')}</Label>
+                    <Select value={transferSourceSupplierId} onValueChange={setTransferSourceSupplierId}>
+                      <SelectTrigger className="border-slate-200 focus:ring-blue-500">
+                        <SelectValue placeholder={tr('Choisir un fournisseur', 'اختر موردًا')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{tr('Sélectionner', 'اختر')}</SelectItem>
+                        {supplierBankProfiles.map((supplier) => (
+                          <SelectItem key={`transfer-src-${supplier.id}`} value={supplier.id}>
+                            {supplier.name} - {supplier.bankAccountName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 font-medium">{tr('Compte Destination', 'الحساب الوجهة')}</Label>
+                    <Select value={transferDestinationSupplierId} onValueChange={setTransferDestinationSupplierId}>
+                      <SelectTrigger className="border-slate-200 focus:ring-blue-500">
+                        <SelectValue placeholder={tr('Choisir un fournisseur', 'اختر موردًا')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{tr('Sélectionner', 'اختر')}</SelectItem>
+                        {supplierBankProfiles.map((supplier) => (
+                          <SelectItem key={`transfer-dst-${supplier.id}`} value={supplier.id}>
+                            {supplier.name} - {supplier.bankAccountName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-slate-700 font-medium">{t('revenue.transfer.amount', 'Montant')}</Label>
@@ -2155,6 +2225,7 @@ function Revenue() {
                     <SelectItem value="versement_espece">{tr('Versement Espèce', 'إيداع نقدي')}</SelectItem>
                     <SelectItem value="remise_cheques">{tr('Remise de Chèques', 'إيداع شيكات')}</SelectItem>
                     <SelectItem value="retrait_bancaire">{tr('Retrait Bancaire', 'سحب بنكي')}</SelectItem>
+                    <SelectItem value="banque_a_banque">{tr('Banque fournisseur vers Banque fournisseur', 'من بنك مورد إلى بنك مورد')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -29,7 +29,7 @@ export interface Revenue {
 export interface BankTransfer {
   id: string;
   date: string;
-  type: 'versement_espece' | 'remise_cheques' | 'retrait_bancaire';
+  type: 'versement_espece' | 'remise_cheques' | 'retrait_bancaire' | 'banque_a_banque';
   sourceAccount: 'espece' | 'cheque' | 'banque';
   destinationAccount: 'espece' | 'cheque' | 'banque';
   amount: number;
