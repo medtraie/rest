@@ -193,6 +193,7 @@ function Revenue() {
   const [cashType, setCashType] = useState<'versement' | 'retrait'>('versement');
   const [cashAccount, setCashAccount] = useState<'espece' | 'banque' | 'cheque' | 'autre'>('espece');
   const [cashAccountDetails, setCashAccountDetails] = useState('');
+  const [cashSupplierId, setCashSupplierId] = useState<string>('none');
   const [cashDate, setCashDate] = useState<string>(() => new Date().toISOString());
 
   // Edit dialogs
@@ -216,10 +217,19 @@ function Revenue() {
   const [whatIfHorizon, setWhatIfHorizon] = useState<'15' | '30' | '60'>('30');
   const [anomalyMode, setAnomalyMode] = useState<'all' | 'positive' | 'negative'>('all');
   const normalizeAccountText = (value: string) => String(value || '').trim().toLowerCase();
+  const supplierBankProfiles = useMemo(
+    () =>
+      (suppliers || [])
+        .map((s: any) => ({
+          id: String(s?.id || ''),
+          name: String(s?.name || '').trim(),
+          bankAccountName: String(s?.bankAccountName || '').trim(),
+        }))
+        .filter((s) => s.id && s.bankAccountName),
+    [suppliers]
+  );
   const supplierBankAccounts = useMemo(() => {
-    const fromSuppliers = (suppliers || [])
-      .map((s: any) => String(s?.bankAccountName || '').trim())
-      .filter(Boolean);
+    const fromSuppliers = supplierBankProfiles.map((s) => s.bankAccountName).filter(Boolean);
     const fromOps = (cashOperations || [])
       .filter((op: any) => String(op?.accountAffected || '').toLowerCase() === 'banque')
       .map((op: any) => String(op?.accountDetails || '').trim())
@@ -228,7 +238,44 @@ function Revenue() {
       .map((tx: any) => String(tx?.accountDetails || '').trim())
       .filter(Boolean);
     return Array.from(new Set([...fromSuppliers, ...fromOps, ...fromFinancial])).sort((a, b) => a.localeCompare(b));
-  }, [suppliers, cashOperations, financialTransactions]);
+  }, [supplierBankProfiles, cashOperations, financialTransactions]);
+  const supplierBankSnapshots = useMemo(
+    () =>
+      supplierBankProfiles
+        .map((supplier) => {
+          const related = (financialTransactions || []).filter((tx: any) => {
+            const status = String(tx?.status || '');
+            if (status !== 'pending' && status !== 'completed') return false;
+            const details = normalizeAccountText(String(tx?.accountDetails || ''));
+            if (!details || details !== normalizeAccountText(supplier.bankAccountName)) return false;
+            const source = normalizeAccountText(String(tx?.sourceAccount || ''));
+            const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
+            return source === 'banque' || destination === 'banque';
+          });
+
+          const totals = related.reduce(
+            (acc, tx: any) => {
+              const amount = Math.abs(Number(tx?.amount) || 0);
+              const source = normalizeAccountText(String(tx?.sourceAccount || ''));
+              const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
+              if (destination === 'banque') acc.totalIn += amount;
+              if (source === 'banque') acc.totalOut += amount;
+              return acc;
+            },
+            { totalIn: 0, totalOut: 0 }
+          );
+
+          return {
+            ...supplier,
+            movementCount: related.length,
+            totalIn: totals.totalIn,
+            totalOut: totals.totalOut,
+            balance: totals.totalIn - totals.totalOut,
+          };
+        })
+        .sort((a, b) => b.balance - a.balance),
+    [supplierBankProfiles, financialTransactions]
+  );
 
   // Normalize operations for "Gestion de Transfert"
   const opRows: OpRow[] = useMemo(() => {
@@ -685,6 +732,10 @@ function Revenue() {
       toast.error(tr('Veuillez renseigner le libellé et un montant valide', 'يرجى إدخال الوصف ومبلغ صالح'));
       return;
     }
+    if (cashAccount === 'banque' && !cashAccountDetails.trim()) {
+      toast.error(tr('Veuillez sélectionner un compte banque fournisseur', 'يرجى اختيار الحساب البنكي للمورّد'));
+      return;
+    }
 
     addCashOperation({
       date: cashDate,
@@ -703,6 +754,7 @@ function Revenue() {
     setCashType('versement');
     setCashAccount('espece');
     setCashAccountDetails('');
+    setCashSupplierId('none');
     setCashDate(new Date().toISOString());
   };
 
@@ -753,6 +805,10 @@ function Revenue() {
     if (!editingCash) return;
     if (editingCash.amount <= 0 || !editingCash.name.trim()) {
       toast.error(tr('Libellé ou montant invalide', 'الوصف أو المبلغ غير صالح'));
+      return;
+    }
+    if (editingCash.accountAffected === 'banque' && !String(editingCash.accountDetails || '').trim()) {
+      toast.error(tr('Veuillez sélectionner un compte banque fournisseur', 'يرجى اختيار الحساب البنكي للمورّد'));
       return;
     }
     updateCashOperation(editingCash.id, {
@@ -1045,6 +1101,62 @@ function Revenue() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-semibold text-slate-800">
+                {tr('Comptes Bancaires Fournisseurs', 'الحسابات البنكية للموردين')}
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-1">
+                {tr('Suivi du solde par compte fournisseur', 'تتبع الرصيد لكل حساب مورد')}
+              </p>
+            </div>
+            <Badge variant="outline" className="border-slate-200 text-slate-700">
+              {tr('Comptes suivis', 'الحسابات المتابعة')}: {supplierBankSnapshots.length}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {supplierBankSnapshots.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+              {tr('Aucun compte fournisseur configuré.', 'لا توجد حسابات موردين مضبوطة.')}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {supplierBankSnapshots.map((item) => (
+                <button
+                  key={`supplier-bank-snapshot-${item.id}`}
+                  type="button"
+                  onClick={() => setFilterAccount(`supplier_bank:${item.bankAccountName}`)}
+                  className="text-left rounded-xl border border-slate-200 bg-slate-50 p-3 hover:bg-white transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-bold text-slate-800 truncate">{item.name || tr('Fournisseur', 'مورد')}</p>
+                    <Badge className="bg-slate-100 text-slate-700 border-none">{item.movementCount}</Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 truncate">{item.bankAccountName}</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                    <div className="rounded-lg bg-emerald-50 p-2">
+                      <p className="text-emerald-600">{tr('Entrées', 'المداخل')}</p>
+                      <p className="font-bold text-emerald-700">{formatCurrency(item.totalIn)}</p>
+                    </div>
+                    <div className="rounded-lg bg-rose-50 p-2">
+                      <p className="text-rose-600">{tr('Sorties', 'المخارج')}</p>
+                      <p className="font-bold text-rose-700">{formatCurrency(item.totalOut)}</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50 p-2">
+                      <p className="text-indigo-600">{tr('Solde', 'الرصيد')}</p>
+                      <p className={`font-bold ${item.balance >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>{formatCurrency(item.balance)}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-white overflow-hidden xl:col-span-2">
@@ -1947,7 +2059,16 @@ function Revenue() {
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.accountAffected', 'Compte impacté')}</Label>
-                <Select value={cashAccount} onValueChange={(v) => setCashAccount(v as any)}>
+                <Select
+                  value={cashAccount}
+                  onValueChange={(v) => {
+                    const next = v as 'espece' | 'banque' | 'cheque' | 'autre';
+                    setCashAccount(next);
+                    if (next !== 'banque') {
+                      setCashSupplierId('none');
+                    }
+                  }}
+                >
                   <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
                     <SelectValue placeholder={t('revenue.cashOperation.selectAccount', 'Sélectionner le compte')} />
                   </SelectTrigger>
@@ -1959,11 +2080,42 @@ function Revenue() {
                   </SelectContent>
                 </Select>
               </div>
+              {cashAccount === 'banque' && (
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-medium">{tr('Compte fournisseur', 'حساب المورد')}</Label>
+                  <Select
+                    value={cashSupplierId}
+                    onValueChange={(supplierId) => {
+                      setCashSupplierId(supplierId);
+                      if (supplierId === 'none') return;
+                      const selected = supplierBankProfiles.find((s) => s.id === supplierId);
+                      if (selected) {
+                        setCashAccountDetails(selected.bankAccountName);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="border-slate-200 focus:ring-indigo-500">
+                      <SelectValue placeholder={tr('Sélectionner un fournisseur', 'اختر مورّدًا')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{tr('Aucun', 'لا يوجد')}</SelectItem>
+                      {supplierBankProfiles.map((supplier) => (
+                        <SelectItem key={`supplier-cash-${supplier.id}`} value={supplier.id}>
+                          {supplier.name} - {supplier.bankAccountName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-slate-700 font-medium">{t('revenue.cashOperation.counterpartyDetails', 'Détails contrepartie')}</Label>
                 <Input 
                   value={cashAccountDetails} 
-                  onChange={(e) => setCashAccountDetails(e.target.value)} 
+                  onChange={(e) => {
+                    setCashAccountDetails(e.target.value);
+                    if (cashAccount === 'banque') setCashSupplierId('none');
+                  }} 
                   placeholder={t('revenue.cashOperation.counterpartyPlaceholder', 'Ex: fournisseur, client, référence...')} 
                   className="border-slate-200 focus:ring-indigo-500"
                 />
@@ -2100,7 +2252,14 @@ function Revenue() {
                   <Label>{t('revenue.editOperation.accountAffected', 'Compte impacté')}</Label>
                   <Select
                     value={editingCash.accountAffected}
-                    onValueChange={(v) => setEditingCash({ ...editingCash, accountAffected: v as any })}
+                    onValueChange={(v) => {
+                      const next = v as 'espece' | 'banque' | 'cheque' | 'autre';
+                      const nextDraft = { ...editingCash, accountAffected: next };
+                      if (next !== 'banque') {
+                        nextDraft.accountDetails = '';
+                      }
+                      setEditingCash(nextDraft);
+                    }}
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -2112,6 +2271,34 @@ function Revenue() {
                   </Select>
                 </div>
               </div>
+              {editingCash.accountAffected === 'banque' && (
+                <div className="space-y-2">
+                  <Label>{tr('Compte fournisseur', 'حساب المورد')}</Label>
+                  <Select
+                    value={
+                      supplierBankProfiles.find(
+                        (s) => normalizeAccountText(s.bankAccountName) === normalizeAccountText(String(editingCash.accountDetails || ''))
+                      )?.id || 'none'
+                    }
+                    onValueChange={(supplierId) => {
+                      if (supplierId === 'none') return;
+                      const selected = supplierBankProfiles.find((s) => s.id === supplierId);
+                      if (!selected) return;
+                      setEditingCash({ ...editingCash, accountDetails: selected.bankAccountName });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder={tr('Sélectionner un fournisseur', 'اختر مورّدًا')} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{tr('Aucun', 'لا يوجد')}</SelectItem>
+                      {supplierBankProfiles.map((supplier) => (
+                        <SelectItem key={`supplier-edit-${supplier.id}`} value={supplier.id}>
+                          {supplier.name} - {supplier.bankAccountName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>{t('revenue.editOperation.counterpartyDetails', 'Détails contrepartie')}</Label>
                 <Input
