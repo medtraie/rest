@@ -389,7 +389,10 @@ export const supabaseService = {
   async getAll<T>(table: string): Promise<T[]> {
     const uid = await currentUserId();
     if (uid) {
-      const { data, error } = await supabase.from(table).select("*").eq("user_id", uid);
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .or(`user_id.eq.${uid},user_id.is.null`);
       if (!error) {
         if (data && data.length && !tableColumnHints[table]) {
           tableColumnHints[table] = Object.keys(data[0] as Record<string, any>);
@@ -474,15 +477,15 @@ export const supabaseService = {
         .from(table)
         .update(payload)
         .eq("id", id)
-        .eq(uid ? "user_id" : "id", uid ?? id)
+        .or(uid ? `user_id.eq.${uid},user_id.is.null` : `id.eq.${id}`)
         .select()
         .single();
       if (!response.error) {
         const camel = toCamelShallow(response.data as Record<string, any>);
         return normalizeRow(table, camel) as T;
       }
-      if (uid && hasNoRowsSingleError(response.error.message)) {
-        // Legacy rows might not have user_id set; retry without user scope.
+      if (uid && (hasNoRowsSingleError(response.error.message) || hasUserIdColumnError(response.error.message))) {
+        // Retry without user scope when rows are shared or table is not user-scoped.
         response = await supabase
           .from(table)
           .update(payload)
@@ -502,7 +505,17 @@ export const supabaseService = {
       }
       const missingCol = match[1];
       if (uid && missingCol === 'user_id') {
-        console.error(`Missing user_id column for ${table}; user-scoped update blocked.`);
+        response = await supabase
+          .from(table)
+          .update(stripMissingColumn(payload, missingCol))
+          .eq("id", id)
+          .select()
+          .single();
+        if (!response.error) {
+          const camel = toCamelShallow(response.data as Record<string, any>);
+          return normalizeRow(table, camel) as T;
+        }
+        console.error(`Error updating ${table} without user scope:`, response.error.message);
         return null;
       }
       console.log(`Stripping missing column: ${missingCol}`);
@@ -520,11 +533,14 @@ export const supabaseService = {
       .from(table)
       .delete()
       .eq("id", id)
-      .eq(uid ? "user_id" : "id", uid ?? id);
+      .or(uid ? `user_id.eq.${uid},user_id.is.null` : `id.eq.${id}`);
     if (response.error) {
       if (uid && hasUserIdColumnError(response.error.message)) {
-        console.error(`Missing user_id column for ${table}; user-scoped delete blocked.`);
-        return false;
+        response = await supabase
+          .from(table)
+          .delete()
+          .eq("id", id);
+        if (!response.error) return true;
       }
       console.error(`Error deleting from ${table}:`, response.error.message);
       return false;
@@ -551,8 +567,9 @@ export const supabaseService = {
       }
       const missingCol = match[1];
       if (uid && missingCol === 'user_id') {
-        console.error(`Missing user_id column for ${table}; user-scoped upsert blocked.`);
-        return;
+        payloads = stripMissingColumnMany(payloads, missingCol);
+        if (!payloads.length || !Object.keys(payloads[0]).length) return;
+        continue;
       }
       console.log(`Stripping missing column: ${missingCol}`);
       payloads = stripMissingColumnMany(payloads, missingCol);
