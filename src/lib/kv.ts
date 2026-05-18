@@ -96,3 +96,17 @@ export async function kvSet(key: string, value: unknown): Promise<void> {
 
   await kvUpsertShared(key, value, updated_at);
 }
+
+export async function kvGetShared<T = unknown>(key: string): Promise<T | null> {
+  const { data, error } = await supabase.from("app_state").select("value").eq("key", key).limit(1);
+  if (error) {
+    console.error("Supabase kvGetShared error:", error.message);
+    return null;
+  }
+  return (data?.[0]?.value as T) ?? null;
+}
+
+export async function kvSetShared(key: string, value: unknown): Promise<void> {
+  const updated_at = new Date().toISOString();
+  await kvUpsertShared(key, value, updated_at);
+}

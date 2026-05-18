@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { kvGet, kvSet } from "@/lib/kv";
+import { kvGet, kvGetShared, kvSet, kvSetShared } from "@/lib/kv";
 import { supabase } from "@/lib/supabaseClient";
 import { supabaseService } from "@/lib/supabaseService";
 import {
@@ -85,6 +85,8 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
 
 const RETURN_ORDERS_LOCAL_KEY = "local_return_orders";
 const RETURN_ORDERS_CLOUD_KEY = "return_orders_cloud";
+const BOTTLE_TYPES_EXTRAS_LOCAL_KEY = "bottleTypes_extras";
+const BOTTLE_TYPES_EXTRAS_CLOUD_KEY = "bottle_types_extras_cloud";
 
 const safeParseArray = (value: string | null) => {
   if (!value) return [];
@@ -93,6 +95,16 @@ const safeParseArray = (value: string | null) => {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+};
+
+const safeParseRecord = (value: string | null) => {
+  if (!value) return {} as Record<string, any>;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
   }
 };
 
@@ -132,6 +144,36 @@ const mergeReturnOrdersLists = (...sources: any[][]) => {
     const right = new Date(a?.date ?? a?.paidAt ?? a?.createdAt ?? 0).getTime();
     return left - right;
   });
+};
+
+const mergeBottleTypeExtras = (...sources: Array<Record<string, any> | null | undefined>) => {
+  const merged: Record<string, any> = {};
+  sources.forEach((source) => {
+    if (!source || typeof source !== "object" || Array.isArray(source)) return;
+    Object.entries(source).forEach(([id, patch]) => {
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+      merged[id] = { ...(merged[id] || {}), ...patch };
+    });
+  });
+  return merged;
+};
+
+const clearBottleTypeExtraFields = (
+  extras: Record<string, any>,
+  id: string,
+  fields: string[]
+) => {
+  const next = { ...extras };
+  const current = { ...(next[id] || {}) };
+  fields.forEach((field) => {
+    delete current[field];
+  });
+  if (Object.keys(current).length === 0) {
+    delete next[id];
+  } else {
+    next[id] = current;
+  }
+  return next;
 };
 
 export type PermissionKey =
@@ -388,11 +430,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(RETURN_ORDERS_LOCAL_KEY, JSON.stringify(snapshot));
     } catch {}
     try {
-      await kvSet(RETURN_ORDERS_CLOUD_KEY, snapshot);
+      await kvSetShared(RETURN_ORDERS_CLOUD_KEY, snapshot);
     } catch (error) {
       console.error("Error syncing return orders to Supabase cloud store:", error);
     }
     return snapshot;
+  }, []);
+
+  const persistBottleTypeExtrasSnapshot = React.useCallback(async (extras: Record<string, any>) => {
+    try {
+      localStorage.setItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY, JSON.stringify(extras));
+    } catch {}
+    try {
+      await kvSetShared(BOTTLE_TYPES_EXTRAS_CLOUD_KEY, extras);
+    } catch (error) {
+      console.error("Error syncing bottle type extras to Supabase cloud store:", error);
+    }
+    return extras;
   }, []);
 
   const normalizeAccount = (value?: string) => {
@@ -491,6 +545,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           rolesData,
           roleAssignmentsData,
           returnOrdersCloudData,
+          bottleTypeExtrasCloudData,
         ] = await Promise.all([
           supabaseService.getAll<Client>("clients"),
           supabaseService.getAll<Driver>("drivers"),
@@ -509,7 +564,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           supabaseService.getAll<Inventory>("inventory"),
           supabaseService.getAll<Role>("roles"),
           supabaseService.getAll<RoleAssignment>("role_assignments"),
-          kvGet<any[]>(RETURN_ORDERS_CLOUD_KEY),
+          kvGetShared<any[]>(RETURN_ORDERS_CLOUD_KEY),
+          kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
         ]);
 
         if (!active) return;
@@ -530,9 +586,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setReturnOrders(mergedReturnOrders);
         void persistReturnOrdersSnapshot(mergedReturnOrders);
 
-        const localExtras = JSON.parse(localStorage.getItem('bottleTypes_extras') || '{}');
-        const mergedBottleTypes = bottleTypesData.map((b: any) => ({ ...b, ...(localExtras[b.id] || {}) }));
+        const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+        const cloudExtras =
+          bottleTypeExtrasCloudData && typeof bottleTypeExtrasCloudData === "object" && !Array.isArray(bottleTypeExtrasCloudData)
+            ? bottleTypeExtrasCloudData
+            : {};
+        const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
+        const mergedBottleTypes = bottleTypesData.map((b: any) => ({ ...b, ...(mergedExtras[b.id] || {}) }));
         setBottleTypes(mergedBottleTypes);
+        void persistBottleTypeExtrasSnapshot(mergedExtras);
 
         setForeignBottles(foreignBottlesData);
         setTruckAssignments(truckAssignmentsData);
@@ -1875,20 +1937,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       delete fallbackPatch.color;
       updated = await supabaseService.update<BottleType>("bottle_types", id, fallbackPatch);
     }
+    const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+    const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+    const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
     if (updated) {
       const merged = { id, ...updated, ...patch };
-      
-      const localExtras = JSON.parse(localStorage.getItem('bottleTypes_extras') || '{}');
-      localExtras[id] = { ...(localExtras[id] || {}), ...patch };
-      localStorage.setItem('bottleTypes_extras', JSON.stringify(localExtras));
+      const cleanedExtras = clearBottleTypeExtraFields(mergedExtras, id, Object.keys(patch));
+      await persistBottleTypeExtrasSnapshot(cleanedExtras);
 
       setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
       return merged;
     }
-    
-    const localExtras = JSON.parse(localStorage.getItem('bottleTypes_extras') || '{}');
-    localExtras[id] = { ...(localExtras[id] || {}), ...patch };
-    localStorage.setItem('bottleTypes_extras', JSON.stringify(localExtras));
+
+    const nextExtras = {
+      ...mergedExtras,
+      [id]: { ...(mergedExtras[id] || {}), ...patch }
+    };
+    await persistBottleTypeExtrasSnapshot(nextExtras);
 
     setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
     return { id, ...(patch as any) } as BottleType;

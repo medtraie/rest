@@ -48,6 +48,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { supabaseService } from '@/lib/supabaseService';
+import { kvGetShared, kvSetShared } from '@/lib/kv';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const containerVariants = {
@@ -115,6 +116,53 @@ interface DebtSettlement {
   quantity: number;
   description: string;
 }
+
+const FACTORY_OPERATIONS_LOCAL_KEY = 'local_factory_operations';
+const FACTORY_OPERATIONS_CLOUD_KEY = 'factory_operations_cloud';
+
+const safeParseFactoryOperations = (value: string | null): FactoryOperation[] => {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const factoryOperationScore = (operation: FactoryOperation | null | undefined) => {
+  if (!operation || typeof operation !== 'object') return 0;
+  return Object.values(operation).reduce((score, value) => {
+    if (value === null || value === undefined || value === '') return score;
+    if (Array.isArray(value) && value.length === 0) return score;
+    return score + 1;
+  }, 0);
+};
+
+const mergeFactoryOperations = (...sources: FactoryOperation[][]) => {
+  const merged = new Map<string, FactoryOperation>();
+  sources.flat().forEach((operation) => {
+    if (!operation || typeof operation !== 'object') return;
+    const id = String(operation.id || '').trim();
+    if (!id) return;
+    const existing = merged.get(id);
+    if (!existing) {
+      merged.set(id, operation);
+      return;
+    }
+    const existingScore = factoryOperationScore(existing);
+    const incomingScore = factoryOperationScore(operation);
+    merged.set(
+      id,
+      incomingScore >= existingScore ? { ...existing, ...operation } : { ...operation, ...existing }
+    );
+  });
+  return Array.from(merged.values()).sort((a, b) => {
+    const left = new Date(b?.receivedDate ?? b?.date ?? 0).getTime();
+    const right = new Date(a?.receivedDate ?? a?.date ?? 0).getTime();
+    return left - right;
+  });
+};
 
 const Factory = () => {
   const { 
@@ -765,33 +813,39 @@ const Factory = () => {
   const [commandCenterSort, setCommandCenterSort] = useState<'priority' | 'recent'>('priority');
   const [pendingPriorityOrder, setPendingPriorityOrder] = useState<string[]>([]);
 
+  const persistFactoryOperationsSnapshot = React.useCallback(async (operations: FactoryOperation[]) => {
+    const snapshot = mergeFactoryOperations(operations);
+    try {
+      localStorage.setItem(FACTORY_OPERATIONS_LOCAL_KEY, JSON.stringify(snapshot));
+    } catch {}
+    try {
+      await kvSetShared(FACTORY_OPERATIONS_CLOUD_KEY, snapshot);
+    } catch (error) {
+      console.error('Error syncing factory operations to Supabase cloud store:', error);
+    }
+    return snapshot;
+  }, []);
+
   useEffect(() => {
     (async () => {
-      const [ops, settlements, invs] = await Promise.all([
+      const [ops, settlements, invs, cloudOps] = await Promise.all([
         supabaseService.getAll<FactoryOperation>('factory_operations'),
         supabaseService.getAll<DebtSettlement>('debt_settlements'),
         supabaseService.getAll<Invoice>('factory_invoices'),
+        kvGetShared<FactoryOperation[]>(FACTORY_OPERATIONS_CLOUD_KEY),
       ]);
-      
-      const localOps = JSON.parse(localStorage.getItem('local_factory_operations') || '[]');
-      let mergedOps = [...ops];
-      localOps.forEach((localOp: any) => {
-        if (!mergedOps.some(o => String(o.id) === String(localOp.id))) {
-          mergedOps.push(localOp);
-        } else {
-          // If exists, prefer local if it has more data (like receivedBottles)
-          const existingIdx = mergedOps.findIndex(o => String(o.id) === String(localOp.id));
-          if (localOp.receivedBottles?.length > (mergedOps[existingIdx].receivedBottles?.length || 0)) {
-            mergedOps[existingIdx] = localOp;
-          }
-        }
-      });
-
+      const localOps = safeParseFactoryOperations(localStorage.getItem(FACTORY_OPERATIONS_LOCAL_KEY));
+      const mergedOps = mergeFactoryOperations(
+        ops,
+        Array.isArray(cloudOps) ? cloudOps : [],
+        localOps
+      );
       setFactoryOperations(mergedOps);
+      void persistFactoryOperationsSnapshot(mergedOps);
       setDebtSettlements(settlements);
       setInvoices(invs);
     })();
-  }, []);
+  }, [persistFactoryOperationsSnapshot]);
 
   // Formulaire d'envoi au fournisseur
   const [sendForm, setSendForm] = useState({
@@ -1181,10 +1235,10 @@ const Factory = () => {
 
   const deleteFactoryOperation = async (operationId: string | number) => {
     if (!window.confirm(tr("Êtes-vous sûr de vouloir supprimer cette opération ?", 'هل أنت متأكد من حذف هذه العملية؟'))) return;
-    const ok = await supabaseService.delete('factory_operations', operationId);
+    await supabaseService.delete('factory_operations', operationId);
     setFactoryOperations(prev => {
       const next = prev.filter(op => String(op.id) !== String(operationId));
-      localStorage.setItem('local_factory_operations', JSON.stringify(next));
+      void persistFactoryOperationsSnapshot(next);
       return next;
     });
   };
@@ -1291,8 +1345,8 @@ const Factory = () => {
     const created = await supabaseService.create<FactoryOperation>('factory_operations', operation);
     const nextOperation = created || operation;
     setFactoryOperations(prev => {
-      const next = [...prev, nextOperation];
-      localStorage.setItem('local_factory_operations', JSON.stringify(next));
+      const next = mergeFactoryOperations(prev, [nextOperation]);
+      void persistFactoryOperationsSnapshot(next);
       return next;
     });
     setCurrentOperation(nextOperation);
@@ -1399,8 +1453,10 @@ const Factory = () => {
     };
 
     setFactoryOperations(prev => {
-      const next = prev.map(op => (String(op.id) === String(operation.id) ? finalUpdatedOperation : op));
-      localStorage.setItem('local_factory_operations', JSON.stringify(next));
+      const next = mergeFactoryOperations(
+        prev.map(op => (String(op.id) === String(operation.id) ? finalUpdatedOperation : op))
+      );
+      void persistFactoryOperationsSnapshot(next);
       return next;
     });
 
