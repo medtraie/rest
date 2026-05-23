@@ -85,6 +85,8 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
 
 const RETURN_ORDERS_LOCAL_KEY = "local_return_orders";
 const RETURN_ORDERS_CLOUD_KEY = "return_orders_cloud";
+const SUPPLY_ORDERS_LOCAL_KEY = "local_supply_orders";
+const SUPPLY_ORDERS_CLOUD_KEY = "supply_orders_cloud";
 const BOTTLE_TYPES_EXTRAS_LOCAL_KEY = "bottleTypes_extras";
 const BOTTLE_TYPES_EXTRAS_CLOUD_KEY = "bottle_types_extras_cloud";
 
@@ -142,6 +144,35 @@ const mergeReturnOrdersLists = (...sources: any[][]) => {
   return Array.from(merged.values()).sort((a, b) => {
     const left = new Date(b?.date ?? b?.paidAt ?? b?.createdAt ?? 0).getTime();
     const right = new Date(a?.date ?? a?.paidAt ?? a?.createdAt ?? 0).getTime();
+    return left - right;
+  });
+};
+
+const mergeSupplyOrdersLists = (...sources: any[][]) => {
+  const merged = new Map<string, any>();
+
+  sources.flat().forEach((order) => {
+    if (!order || typeof order !== "object") return;
+    const id = String(order.id || "").trim();
+    if (!id) return;
+
+    const existing = merged.get(id);
+    if (!existing) {
+      merged.set(id, order);
+      return;
+    }
+
+    const existingScore = orderCompletenessScore(existing);
+    const incomingScore = orderCompletenessScore(order);
+    merged.set(
+      id,
+      incomingScore >= existingScore ? { ...existing, ...order } : { ...order, ...existing }
+    );
+  });
+
+  return Array.from(merged.values()).sort((a, b) => {
+    const left = new Date(b?.date ?? b?.createdAt ?? 0).getTime();
+    const right = new Date(a?.date ?? a?.createdAt ?? 0).getTime();
     return left - right;
   });
 };
@@ -437,6 +468,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return snapshot;
   }, []);
 
+  const persistSupplyOrdersSnapshot = React.useCallback(async (orders: any[]) => {
+    const snapshot = mergeSupplyOrdersLists(orders);
+    try {
+      localStorage.setItem(SUPPLY_ORDERS_LOCAL_KEY, JSON.stringify(snapshot));
+    } catch {}
+    try {
+      await kvSetShared(SUPPLY_ORDERS_CLOUD_KEY, snapshot);
+    } catch (error) {
+      console.error("Error syncing supply orders to Supabase cloud store:", error);
+    }
+    return snapshot;
+  }, []);
+
   const persistBottleTypeExtrasSnapshot = React.useCallback(async (extras: Record<string, any>) => {
     try {
       localStorage.setItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY, JSON.stringify(extras));
@@ -544,6 +588,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           inventoryData,
           rolesData,
           roleAssignmentsData,
+          supplyOrdersCloudData,
           returnOrdersCloudData,
           bottleTypeExtrasCloudData,
         ] = await Promise.all([
@@ -564,6 +609,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           supabaseService.getAll<Inventory>("inventory"),
           supabaseService.getAll<Role>("roles"),
           supabaseService.getAll<RoleAssignment>("role_assignments"),
+          kvGetShared<any[]>(SUPPLY_ORDERS_CLOUD_KEY),
           kvGetShared<any[]>(RETURN_ORDERS_CLOUD_KEY),
           kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
         ]);
@@ -577,7 +623,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setBrands(brandsData);
         setSupplies(suppliesData);
         setSupplyReturns(supplyReturnsData);
-        setSupplyOrders(supplyOrdersData);
+        const localSupplyOrders = safeParseArray(localStorage.getItem(SUPPLY_ORDERS_LOCAL_KEY));
+        const cloudSupplyOrders = Array.isArray(supplyOrdersCloudData) ? supplyOrdersCloudData : [];
+        const mergedSupplyOrders = mergeSupplyOrdersLists(supplyOrdersData, cloudSupplyOrders, localSupplyOrders);
+        setSupplyOrders(mergedSupplyOrders);
+        void persistSupplyOrdersSnapshot(mergedSupplyOrders);
         
         // Keep return orders durable in Supabase even when direct table writes fail.
         const localReturns = safeParseArray(localStorage.getItem(RETURN_ORDERS_LOCAL_KEY));
@@ -670,7 +720,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       active = false;
     };
-  }, [currentUserId]);
+  }, [currentUserId, persistSupplyOrdersSnapshot]);
 
     const addExpenseType = async (type: string) => {
       if (!expenseTypes.includes(type)) {
@@ -1058,21 +1108,43 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const id = order.id ?? (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
       const newOrder = { ...order, id };
       const created = await supabaseService.create<any>("supply_orders", newOrder);
-      if (created) {
-        setSupplyOrders(prev => [...prev, created]);
-      }
+      const orderToSave = created || newOrder;
+      let nextSupplyOrders: any[] = [];
+      setSupplyOrders(prev => {
+        nextSupplyOrders = mergeSupplyOrdersLists(prev, [orderToSave]);
+        try {
+          localStorage.setItem(SUPPLY_ORDERS_LOCAL_KEY, JSON.stringify(nextSupplyOrders));
+        } catch {}
+        return nextSupplyOrders;
+      });
+      await persistSupplyOrdersSnapshot(nextSupplyOrders);
     };
     const updateSupplyOrder = async (updatedOrder: any) => {
       const updated = await supabaseService.update<any>("supply_orders", updatedOrder.id, updatedOrder);
-      if (updated) {
-        setSupplyOrders(prev => prev.map(order => order.id === updated.id ? updated : order));
-      }
+      const orderToSave = updated || updatedOrder;
+      let nextSupplyOrders: any[] = [];
+      setSupplyOrders(prev => {
+        nextSupplyOrders = mergeSupplyOrdersLists(
+          prev.map(order => String(order.id) === String(updatedOrder.id) ? orderToSave : order)
+        );
+        try {
+          localStorage.setItem(SUPPLY_ORDERS_LOCAL_KEY, JSON.stringify(nextSupplyOrders));
+        } catch {}
+        return nextSupplyOrders;
+      });
+      await persistSupplyOrdersSnapshot(nextSupplyOrders);
     };
     const deleteSupplyOrder = async (id: string) => {
-      const success = await supabaseService.delete("supply_orders", id);
-      if (success) {
-        setSupplyOrders(prev => prev.filter(order => order.id !== id));
-      }
+      await supabaseService.delete("supply_orders", id);
+      let nextSupplyOrders: any[] = [];
+      setSupplyOrders(prev => {
+        nextSupplyOrders = prev.filter(order => String(order.id) !== String(id));
+        try {
+          localStorage.setItem(SUPPLY_ORDERS_LOCAL_KEY, JSON.stringify(nextSupplyOrders));
+        } catch {}
+        return nextSupplyOrders;
+      });
+      await persistSupplyOrdersSnapshot(nextSupplyOrders);
     };
   
   // Create a new return order and update driver’s debt/balance

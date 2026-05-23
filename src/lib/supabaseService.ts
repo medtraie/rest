@@ -371,6 +371,28 @@ const normalizeReturnOrderRow = (row: Record<string, any>) => {
   };
 };
 
+const normalizeSupplyOrderRow = (row: Record<string, any>) => {
+  const rawItems = row.items ?? row.item ?? row.products ?? row.details;
+  let items: any[] = [];
+  if (Array.isArray(rawItems)) {
+    items = rawItems;
+  } else if (typeof rawItems === "string") {
+    try {
+      const parsed = JSON.parse(rawItems);
+      items = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      items = [];
+    }
+  } else if (rawItems && typeof rawItems === "object") {
+    items = [rawItems];
+  }
+
+  return {
+    ...row,
+    items,
+  };
+};
+
 const normalizeRow = (table: string, row: Record<string, any>) => {
   if (table === 'factory_operations') {
     return normalizeFactoryOperationRow(row);
@@ -380,6 +402,9 @@ const normalizeRow = (table: string, row: Record<string, any>) => {
   }
   if (table === 'return_orders') {
     return normalizeReturnOrderRow(row);
+  }
+  if (table === 'supply_orders') {
+    return normalizeSupplyOrderRow(row);
   }
   return row;
 };
