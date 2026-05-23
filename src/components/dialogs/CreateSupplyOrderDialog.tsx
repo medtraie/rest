@@ -107,7 +107,7 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
     return { subtotal, tax, total };
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (items.length === 0) {
       toast({
         title: "Erreur",
@@ -141,7 +141,7 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
 
     const { subtotal, tax, total } = calculateTotals();
 
-    items.forEach(item => {
+    await Promise.all(items.map(async (item) => {
       const bt = bottleTypes.find(bt => bt.id === item.bottleTypeId);
       if (!bt) return;
       const currentRemaining = Number(bt.remainingQuantity || 0);
@@ -149,13 +149,13 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
       const fullQty = Number(item.fullQuantity || 0);
       const nextRemaining = Math.max(0, currentRemaining - fullQty);
       const nextDistributed = currentDistributed + fullQty;
-      updateBottleType(item.bottleTypeId, {
+      await updateBottleType(item.bottleTypeId, {
         remainingQuantity: nextRemaining,
         distributedQuantity: nextDistributed,
       });
-    });
+    }));
 
-    addSupplyOrder({
+    const result = await addSupplyOrder({
       orderNumber: trimmedOrderNumber,
       date: new Date().toISOString(),
       driverId,
@@ -167,6 +167,15 @@ export const CreateSupplyOrderDialog: React.FC<CreateSupplyOrderDialogProps> = (
       tax,
       total,
     });
+
+    if (!result.savedToSupabase) {
+      toast({
+        title: "Enregistrement incomplet",
+        description: "Le B.S a ete garde dans l'application, mais Supabase a refuse l'enregistrement immediat.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     toast({
       title: "Bon de Sortie créé",

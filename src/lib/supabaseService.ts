@@ -480,8 +480,10 @@ export const supabaseService = {
       }
       const missingCol = match[1];
       if (uid && missingCol === 'user_id') {
-        console.error(`Missing user_id column for ${table}; user-scoped insert blocked.`);
-        return null;
+        console.log(`Retrying ${table} insert without user_id scope.`);
+        payload = stripMissingColumn(payload, missingCol);
+        if (!Object.keys(payload).length) return null;
+        continue;
       }
       console.log(`Stripping missing column: ${missingCol}`);
       payload = stripMissingColumn(payload, missingCol);

@@ -328,7 +328,7 @@ interface AppContextType {
   supplyReturns: SupplyReturn[];
   addSupplyReturn: (supplyReturn: SupplyReturn) => Promise<void>;
   supplyOrders: any[];
-  addSupplyOrder: (order: any) => Promise<void>;
+  addSupplyOrder: (order: any) => Promise<{ order: any; savedToSupabase: boolean }>;
   updateSupplyOrder: (order: any) => Promise<void>;
   deleteSupplyOrder: (id: string) => Promise<void>;
   returnOrders: any[];
@@ -1109,6 +1109,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const newOrder = { ...order, id };
       const created = await supabaseService.create<any>("supply_orders", newOrder);
       const orderToSave = created || newOrder;
+      const savedToSupabase = !!created;
       let nextSupplyOrders: any[] = [];
       setSupplyOrders(prev => {
         nextSupplyOrders = mergeSupplyOrdersLists(prev, [orderToSave]);
@@ -1118,6 +1119,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         return nextSupplyOrders;
       });
       await persistSupplyOrdersSnapshot(nextSupplyOrders);
+      return { order: orderToSave, savedToSupabase };
     };
     const updateSupplyOrder = async (updatedOrder: any) => {
       const updated = await supabaseService.update<any>("supply_orders", updatedOrder.id, updatedOrder);

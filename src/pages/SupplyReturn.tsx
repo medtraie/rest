@@ -343,7 +343,7 @@ const SupplyReturn = () => {
     return { subtotal, taxRate, taxAmount, total };
   };
   
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (items.length === 0) {
       toast({
         title: tr("Erreur", "خطأ"),
@@ -456,7 +456,7 @@ const SupplyReturn = () => {
       
       // Add cash and check operations directly
       if (cashAmountNum > 0) {
-        addCashOperation({
+        await addCashOperation({
           date: new Date().toISOString(),
           name: `Paiement Espèce (B.S ${orderNumber})`,
           amount: cashAmountNum,
@@ -466,7 +466,7 @@ const SupplyReturn = () => {
         });
       }
       if (checkAmountNum > 0) {
-        addCashOperation({
+        await addCashOperation({
           date: new Date().toISOString(),
           name: `Paiement Chèque (B.S ${orderNumber})`,
           amount: checkAmountNum,
@@ -478,13 +478,13 @@ const SupplyReturn = () => {
       
       // Update driver debt if there's remaining debt and a driver is selected
       if (debtAmount > 0 && finalDriverId) {
-        updateDriver(finalDriverId, {
+        await updateDriver(finalDriverId, {
           debt: debtAmount
         });
       }
     }
     
-    addSupplyOrder({
+    const result = await addSupplyOrder({
       // Allow AppContext to generate a unique UUID for the ID
       // id: orderNumber, 
       orderNumber: orderNumber,
@@ -501,6 +501,17 @@ const SupplyReturn = () => {
       taxAmount,
       total
     });
+    if (!result.savedToSupabase) {
+      toast({
+        title: tr("Enregistrement Supabase échoué", "فشل الحفظ في Supabase"),
+        description: tr(
+          "Le B.S a ete conserve dans l'application, mais pas encore confirme dans Supabase. Verifiez la table supply_orders et ses policies.",
+          "تم الاحتفاظ بـ B.S داخل التطبيق لكن Supabase لم تؤكد الحفظ بعد. تحقق من جدول supply_orders وسياساته."
+        ),
+        variant: "destructive",
+      });
+      return;
+    }
     setSupplyHistoryOpen(true);
     
     toast({
