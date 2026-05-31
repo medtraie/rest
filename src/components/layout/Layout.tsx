@@ -6,7 +6,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/contexts/LanguageContext";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
-import NetworkStatus from "@/components/pwa/NetworkStatus";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePageTransition } from "@/contexts/PageTransitionContext";
 
@@ -78,7 +77,6 @@ export const Layout: React.FC = () => {
               
               <div className="flex items-center gap-4">
                 <InstallPrompt />
-                <NetworkStatus />
                 <div className="hidden md:inline-flex items-center rounded-xl border border-slate-200 bg-white p-1">
                   {!location.pathname.startsWith('/settings') && (
                     <Button

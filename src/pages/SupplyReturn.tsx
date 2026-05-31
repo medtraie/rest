@@ -56,9 +56,8 @@ import {
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const SupplyReturn = () => {
-  const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt } = useApp();
+  const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt, refreshSupplyReturnData } = useApp();
   const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
-  console.log(supplyOrders);
   const { toast } = useToast();
   const t = useT();
   const tsr = (key: string, fallback: string) => t(`supplyReturn.pdf.${key}`, fallback);
@@ -149,6 +148,44 @@ const SupplyReturn = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    let intervalId: number | undefined;
+
+    const refreshIfVisible = async () => {
+      if (!active || document.hidden) return;
+      try {
+        await refreshSupplyReturnData();
+      } catch (error) {
+        console.error("Failed to auto-refresh supply-return data:", error);
+      }
+    };
+
+    const onFocus = () => {
+      void refreshIfVisible();
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void refreshIfVisible();
+      }
+    };
+
+    intervalId = window.setInterval(() => {
+      void refreshIfVisible();
+    }, 30000);
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      active = false;
+      if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refreshSupplyReturnData]);
   
   const [items, setItems] = useState<SupplyOrderItem[]>([]);
   
@@ -713,70 +750,79 @@ const SupplyReturn = () => {
     }
   };
 
-  const filteredOrders = (supplyOrders || []).filter(order => {
-    const orderDate = new Date(order.date);
-    if (startDate && orderDate < startDate) return false;
-    if (endDate) {
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      if (orderDate > endOfDay) return false;
-    }
-    if (filterDriver !== 'all' && order.driverId !== filterDriver) return false;
-    if (filterClient !== 'all' && order.clientId !== filterClient) return false;
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        order.orderNumber.toLowerCase().includes(query) ||
-        order.driverName?.toLowerCase().includes(query) ||
-        order.clientName?.toLowerCase().includes(query)
-      );
-    }
-    return true;
-  }).sort((a, b) => {
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
+  const filteredOrders = useMemo(() => {
+    return (supplyOrders || []).filter(order => {
+      const orderDate = new Date(order.date);
+      if (startDate && orderDate < startDate) return false;
+      if (endDate) {
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (orderDate > endOfDay) return false;
+      }
+      if (filterDriver !== 'all' && order.driverId !== filterDriver) return false;
+      if (filterClient !== 'all' && order.clientId !== filterClient) return false;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          order.orderNumber.toLowerCase().includes(query) ||
+          order.driverName?.toLowerCase().includes(query) ||
+          order.clientName?.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    }).sort((a, b) => {
+      const aValue = a[sortField as keyof typeof a];
+      const bValue = b[sortField as keyof typeof b];
 
-    if (aValue < bValue) {
-      return sortDirection === 'asc' ? -1 : 1;
-    }
-    if (aValue > bValue) {
-      return sortDirection === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [supplyOrders, startDate, endDate, filterDriver, filterClient, searchQuery, sortField, sortDirection]);
 
-  const filteredReturnOrders = (returnOrders || []).filter(order => {
-    const orderDate = new Date(order.date);
-    if (returnStartDate && orderDate < returnStartDate) return false;
-    if (returnEndDate) {
-      const endOfDay = new Date(returnEndDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      if (orderDate > endOfDay) return false;
-    }
-    if (returnFilterDriver !== 'all' && order.driverId !== returnFilterDriver) return false;
-    if (returnFilterClient !== 'all' && order.clientId !== returnFilterClient) return false;
-    if (returnSearchQuery) {
-      const query = returnSearchQuery.toLowerCase();
-      return (
-        order.orderNumber.toLowerCase().includes(query) ||
-        order.supplyOrderNumber.toLowerCase().includes(query) ||
-        (order.driverName && order.driverName.toLowerCase().includes(query)) ||
-        (order.clientName && order.clientName.toLowerCase().includes(query))
-      );
-    }
-    return true;
-  }).sort((a, b) => {
-    const aValue = a[sortField as keyof typeof a];
-    const bValue = b[sortField as keyof typeof b];
+  const filteredReturnOrders = useMemo(() => {
+    return (returnOrders || []).filter(order => {
+      const orderDate = new Date(order.date);
+      if (returnStartDate && orderDate < returnStartDate) return false;
+      if (returnEndDate) {
+        const endOfDay = new Date(returnEndDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (orderDate > endOfDay) return false;
+      }
+      if (returnFilterDriver !== 'all' && order.driverId !== returnFilterDriver) return false;
+      if (returnFilterClient !== 'all' && order.clientId !== returnFilterClient) return false;
+      if (returnSearchQuery) {
+        const query = returnSearchQuery.toLowerCase();
+        return (
+          order.orderNumber.toLowerCase().includes(query) ||
+          order.supplyOrderNumber.toLowerCase().includes(query) ||
+          (order.driverName && order.driverName.toLowerCase().includes(query)) ||
+          (order.clientName && order.clientName.toLowerCase().includes(query))
+        );
+      }
+      return true;
+    }).sort((a, b) => {
+      const aValue = a[sortField as keyof typeof a];
+      const bValue = b[sortField as keyof typeof b];
 
-    if (aValue < bValue) {
-      return sortDirection === 'asc' ? -1 : 1;
-    }
-    if (aValue > bValue) {
-      return sortDirection === 'asc' ? 1 : -1;
-    }
-    return 0;
-  });
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [returnOrders, returnStartDate, returnEndDate, returnFilterDriver, returnFilterClient, returnSearchQuery, sortField, sortDirection]);
+
+  const supplyOrderIdSet = useMemo(
+    () => new Set((supplyOrders || []).map((order: any) => String(order?.id ?? '')).filter(Boolean)),
+    [supplyOrders]
+  );
 
   const dashboardStats = useMemo(() => {
     const totalSupplyAmount = filteredOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
@@ -821,7 +867,7 @@ const SupplyReturn = () => {
   }, [filteredOrders, filteredReturnOrders]);
 
   const anomalySignals = useMemo(() => {
-    const missingSourceReturns = filteredReturnOrders.filter((order: any) => !supplyOrders.some((s) => String(s.id) === String(order.supplyOrderId)));
+    const missingSourceReturns = filteredReturnOrders.filter((order: any) => !supplyOrderIdSet.has(String(order.supplyOrderId ?? '')));
     const staleSupplies = filteredOrders.filter((order) => {
       const hasReturn = returnOrders.some((ret: any) => String(ret.supplyOrderId) === String(order.id));
       const age = (Date.now() - safeDate(order.date).getTime()) / (1000 * 60 * 60 * 24);
@@ -858,11 +904,11 @@ const SupplyReturn = () => {
       }
     ];
     return signals;
-  }, [filteredReturnOrders, filteredOrders, supplyOrders, returnOrders, dashboardStats.pendingReturns]);
+  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnOrders, dashboardStats.pendingReturns]);
 
   const adaptiveRisk = useMemo(() => {
     const pendingRatio = filteredReturnOrders.length > 0 ? dashboardStats.pendingReturns / filteredReturnOrders.length : 0;
-    const missingSourceCount = filteredReturnOrders.filter((order: any) => !supplyOrders.some((s) => String(s.id) === String(order.supplyOrderId))).length;
+    const missingSourceCount = filteredReturnOrders.filter((order: any) => !supplyOrderIdSet.has(String(order.supplyOrderId ?? ''))).length;
     const staleSupplyCount = filteredOrders.filter((order) => {
       const hasReturn = returnOrders.some((ret: any) => String(ret.supplyOrderId) === String(order.id));
       const age = (Date.now() - safeDate(order.date).getTime()) / (1000 * 60 * 60 * 24);
@@ -882,7 +928,7 @@ const SupplyReturn = () => {
     const tone = level === 'high' ? 'rose' : level === 'medium' ? 'amber' : 'emerald';
     const label = level === 'high' ? tr('Risque élevé', 'مخاطر مرتفعة') : level === 'medium' ? tr('Risque modéré', 'مخاطر متوسطة') : tr('Risque maîtrisé', 'مخاطر مضبوطة');
     return { score, level, tone, label };
-  }, [filteredReturnOrders, filteredOrders, supplyOrders, returnOrders, dashboardStats.pendingReturns, dashboardStats.supplyToday, dashboardStats.returnsToday]);
+  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnOrders, dashboardStats.pendingReturns, dashboardStats.supplyToday, dashboardStats.returnsToday]);
 
   const pendingPaymentOrder = useMemo(
     () => filteredReturnOrders.find((order: any) => !isReturnPaid(order)) || null,

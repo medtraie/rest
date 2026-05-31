@@ -573,22 +573,19 @@ export const supabaseService = {
   // Generic Delete
   async delete(table: string, id: string | number): Promise<boolean> {
     const uid = await currentUserId();
+    
+    // Attempt delete without the redundant client-side user_id filter
+    // RLS policies will handle the permissions
     let response = await supabase
       .from(table)
       .delete()
-      .eq("id", id)
-      .or(uid ? `user_id.eq.${uid},user_id.is.null` : `id.eq.${id}`);
+      .eq("id", id);
+      
     if (response.error) {
-      if (uid && hasUserIdColumnError(response.error.message)) {
-        response = await supabase
-          .from(table)
-          .delete()
-          .eq("id", id);
-        if (!response.error) return true;
-      }
-      console.error(`Error deleting from ${table}:`, response.error.message);
+      console.error(`Error deleting from ${table} (id: ${id}):`, response.error.message);
       return false;
     }
+    
     return true;
   },
 
