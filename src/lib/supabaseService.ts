@@ -467,10 +467,27 @@ export const supabaseService = {
     if (!Object.keys(payload).length) return null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       console.log(`Creating in ${table}, attempt ${attempt + 1}, payload keys:`, Object.keys(payload));
-      const { data, error } = await supabase.from(table).insert(payload).select().single();
+      const { error } = await supabase.from(table).insert(payload);
       if (!error) {
-        const camel = toCamelShallow(data as Record<string, any>);
-        return normalizeRow(table, camel) as T;
+        const insertedId = (payload.id ?? (nextItem as Record<string, any>).id) as string | number | undefined;
+        if (insertedId !== undefined && insertedId !== null && insertedId !== "") {
+          const { data: insertedData, error: fetchError } = await supabase
+            .from(table)
+            .select("*")
+            .eq("id", insertedId)
+            .maybeSingle();
+
+          if (!fetchError && insertedData) {
+            const camel = toCamelShallow(insertedData as Record<string, any>);
+            return normalizeRow(table, camel) as T;
+          }
+
+          if (fetchError) {
+            console.warn(`Post-insert fetch warning in ${table}:`, fetchError.message);
+          }
+        }
+
+        return normalizeRow(table, nextItem as Record<string, any>) as T;
       }
       console.warn(`Insert error in ${table}:`, error.message);
       const match = error.message.match(missingColumnRegex);
