@@ -15,6 +15,37 @@ const hasNoRowsSingleError = (message?: string) => {
   const text = (message || '').toLowerCase();
   return text.includes('json object requested') && text.includes('no rows');
 };
+const sharedTables = new Set(["supply_orders", "return_orders"]);
+const SHARED_TABLES_PAGE_SIZE = 1000;
+const fetchSharedTableRows = async (table: string) => {
+  const rows: Record<string, any>[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SHARED_TABLES_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    const batch = (data ?? []) as Record<string, any>[];
+    rows.push(...batch);
+
+    if (batch.length < SHARED_TABLES_PAGE_SIZE) {
+      break;
+    }
+
+    from += SHARED_TABLES_PAGE_SIZE;
+  }
+
+  return { data: rows, error: null };
+};
 const toCamelKey = (key: string) => {
   const camel = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
   const lower = camel.toLowerCase();
@@ -412,6 +443,20 @@ const normalizeRow = (table: string, row: Record<string, any>) => {
 export const supabaseService = {
   // Generic Fetch
   async getAll<T>(table: string): Promise<T[]> {
+    if (sharedTables.has(table)) {
+      const { data, error } = await fetchSharedTableRows(table);
+      if (error) {
+        console.error(`Error fetching from ${table}:`, error.message);
+        return [];
+      }
+      if (data && data.length && !tableColumnHints[table]) {
+        tableColumnHints[table] = Object.keys(data[0] as Record<string, any>);
+      }
+      return (data ?? []).map((row) => {
+        const camel = toCamelShallow(row as Record<string, any>);
+        return normalizeRow(table, camel);
+      }) as T[];
+    }
     const uid = await currentUserId();
     if (uid) {
       const { data, error } = await supabase
@@ -462,7 +507,10 @@ export const supabaseService = {
   // Generic Create
   async create<T>(table: string, item: Partial<T>): Promise<T | null> {
     const uid = await currentUserId();
-    const nextItem = uid ? { ...(item as Record<string, any>), user_id: uid } : (item as Record<string, any>);
+    const nextItem =
+      uid && !sharedTables.has(table)
+        ? { ...(item as Record<string, any>), user_id: uid }
+        : (item as Record<string, any>);
     let payload = toWritePayload(table, nextItem);
     if (!Object.keys(payload).length) return null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -517,13 +565,20 @@ export const supabaseService = {
     if (!Object.keys(payload).length) return null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       console.log(`Updating ${table} ${id}, attempt ${attempt + 1}, payload keys:`, Object.keys(payload));
-      let response = await supabase
-        .from(table)
-        .update(payload)
-        .eq("id", id)
-        .or(uid ? `user_id.eq.${uid},user_id.is.null` : `id.eq.${id}`)
-        .select()
-        .single();
+      let response = sharedTables.has(table)
+        ? await supabase
+            .from(table)
+            .update(payload)
+            .eq("id", id)
+            .select()
+            .single()
+        : await supabase
+            .from(table)
+            .update(payload)
+            .eq("id", id)
+            .or(uid ? `user_id.eq.${uid},user_id.is.null` : `id.eq.${id}`)
+            .select()
+            .single();
       if (!response.error) {
         const camel = toCamelShallow(response.data as Record<string, any>);
         return normalizeRow(table, camel) as T;
@@ -606,7 +661,7 @@ export const supabaseService = {
   // Bulk Upsert (useful for syncing/migration)
   async upsertMany<T>(table: string, items: T[]): Promise<void> {
     const uid = await currentUserId();
-    const nextItems = uid
+    const nextItems = uid && !sharedTables.has(table)
       ? items.map((item) => ({ ...(item as Record<string, any>), user_id: uid }))
       : items;
     let payloads = nextItems.map((item) => toWritePayload(table, item as Record<string, any>));
