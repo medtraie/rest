@@ -174,7 +174,7 @@ const SupplyReturn = () => {
 
     intervalId = window.setInterval(() => {
       void refreshIfVisible();
-    }, 30000);
+    }, 60000);
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -819,10 +819,66 @@ const SupplyReturn = () => {
     });
   }, [returnOrders, returnStartDate, returnEndDate, returnFilterDriver, returnFilterClient, returnSearchQuery, sortField, sortDirection]);
 
+  const relatedReturnBySupplyOrderId = useMemo(() => {
+    const map = new Map<string, any>();
+    (returnOrders || []).forEach((order: any) => {
+      const key = String(order?.supplyOrderId ?? '').trim();
+      if (key && !map.has(key)) {
+        map.set(key, order);
+      }
+    });
+    return map;
+  }, [returnOrders]);
+
   const supplyOrderIdSet = useMemo(
     () => new Set((supplyOrders || []).map((order: any) => String(order?.id ?? '')).filter(Boolean)),
     [supplyOrders]
   );
+
+  const returnSupplyOrderIdSet = useMemo(
+    () => new Set((returnOrders || []).map((order: any) => String(order?.supplyOrderId ?? '')).filter(Boolean)),
+    [returnOrders]
+  );
+
+  const totalSupplyPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage)),
+    [filteredOrders.length, itemsPerPage]
+  );
+
+  const totalReturnPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredReturnOrders.length / itemsPerPage)),
+    [filteredReturnOrders.length, itemsPerPage]
+  );
+
+  const paginatedSupplyOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOrders, currentPage, itemsPerPage]);
+
+  const paginatedReturnOrders = useMemo(() => {
+    const startIndex = (returnCurrentPage - 1) * itemsPerPage;
+    return filteredReturnOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReturnOrders, returnCurrentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, startDate, endDate, filterDriver, filterClient, sortField, sortDirection, itemsPerPage]);
+
+  useEffect(() => {
+    setReturnCurrentPage(1);
+  }, [returnSearchQuery, returnStartDate, returnEndDate, returnFilterDriver, returnFilterClient, sortField, sortDirection, itemsPerPage]);
+
+  useEffect(() => {
+    if (currentPage > totalSupplyPages) {
+      setCurrentPage(totalSupplyPages);
+    }
+  }, [currentPage, totalSupplyPages]);
+
+  useEffect(() => {
+    if (returnCurrentPage > totalReturnPages) {
+      setReturnCurrentPage(totalReturnPages);
+    }
+  }, [returnCurrentPage, totalReturnPages]);
 
   const dashboardStats = useMemo(() => {
     const totalSupplyAmount = filteredOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
@@ -869,7 +925,7 @@ const SupplyReturn = () => {
   const anomalySignals = useMemo(() => {
     const missingSourceReturns = filteredReturnOrders.filter((order: any) => !supplyOrderIdSet.has(String(order.supplyOrderId ?? '')));
     const staleSupplies = filteredOrders.filter((order) => {
-      const hasReturn = returnOrders.some((ret: any) => String(ret.supplyOrderId) === String(order.id));
+      const hasReturn = returnSupplyOrderIdSet.has(String(order.id));
       const age = (Date.now() - safeDate(order.date).getTime()) / (1000 * 60 * 60 * 24);
       return !hasReturn && age >= 7;
     });
@@ -904,13 +960,13 @@ const SupplyReturn = () => {
       }
     ];
     return signals;
-  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnOrders, dashboardStats.pendingReturns]);
+  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnSupplyOrderIdSet, dashboardStats.pendingReturns]);
 
   const adaptiveRisk = useMemo(() => {
     const pendingRatio = filteredReturnOrders.length > 0 ? dashboardStats.pendingReturns / filteredReturnOrders.length : 0;
     const missingSourceCount = filteredReturnOrders.filter((order: any) => !supplyOrderIdSet.has(String(order.supplyOrderId ?? ''))).length;
     const staleSupplyCount = filteredOrders.filter((order) => {
-      const hasReturn = returnOrders.some((ret: any) => String(ret.supplyOrderId) === String(order.id));
+      const hasReturn = returnSupplyOrderIdSet.has(String(order.id));
       const age = (Date.now() - safeDate(order.date).getTime()) / (1000 * 60 * 60 * 24);
       return !hasReturn && age >= 7;
     }).length;
@@ -928,7 +984,7 @@ const SupplyReturn = () => {
     const tone = level === 'high' ? 'rose' : level === 'medium' ? 'amber' : 'emerald';
     const label = level === 'high' ? tr('Risque élevé', 'مخاطر مرتفعة') : level === 'medium' ? tr('Risque modéré', 'مخاطر متوسطة') : tr('Risque maîtrisé', 'مخاطر مضبوطة');
     return { score, level, tone, label };
-  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnOrders, dashboardStats.pendingReturns, dashboardStats.supplyToday, dashboardStats.returnsToday]);
+  }, [filteredReturnOrders, filteredOrders, supplyOrderIdSet, returnSupplyOrderIdSet, dashboardStats.pendingReturns, dashboardStats.supplyToday, dashboardStats.returnsToday]);
 
   const pendingPaymentOrder = useMemo(
     () => filteredReturnOrders.find((order: any) => !isReturnPaid(order)) || null,
@@ -2650,7 +2706,7 @@ const SupplyReturn = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders.length === 0 ? (
+                  {filteredOrders.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-12 text-slate-400">
                             <div className="flex flex-col items-center gap-2">
@@ -2660,8 +2716,8 @@ const SupplyReturn = () => {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredOrders.map((order, idx) => {
-                          const relatedReturn = returnOrders.find((ret: any) => String(ret.supplyOrderId) === String(order.id));
+                        paginatedSupplyOrders.map((order) => {
+                          const relatedReturn = relatedReturnBySupplyOrderId.get(String(order.id));
                           return (
                           <TableRow key={order.id} className="hover:bg-slate-50/50 transition-colors">
                             <TableCell>
@@ -2765,6 +2821,33 @@ const SupplyReturn = () => {
                     </TableBody>
                   </Table>
                 </div>
+                {filteredOrders.length > 0 && (
+                  <div className="flex items-center justify-between gap-3 px-3 py-3 border-x border-b border-slate-200/80 rounded-b-2xl bg-slate-50/50">
+                    <div className="text-xs text-slate-500">
+                      {tsu('history.pageStatus', 'Page')} {currentPage}/{totalSupplyPages} · {paginatedSupplyOrders.length}/{filteredOrders.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 border-slate-200"
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage <= 1}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 border-slate-200"
+                        onClick={() => setCurrentPage((prev) => Math.min(totalSupplyPages, prev + 1))}
+                        disabled={currentPage >= totalSupplyPages}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
@@ -2811,9 +2894,10 @@ const SupplyReturn = () => {
                   <DropdownMenuCheckboxItem checked={true}>{tsu('history.standardColumns', 'Colonnes standards')}</DropdownMenuCheckboxItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>{tsu('history.pagination', 'Pagination')}</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup value="10">
+                  <DropdownMenuRadioGroup value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value) || 10)}>
                     <DropdownMenuRadioItem value="10">{tsu('history.perPage10', '10 par page')}</DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="20">{tsu('history.perPage20', '20 par page')}</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="50">{tsu('history.perPage50', '50 par page')}</DropdownMenuRadioItem>
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -2923,7 +3007,7 @@ const SupplyReturn = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredReturnOrders.map((order) => (
+                    paginatedReturnOrders.map((order) => (
                       <TableRow key={order.id} className="hover:bg-slate-50/50 transition-colors">
                         <TableCell>
                           <div className="font-mono font-bold text-emerald-600">{order.orderNumber}</div>
@@ -3011,6 +3095,33 @@ const SupplyReturn = () => {
                 </TableBody>
               </Table>
             </div>
+            {filteredReturnOrders.length > 0 && (
+              <div className="flex items-center justify-between gap-3 px-3 py-3 border-x border-b border-slate-200/80 rounded-b-2xl bg-slate-50/50">
+                <div className="text-xs text-slate-500">
+                  {tsu('history.pageStatus', 'Page')} {returnCurrentPage}/{totalReturnPages} · {paginatedReturnOrders.length}/{filteredReturnOrders.length}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 border-slate-200"
+                    onClick={() => setReturnCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={returnCurrentPage <= 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 border-slate-200"
+                    onClick={() => setReturnCurrentPage((prev) => Math.min(totalReturnPages, prev + 1))}
+                    disabled={returnCurrentPage >= totalReturnPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
         </CardContent>
       </Card>
       </div>

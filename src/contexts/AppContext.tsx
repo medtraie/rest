@@ -86,6 +86,8 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
 // Removed local storage keys for orders
 const BOTTLE_TYPES_EXTRAS_LOCAL_KEY = "bottleTypes_extras";
 const BOTTLE_TYPES_EXTRAS_CLOUD_KEY = "bottle_types_extras_cloud";
+const DELETED_SUPPLY_ORDERS_CLOUD_KEY = "deleted_supply_orders_cloud";
+const DELETED_RETURN_ORDERS_CLOUD_KEY = "deleted_return_orders_cloud";
 
 const safeParseArray = (value: string | null) => {
   if (!value) return [];
@@ -105,6 +107,17 @@ const safeParseRecord = (value: string | null) => {
   } catch {
     return {};
   }
+};
+
+const normalizeDeletedOrderIds = (value: unknown) => {
+  if (!Array.isArray(value)) return [] as string[];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean)
+    )
+  );
 };
 
 // Removed orderCompletenessScore
@@ -360,6 +373,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [supplyReturns, setSupplyReturns] = useState<SupplyReturn[]>([]);
   const [supplyOrders, setSupplyOrders] = useState<any[]>([]);
   const [returnOrders, setReturnOrders] = useState<any[]>([]);
+  const [deletedSupplyOrderIds, setDeletedSupplyOrderIds] = useState<string[]>([]);
+  const [deletedReturnOrderIds, setDeletedReturnOrderIds] = useState<string[]>([]);
   const [cashOperations, setCashOperations] = useState<CashOperation[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [repairs, setRepairs] = useState<Repair[]>([]);
@@ -404,15 +419,45 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return extras;
   }, []);
 
+  const persistDeletedSupplyOrderIds = React.useCallback(async (ids: string[]) => {
+    const normalized = normalizeDeletedOrderIds(ids).slice(-5000);
+    setDeletedSupplyOrderIds(normalized);
+    try {
+      await kvSetShared(DELETED_SUPPLY_ORDERS_CLOUD_KEY, normalized);
+    } catch (error) {
+      console.error("Error syncing deleted supply orders to cloud store:", error);
+    }
+    return normalized;
+  }, []);
+
+  const persistDeletedReturnOrderIds = React.useCallback(async (ids: string[]) => {
+    const normalized = normalizeDeletedOrderIds(ids).slice(-5000);
+    setDeletedReturnOrderIds(normalized);
+    try {
+      await kvSetShared(DELETED_RETURN_ORDERS_CLOUD_KEY, normalized);
+    } catch (error) {
+      console.error("Error syncing deleted return orders to cloud store:", error);
+    }
+    return normalized;
+  }, []);
+
   const refreshSupplyReturnData = React.useCallback(async () => {
-    const [supplyOrdersData, returnOrdersData] = await Promise.all([
+    const [supplyOrdersData, returnOrdersData, deletedSupplyIdsData, deletedReturnIdsData] = await Promise.all([
       supabaseService.getAll<any>("supply_orders"),
-      supabaseService.getAll<any>("return_orders")
+      supabaseService.getAll<any>("return_orders"),
+      kvGetShared<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
+      kvGetShared<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
     ]);
 
-    // Since offline mode is disabled, we strictly rely on Supabase as the source of truth
-    setSupplyOrders(supplyOrdersData);
-    setReturnOrders(returnOrdersData);
+    const deletedSupplyIds = normalizeDeletedOrderIds(deletedSupplyIdsData);
+    const deletedReturnIds = normalizeDeletedOrderIds(deletedReturnIdsData);
+    const deletedSupplySet = new Set(deletedSupplyIds);
+    const deletedReturnSet = new Set(deletedReturnIds);
+
+    setDeletedSupplyOrderIds(deletedSupplyIds);
+    setDeletedReturnOrderIds(deletedReturnIds);
+    setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
+    setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
   }, []);
 
   const normalizeAccount = (value?: string) => {
@@ -511,6 +556,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           rolesData,
           roleAssignmentsData,
           bottleTypeExtrasCloudData,
+          deletedSupplyOrderIdsData,
+          deletedReturnOrderIdsData,
         ] = await Promise.all([
           supabaseService.getAll<Client>("clients"),
           supabaseService.getAll<Driver>("drivers"),
@@ -530,6 +577,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           supabaseService.getAll<Role>("roles"),
           supabaseService.getAll<RoleAssignment>("role_assignments"),
           kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
+          kvGetShared<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
+          kvGetShared<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
         ]);
 
         if (!active) return;
@@ -541,8 +590,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setBrands(brandsData);
         setSupplies(suppliesData);
         setSupplyReturns(supplyReturnsData);
-        setSupplyOrders(supplyOrdersData);
-        setReturnOrders(returnOrdersData);
+        const deletedSupplyIds = normalizeDeletedOrderIds(deletedSupplyOrderIdsData);
+        const deletedReturnIds = normalizeDeletedOrderIds(deletedReturnOrderIdsData);
+        const deletedSupplySet = new Set(deletedSupplyIds);
+        const deletedReturnSet = new Set(deletedReturnIds);
+
+        setDeletedSupplyOrderIds(deletedSupplyIds);
+        setDeletedReturnOrderIds(deletedReturnIds);
+        setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
+        setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
 
         const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
         const cloudExtras =
@@ -1029,10 +1085,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setSupplyOrders(prev => prev.map(order => String(order.id) === String(updatedOrder.id) ? orderToSave : order));
     };
     const deleteSupplyOrder = async (id: string) => {
+      const nextDeletedIds = await persistDeletedSupplyOrderIds([...deletedSupplyOrderIds, String(id)]);
+      setSupplyOrders(prev => prev.filter(order => String(order.id) !== String(id)));
       const success = await supabaseService.delete("supply_orders", id);
-      if (success) {
-        setSupplyOrders(prev => prev.filter(order => String(order.id) !== String(id)));
+      if (!success) {
+        console.warn(`Supply order ${id} hidden via tombstone after delete failure.`);
       }
+      setDeletedSupplyOrderIds(nextDeletedIds);
     };
   
   // Create a new return order and update driver’s debt/balance
@@ -1119,10 +1178,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const deleteReturnOrder = async (id: string) => {
+    const nextDeletedIds = await persistDeletedReturnOrderIds([...deletedReturnOrderIds, String(id)]);
+    setReturnOrders(prev => prev.filter(order => order.id !== id));
     const success = await supabaseService.delete("return_orders", id);
-    if (success) {
-      setReturnOrders(prev => prev.filter(order => order.id !== id));
+    if (!success) {
+      console.warn(`Return order ${id} hidden via tombstone after delete failure.`);
     }
+    setDeletedReturnOrderIds(nextDeletedIds);
   };
   
   // Cash operations helpers
