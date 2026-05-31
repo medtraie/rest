@@ -267,7 +267,7 @@ interface AppContextType {
   deleteSupplyOrder: (id: string) => Promise<void>;
   refreshSupplyReturnData: () => Promise<void>;
   returnOrders: any[];
-  addReturnOrder: (order: any) => Promise<void>;
+  addReturnOrder: (...args: any[]) => Promise<{ id: string | null; savedToSupabase: boolean }>;
   deleteReturnOrder: (id: string) => Promise<void>;
   cashOperations: CashOperation[];
   addCashOperation: (op: CashOperation) => Promise<void>;
@@ -1016,10 +1016,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const id = order.id ?? (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
       const newOrder = { ...order, id };
       const created = await supabaseService.create<any>("supply_orders", newOrder);
-      const orderToSave = created || newOrder;
       const savedToSupabase = !!created;
-      setSupplyOrders(prev => [orderToSave, ...prev]);
-      return { order: orderToSave, savedToSupabase };
+      if (!created) {
+        return { order: newOrder, savedToSupabase };
+      }
+      setSupplyOrders(prev => [created, ...prev]);
+      return { order: created, savedToSupabase };
     };
     const updateSupplyOrder = async (updatedOrder: any) => {
       const updated = await supabaseService.update<any>("supply_orders", updatedOrder.id, updatedOrder);
@@ -1051,7 +1053,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     paymentMygaz?: number,
     paymentDebt?: number,
     paymentTotal?: number
-  ): Promise<string> => {
+  ): Promise<{ id: string | null; savedToSupabase: boolean }> => {
     const id = `ret-${Date.now()}`;
     const supplyOrder = supplyOrders.find(o => o.id === supplyOrderId);
   
@@ -1081,10 +1083,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const created = await supabaseService.create<any>("return_orders", newReturnOrder);
-
-    // Persist to Supabase
-    const orderToSave = created || newReturnOrder;
-    setReturnOrders(prev => [orderToSave, ...prev]);
+    if (!created) {
+      return { id: null, savedToSupabase: false };
+    }
+    setReturnOrders(prev => [created, ...prev]);
 
     // Update driver debt, balance AND remaining bottles
     const remainingBottlesUpdate: Record<string, number> = {};
@@ -1113,7 +1115,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     
 
-    return id;
+    return { id: created.id ?? id, savedToSupabase: true };
   };
   
   const deleteReturnOrder = async (id: string) => {

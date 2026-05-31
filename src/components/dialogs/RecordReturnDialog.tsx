@@ -471,7 +471,7 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
 
       const paymentInfo = { cash, check, mygaz, debt: paymentDebt, total: paymentTotals.total, subtotal: paymentTotals.subtotal, taxAmount: paymentTotals.taxAmount };
 
-      const newReturnOrderId = await addReturnOrder(
+      const returnResult = await addReturnOrder(
         supplyOrder.id,
         items,
         ventesSummary.totalVentes,
@@ -489,6 +489,15 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
         paymentDebt,
         paymentTotals.total
       );
+      if (!returnResult.savedToSupabase || !returnResult.id) {
+        toast({
+          title: "Erreur d'enregistrement",
+          description: "Le B.D n'a pas ete enregistre dans Supabase. Aucune modification locale n'a ete conservee.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const newReturnOrderId = returnResult.id;
 
       items.forEach(item => {
         const bottleType = bottleTypes.find(bt => bt.id === item.bottleTypeId);

@@ -444,7 +444,7 @@ const SupplyReturn = () => {
     
     if (selectionType === 'new-client' && newClientName.trim()) {
       const newClient = { name: newClientName.trim() };
-      const clientId = addClient(newClient);
+      const clientId = await addClient(newClient);
       finalClientId = clientId;
       finalClientName = newClientName.trim();
     } else if (selectedClientId) {
