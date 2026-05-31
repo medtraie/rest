@@ -572,21 +572,35 @@ export const supabaseService = {
 
   // Generic Delete
   async delete(table: string, id: string | number): Promise<boolean> {
-    const uid = await currentUserId();
-    
-    // Attempt delete without the redundant client-side user_id filter
-    // RLS policies will handle the permissions
-    let response = await supabase
+    const response = await supabase
       .from(table)
       .delete()
-      .eq("id", id);
-      
+      .eq("id", id)
+      .select("id");
+
     if (response.error) {
       console.error(`Error deleting from ${table} (id: ${id}):`, response.error.message);
       return false;
     }
-    
-    return true;
+
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      return true;
+    }
+
+    // A delete can return no error even when RLS prevents touching any row.
+    // Confirm whether the row still exists before reporting success.
+    const existenceCheck = await supabase
+      .from(table)
+      .select("id")
+      .eq("id", id)
+      .limit(1);
+
+    if (existenceCheck.error) {
+      console.error(`Unable to verify deletion in ${table} (id: ${id}):`, existenceCheck.error.message);
+      return false;
+    }
+
+    return (existenceCheck.data ?? []).length === 0;
   },
 
   // Bulk Upsert (useful for syncing/migration)
