@@ -514,7 +514,6 @@ export const supabaseService = {
     let payload = toWritePayload(table, nextItem);
     if (!Object.keys(payload).length) return null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      console.log(`Creating in ${table}, attempt ${attempt + 1}, payload keys:`, Object.keys(payload));
       const { error } = await supabase.from(table).insert(payload);
       if (!error) {
         const insertedId = (payload.id ?? (nextItem as Record<string, any>).id) as string | number | undefined;

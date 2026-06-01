@@ -2164,7 +2164,53 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const trucksData = await supabaseService.getAll<Truck>("trucks");
     setTrucks(trucksData);
   };
-  const driverHasActiveTruck = (driverId: string) => trucks.find(t => t.driverId === driverId && t.isActive);
+  const activeTruckByDriverId = React.useMemo(() => {
+    const map: Record<string, Truck> = {};
+    (trucks || []).forEach((truck) => {
+      const driverId = String((truck as any)?.driverId ?? "");
+      if (!driverId) return;
+      if ((truck as any)?.isActive) {
+        map[driverId] = truck;
+      }
+    });
+    return map;
+  }, [trucks]);
+
+  const driverHasActiveTruck = React.useCallback(
+    (driverId: string) => {
+      return activeTruckByDriverId[String(driverId)];
+    },
+    [activeTruckByDriverId],
+  );
+
+  const transactionsByDriverId = React.useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (transactions || []).forEach((tx: any) => {
+      const driverId = String(tx?.driverId ?? "");
+      if (!driverId) return;
+      if (!map[driverId]) map[driverId] = [];
+      map[driverId].push(tx);
+    });
+    return map;
+  }, [transactions]);
+
+  const factoryTransactionCountBySupplierId = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    (transactions || []).forEach((tx: any) => {
+      if (tx?.type !== "factory") return;
+      const supplierId = String(tx?.supplierId ?? "");
+      if (!supplierId) return;
+      map[supplierId] = (map[supplierId] || 0) + 1;
+    });
+    return map;
+  }, [transactions]);
+
+  const suppliersWithCounts = React.useMemo(() => {
+    return (suppliers || []).map((s: any) => ({
+      ...s,
+      transactionCount: factoryTransactionCountBySupplierId[String(s?.id ?? "")] || 0,
+    }));
+  }, [suppliers, factoryTransactionCountBySupplierId]);
 
   const driversWithTransactions = React.useMemo(() => {
     const totalForeignByDriver: Record<string, number> = {};
@@ -2194,9 +2240,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0) > 0 &&
           Number(totalForeignByDriver[String(driver.id)] || 0) >= Number(driver.foreignBottlesThreshold ?? driverForeignThresholds[String(driver.id)] ?? 0)
         ),
-      transactions: transactions.filter(t => String(t.driverId) === String(driver.id))
+      transactions: transactionsByDriverId[String(driver.id)] ?? []
     }));
-  }, [drivers, transactions, driverDebtThresholds, driverForeignThresholds, returnOrders]);
+  }, [drivers, driverDebtThresholds, driverForeignThresholds, returnOrders, transactionsByDriverId]);
   
   const value = {
     clients,
@@ -2296,10 +2342,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     addForeignBottle,
     stockHistory,
     addStockHistory,
-    suppliers: suppliers.map(s => ({
-      ...s,
-      transactionCount: transactions.filter(t => t.type === 'factory' && t.supplierId === s.id).length
-    })),
+    suppliers: suppliersWithCounts,
     addSupplier,
     updateSupplier,
     deleteSupplier,
