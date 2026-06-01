@@ -4,4 +4,10 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!url || !key) {
   console.error("Supabase configuration missing: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY");
 }
-export const supabase = createClient(url ?? "", key ?? "");
+export const supabase = createClient(url ?? "", key ?? "", {
+  global: {
+    fetch: (input, init) => {
+      return fetch(input, { ...(init ?? {}), cache: "no-store" });
+    },
+  },
+});

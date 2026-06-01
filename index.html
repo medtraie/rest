@@ -26,6 +26,37 @@
   </head>
 
   <body>
+    <script>
+      (() => {
+        const key = "__sft_sw_cleanup_done";
+        try {
+          if (sessionStorage.getItem(key) === "1") return;
+          sessionStorage.setItem(key, "1");
+        } catch {
+          return;
+        }
+        const hasSw = "serviceWorker" in navigator;
+        const hasCaches = "caches" in window;
+        if (!hasSw && !hasCaches) return;
+        (async () => {
+          try {
+            if (hasSw) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registrations.map((r) => r.unregister()));
+            }
+          } catch {}
+          try {
+            if (hasCaches) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((k) => caches.delete(k)));
+            }
+          } catch {}
+          try {
+            location.reload();
+          } catch {}
+        })();
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
