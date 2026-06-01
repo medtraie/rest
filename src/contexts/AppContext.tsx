@@ -82,7 +82,7 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
   }, [key, value]);
   return [value, setValue];
 }
-
+                                                                                                                                      
 // Removed local storage keys for orders
 const BOTTLE_TYPES_EXTRAS_LOCAL_KEY = "bottleTypes_extras";
 const BOTTLE_TYPES_EXTRAS_CLOUD_KEY = "bottle_types_extras_cloud";
@@ -277,11 +277,11 @@ interface AppContextType {
   supplyOrders: any[];
   addSupplyOrder: (order: any) => Promise<{ order: any; savedToSupabase: boolean }>;
   updateSupplyOrder: (order: any) => Promise<void>;
-  deleteSupplyOrder: (id: string) => Promise<void>;
+  deleteSupplyOrder: (id: string) => Promise<boolean>;
   refreshSupplyReturnData: () => Promise<void>;
   returnOrders: any[];
   addReturnOrder: (...args: any[]) => Promise<{ id: string | null; savedToSupabase: boolean }>;
-  deleteReturnOrder: (id: string) => Promise<void>;
+  deleteReturnOrder: (id: string) => Promise<boolean>;
   cashOperations: CashOperation[];
   addCashOperation: (op: CashOperation) => Promise<void>;
   expenses: Expense[];
@@ -1087,11 +1087,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const deleteSupplyOrder = async (id: string) => {
       const nextDeletedIds = await persistDeletedSupplyOrderIds([...deletedSupplyOrderIds, String(id)]);
       setSupplyOrders(prev => prev.filter(order => String(order.id) !== String(id)));
-      const success = await supabaseService.delete("supply_orders", id);
-      if (!success) {
-        console.warn(`Supply order ${id} hidden via tombstone after delete failure.`);
+      let success = false;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        success = await supabaseService.delete("supply_orders", id);
+        if (success) break;
+        await new Promise((resolve) => setTimeout(resolve, 500 + attempt * 1000));
       }
       setDeletedSupplyOrderIds(nextDeletedIds);
+      return success;
     };
   
   // Create a new return order and update driver’s debt/balance
@@ -1180,11 +1183,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const deleteReturnOrder = async (id: string) => {
     const nextDeletedIds = await persistDeletedReturnOrderIds([...deletedReturnOrderIds, String(id)]);
     setReturnOrders(prev => prev.filter(order => order.id !== id));
-    const success = await supabaseService.delete("return_orders", id);
-    if (!success) {
-      console.warn(`Return order ${id} hidden via tombstone after delete failure.`);
+    let success = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      success = await supabaseService.delete("return_orders", id);
+      if (success) break;
+      await new Promise((resolve) => setTimeout(resolve, 500 + attempt * 1000));
     }
     setDeletedReturnOrderIds(nextDeletedIds);
+    return success;
   };
   
   // Cash operations helpers

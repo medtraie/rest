@@ -1190,7 +1190,7 @@ const SupplyReturn = () => {
     scrollToSection('command-history');
   };
 
-  const handleDeleteSupplyOrder = (id: string) => {
+  const handleDeleteSupplyOrder = async (id: string) => {
     // Restore stock from the deleted supply order
     const order = (supplyOrders || []).find((o: any) => o.id === id);
 
@@ -1215,22 +1215,28 @@ const SupplyReturn = () => {
       });
     }
 
-    deleteSupplyOrder(id);
+    const success = await deleteSupplyOrder(id);
     setDeleteSupplyDialogOpen(false);
     setOrderToDelete(null);
     toast({
-      title: tr("Bon de sortie supprimé", "تم حذف سند الخروج"),
-      description: tr("Le stock a été rétabli et le bon de sortie supprimé", "تمت استعادة المخزون وحذف سند الخروج"),
+      title: success ? tr("Bon de sortie supprimé", "تم حذف سند الخروج") : tr("Suppression en attente", "الحذف قيد المعالجة"),
+      description: success
+        ? tr("Le stock a été rétabli et le bon de sortie supprimé", "تمت استعادة المخزون وحذف سند الخروج")
+        : tr("Le bon a été masqué dans l'application. Vérifiez Supabase/RLS ثم أعد تحديث الصفحة.", "تم إخفاء السند داخل التطبيق. تحقق من Supabase/RLS ثم أعد تحديث الصفحة."),
+      variant: success ? "default" : "destructive",
     });
   };
 
-  const handleDeleteReturnOrder = (id: string) => {
-    deleteReturnOrder(id);
+  const handleDeleteReturnOrder = async (id: string) => {
+    const success = await deleteReturnOrder(id);
     setDeleteReturnDialogOpen(false);
     setOrderToDelete(null);
     toast({
-      title: tr("Bon d'Entrée supprimé", "تم حذف سند الدخول"),
-      description: tr("Le bon d'Entrée a été supprimé avec succès", "تم حذف سند الدخول بنجاح"),
+      title: success ? tr("Bon d'Entrée supprimé", "تم حذف سند الدخول") : tr("Suppression en attente", "الحذف قيد المعالجة"),
+      description: success
+        ? tr("Le bon d'Entrée a été supprimé avec succès", "تم حذف سند الدخول بنجاح")
+        : tr("Le bon a été masqué dans l'application. Vérifiez Supabase/RLS ثم أعد تحديث الصفحة.", "تم إخفاء السند داخل التطبيق. تحقق من Supabase/RLS ثم أعد تحديث الصفحة."),
+      variant: success ? "default" : "destructive",
     });
   };
 
