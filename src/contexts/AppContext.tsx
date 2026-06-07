@@ -1365,6 +1365,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       amount: newBt.amount,
       sourceAccount: newBt.sourceAccount,
       destinationAccount: newBt.destinationAccount,
+      accountDetails: newBt.accountDetails,
       status: 'pending',
       createdAt: new Date().toISOString(),
     });
@@ -1380,6 +1381,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         description: updated.description,
         sourceAccount: updated.sourceAccount,
         destinationAccount: updated.destinationAccount,
+        accountDetails: updated.accountDetails,
       };
       await supabaseService.update<FinancialTransaction>("financial_transactions", id, txUpdate);
       setFinancialTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...txUpdate } : tx));

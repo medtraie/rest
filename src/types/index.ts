@@ -32,6 +32,7 @@ export interface BankTransfer {
   type: 'versement_espece' | 'remise_cheques' | 'retrait_bancaire' | 'banque_a_banque';
   sourceAccount: 'espece' | 'cheque' | 'banque';
   destinationAccount: 'espece' | 'cheque' | 'banque';
+  accountDetails?: string;
   amount: number;
   description: string;
   status: 'pending' | 'validated';

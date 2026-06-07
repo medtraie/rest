@@ -245,38 +245,64 @@ function Revenue() {
     () =>
       supplierBankProfiles
         .map((supplier) => {
-          const related = (financialTransactions || []).filter((tx: any) => {
-            const status = String(tx?.status || '');
-            if (status !== 'pending' && status !== 'completed') return false;
-            const details = normalizeAccountText(String(tx?.accountDetails || ''));
-            if (!details || details !== normalizeAccountText(supplier.bankAccountName)) return false;
-            const source = normalizeAccountText(String(tx?.sourceAccount || ''));
-            const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
-            return source === 'banque' || destination === 'banque';
+          const target = normalizeAccountText(supplier.bankAccountName);
+          const seenIds = new Set<string>();
+          let totalIn = 0;
+          let totalOut = 0;
+          let movementCount = 0;
+
+          (cashOperations || []).forEach((op: any) => {
+            const status = String(op?.status || '');
+            if (status !== 'pending' && status !== 'validated') return;
+            if (normalizeAccountText(String(op?.accountAffected || '')) !== 'banque') return;
+            if (normalizeAccountText(String(op?.accountDetails || '')) !== target) return;
+            const amount = Math.abs(Number(op?.amount) || 0);
+            if (!amount) return;
+            seenIds.add(String(op?.id ?? ''));
+            movementCount += 1;
+            if (String(op?.type || '') === 'versement') totalIn += amount;
+            else totalOut += amount;
           });
 
-          const totals = related.reduce(
-            (acc, tx: any) => {
-              const amount = Math.abs(Number(tx?.amount) || 0);
-              const source = normalizeAccountText(String(tx?.sourceAccount || ''));
-              const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
-              if (destination === 'banque') acc.totalIn += amount;
-              if (source === 'banque') acc.totalOut += amount;
-              return acc;
-            },
-            { totalIn: 0, totalOut: 0 }
-          );
+          (bankTransfers || []).forEach((transfer: any) => {
+            const status = String(transfer?.status || '');
+            if (status !== 'pending' && status !== 'validated') return;
+            if (normalizeAccountText(String(transfer?.accountDetails || '')) !== target) return;
+            const source = normalizeAccountText(String(transfer?.sourceAccount || ''));
+            const destination = normalizeAccountText(String(transfer?.destinationAccount || ''));
+            const amount = Math.abs(Number(transfer?.amount) || 0);
+            if (!amount || (source !== 'banque' && destination !== 'banque')) return;
+            seenIds.add(String(transfer?.id ?? ''));
+            movementCount += 1;
+            if (destination === 'banque') totalIn += amount;
+            if (source === 'banque') totalOut += amount;
+          });
+
+          (financialTransactions || []).forEach((tx: any) => {
+            const txId = String(tx?.id ?? '');
+            if (txId && seenIds.has(txId)) return;
+            const status = String(tx?.status || '');
+            if (status !== 'pending' && status !== 'completed') return;
+            if (normalizeAccountText(String(tx?.accountDetails || '')) !== target) return;
+            const source = normalizeAccountText(String(tx?.sourceAccount || ''));
+            const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
+            const amount = Math.abs(Number(tx?.amount) || 0);
+            if (!amount || (source !== 'banque' && destination !== 'banque')) return;
+            movementCount += 1;
+            if (destination === 'banque') totalIn += amount;
+            if (source === 'banque') totalOut += amount;
+          });
 
           return {
             ...supplier,
-            movementCount: related.length,
-            totalIn: totals.totalIn,
-            totalOut: totals.totalOut,
-            balance: totals.totalIn - totals.totalOut,
+            movementCount,
+            totalIn,
+            totalOut,
+            balance: totalIn - totalOut,
           };
         })
         .sort((a, b) => b.balance - a.balance),
-    [supplierBankProfiles, financialTransactions]
+    [supplierBankProfiles, cashOperations, bankTransfers, financialTransactions]
   );
 
   // Normalize operations for "Gestion de Transfert"
@@ -293,7 +319,7 @@ function Revenue() {
           amount: t.amount,
           sourceAccount: t.sourceAccount as any,
           destinationAccount: t.destinationAccount as any,
-          accountDetails: t.accountDetails,
+          accountDetails: bt?.accountDetails ?? t.accountDetails,
           status: bt?.status || 'validated',
         };
       }
@@ -695,9 +721,20 @@ function Revenue() {
     let source: BankTransfer['sourceAccount'] = 'espece';
     let dest: BankTransfer['destinationAccount'] = 'banque';
     let finalDescription = transferDescription.trim();
+    let accountDetails: string | undefined;
     if (transferType === 'versement_espece') {
       source = 'espece';
       dest = 'banque';
+      if (transferDestinationSupplierId !== 'none') {
+        const destinationSupplier = supplierBankProfiles.find((s) => s.id === transferDestinationSupplierId);
+        if (!destinationSupplier) {
+          toast.error(tr('Veuillez choisir un compte fournisseur valide', 'يرجى اختيار حساب مورد صالح'));
+          return;
+        }
+        accountDetails = destinationSupplier.bankAccountName;
+        const flowLabel = `${tr('Versement Espèce', 'إيداع نقدي')} -> ${destinationSupplier.bankAccountName}`;
+        finalDescription = finalDescription ? `${flowLabel} | ${finalDescription}` : flowLabel;
+      }
     } else if (transferType === 'remise_cheques') {
       source = 'cheque';
       dest = 'banque';
@@ -728,6 +765,7 @@ function Revenue() {
       type: transferType,
       sourceAccount: source,
       destinationAccount: dest,
+      accountDetails,
       amount,
       description: finalDescription,
       status: 'pending',
@@ -1963,6 +2001,8 @@ function Revenue() {
                     setTransferType(next);
                     if (next !== 'banque_a_banque') {
                       setTransferSourceSupplierId('none');
+                    }
+                    if (next !== 'banque_a_banque' && next !== 'versement_espece') {
                       setTransferDestinationSupplierId('none');
                     }
                   }}
@@ -1978,6 +2018,24 @@ function Revenue() {
                   </SelectContent>
                 </Select>
               </div>
+              {transferType === 'versement_espece' && (
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-medium">{tr('Compte fournisseur destination', 'حساب المورد الوجهة')}</Label>
+                  <Select value={transferDestinationSupplierId} onValueChange={setTransferDestinationSupplierId}>
+                    <SelectTrigger className="border-slate-200 focus:ring-blue-500">
+                      <SelectValue placeholder={tr('Banque générale (optionnel)', 'البنك العام (اختياري)')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{tr('Banque générale', 'البنك العام')}</SelectItem>
+                      {supplierBankProfiles.map((supplier) => (
+                        <SelectItem key={`transfer-cash-dst-${supplier.id}`} value={supplier.id}>
+                          {supplier.name} - {supplier.bankAccountName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {transferType === 'banque_a_banque' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
