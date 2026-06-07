@@ -329,7 +329,7 @@ interface AppContextType {
   revenues: Revenue[];
   addRevenue: (revenue: Omit<Revenue, "id"> & { id?: string }) => Promise<void>;
   bankTransfers: BankTransfer[];
-  addBankTransfer: (transfer: BankTransfer) => Promise<void>;
+  addBankTransfer: (transfer: BankTransfer) => Promise<boolean>;
   updateBankTransfer: (id: string, patch: Partial<BankTransfer>) => Promise<void>;
   validateBankTransfer: (id: string, validator?: string) => Promise<void>;
   deleteBankTransfer: (id: string) => Promise<void>;
@@ -1356,7 +1356,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const id = bt.id ?? (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
     const newBt = { ...bt, id };
     const created = await supabaseService.create<BankTransfer>("bank_transfers", newBt);
-    setBankTransfers(prev => [...prev, created || newBt]);
+    if (!created) {
+      return false;
+    }
+    setBankTransfers(prev => [...prev, { ...created, accountDetails: created.accountDetails ?? newBt.accountDetails }]);
     await addFinancialTransaction({
       id,
       date: newBt.date,
@@ -1369,6 +1372,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       status: 'pending',
       createdAt: new Date().toISOString(),
     });
+    return true;
   };
 
   const updateBankTransfer = async (id: string, patch: Partial<BankTransfer>) => {

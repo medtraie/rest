@@ -58,6 +58,31 @@ const formatAccountName = (acc: string, tr: (fr: string, ar: string) => string =
     default: return acc || tr('-', '-');
   }
 };
+const inferTransferSupplierFlow = (transfer: Partial<BankTransfer> | null | undefined) => {
+  const explicit = String(transfer?.accountDetails || '').trim();
+  if (explicit) {
+    if (transfer?.type === 'retrait_bancaire') {
+      return { sourceSupplierBank: explicit, destinationSupplierBank: '' };
+    }
+    return { sourceSupplierBank: '', destinationSupplierBank: explicit };
+  }
+
+  const lead = String(transfer?.description || '').split('|')[0].trim();
+  if (!lead.includes('->')) {
+    return { sourceSupplierBank: '', destinationSupplierBank: '' };
+  }
+  const [leftRaw, rightRaw] = lead.split('->');
+  const left = String(leftRaw || '').trim();
+  const right = String(rightRaw || '').trim();
+
+  if (transfer?.type === 'banque_a_banque') {
+    return { sourceSupplierBank: left, destinationSupplierBank: right };
+  }
+  if (transfer?.type === 'retrait_bancaire') {
+    return { sourceSupplierBank: left, destinationSupplierBank: '' };
+  }
+  return { sourceSupplierBank: '', destinationSupplierBank: right };
+};
 const fmtDate = (iso: string, uiLocale = 'fr-MA') => {
   try {
     return new Date(iso).toLocaleDateString(uiLocale);
@@ -267,15 +292,20 @@ function Revenue() {
           (bankTransfers || []).forEach((transfer: any) => {
             const status = String(transfer?.status || '');
             if (status !== 'pending' && status !== 'validated') return;
-            if (normalizeAccountText(String(transfer?.accountDetails || '')) !== target) return;
+            const inferred = inferTransferSupplierFlow(transfer);
             const source = normalizeAccountText(String(transfer?.sourceAccount || ''));
             const destination = normalizeAccountText(String(transfer?.destinationAccount || ''));
             const amount = Math.abs(Number(transfer?.amount) || 0);
             if (!amount || (source !== 'banque' && destination !== 'banque')) return;
+            const sourceSupplierBank = normalizeAccountText(inferred.sourceSupplierBank);
+            const destinationSupplierBank = normalizeAccountText(inferred.destinationSupplierBank);
+            const matchesSource = !!sourceSupplierBank && sourceSupplierBank === target;
+            const matchesDestination = !!destinationSupplierBank && destinationSupplierBank === target;
+            if (!matchesSource && !matchesDestination) return;
             seenIds.add(String(transfer?.id ?? ''));
             movementCount += 1;
-            if (destination === 'banque') totalIn += amount;
-            if (source === 'banque') totalOut += amount;
+            if (matchesDestination && destination === 'banque') totalIn += amount;
+            if (matchesSource && source === 'banque') totalOut += amount;
           });
 
           (financialTransactions || []).forEach((tx: any) => {
@@ -712,7 +742,7 @@ function Revenue() {
   };
 
   // Submit transfer
-  const handleSubmitTransfer = () => {
+  const handleSubmitTransfer = async () => {
     const amount = parseFloat(transferAmount);
     if (!amount || amount <= 0) {
       toast.error(tr('Veuillez saisir un montant valide', 'يرجى إدخال مبلغ صالح'));
@@ -759,7 +789,7 @@ function Revenue() {
     }
 
     const id = (crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
-    addBankTransfer({
+    const saved = await addBankTransfer({
       id,
       date: transferDate,
       type: transferType,
@@ -770,8 +800,12 @@ function Revenue() {
       description: finalDescription,
       status: 'pending',
     });
-    // Validation immédiate pour mettre à jour les cartes et appliquer les effets
-    validateBankTransfer(id);
+    if (!saved) {
+      toast.error(tr('Le transfert n’a pas été enregistré dans Supabase', 'لم يتم حفظ التحويل في Supabase'));
+      return;
+    }
+    // Validation immédiate بعد تأكيد الحفظ لتفادي سباق create/update.
+    await validateBankTransfer(id);
 
     toast.success(tr('تم تسجيل التحويل واعتماده', 'تم تسجيل التحويل واعتماده'));
     setTransferDialogOpen(false);

@@ -101,16 +101,16 @@ const toCamelShallow = (value: Record<string, any>) =>
   Object.fromEntries(Object.entries(value).map(([key, val]) => [toCamelKey(key), val]));
 const columnMap: Record<string, Record<string, string>> = {
   cash_operations: {
-    accountAffected: 'accountaffected',
-    accountDetails: 'accountdetails',
-    validatedAt: 'validatedat',
-    validatedBy: 'validatedby',
+    accountAffected: 'account_affected',
+    accountDetails: 'account_details',
+    validatedAt: 'validated_at',
+    validatedBy: 'validated_by',
   },
   financial_transactions: {
-    sourceAccount: 'sourceaccount',
-    destinationAccount: 'destinationaccount',
-    accountDetails: 'accountdetails',
-    createdAt: 'createdat',
+    sourceAccount: 'source_account',
+    destinationAccount: 'destination_account',
+    accountDetails: 'account_details',
+    createdAt: 'created_at',
   },
   empty_bottles_stock: {
     bottleTypeId: 'bottletypeid',
@@ -139,10 +139,11 @@ const columnMap: Record<string, Record<string, string>> = {
     purchasePrice: 'purchaseprice',
   },
   bank_transfers: {
-    sourceAccount: 'sourceaccount',
-    destinationAccount: 'destinationaccount',
-    validatedAt: 'validatedat',
-    validatedBy: 'validatedby',
+    sourceAccount: 'source_account',
+    destinationAccount: 'destination_account',
+    accountDetails: 'account_details',
+    validatedAt: 'validated_at',
+    validatedBy: 'validated_by',
   },
   repairs: {
     truckId: 'truck_id',
