@@ -28,10 +28,9 @@
   <body>
     <script>
       (() => {
-        const key = "__sft_sw_cleanup_done";
+        const key = "__sft_sw_cleanup_done_v2";
         try {
-          if (sessionStorage.getItem(key) === "1") return;
-          sessionStorage.setItem(key, "1");
+          if (localStorage.getItem(key) === "1") return;
         } catch {
           return;
         }
@@ -39,21 +38,33 @@
         const hasCaches = "caches" in window;
         if (!hasSw && !hasCaches) return;
         (async () => {
+          let cleaned = false;
           try {
             if (hasSw) {
               const registrations = await navigator.serviceWorker.getRegistrations();
-              await Promise.all(registrations.map((r) => r.unregister()));
+              if (registrations.length > 0) {
+                cleaned = true;
+                await Promise.all(registrations.map((r) => r.unregister()));
+              }
             }
           } catch {}
           try {
             if (hasCaches) {
               const keys = await caches.keys();
-              await Promise.all(keys.map((k) => caches.delete(k)));
+              if (keys.length > 0) {
+                cleaned = true;
+                await Promise.all(keys.map((k) => caches.delete(k)));
+              }
             }
           } catch {}
           try {
-            location.reload();
+            localStorage.setItem(key, "1");
           } catch {}
+          if (cleaned) {
+            try {
+              location.reload();
+            } catch {}
+          }
         })();
       })();
     </script>

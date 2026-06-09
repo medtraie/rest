@@ -10,4 +10,10 @@ export const supabase = createClient(url ?? "", key ?? "", {
       return fetch(input, { ...(init ?? {}), cache: "no-store" });
     },
   },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: "sft-gaz-auth",
+  },
 });
