@@ -157,12 +157,12 @@ const columnMap: Record<string, Record<string, string>> = {
     bankAccountName: 'bank_account_name',
   },
   factory_invoices: {
-    supplierId: 'supplier_id',
-    blReferences: 'bl_references',
-    totalSent: 'total_sent',
-    totalReceived: 'total_received',
-    totalAmount: 'total_amount',
-    paymentMethod: 'payment_method',
+    supplierId: 'supplierId',
+    blReferences: 'blReferences',
+    totalSent: 'totalSent',
+    totalReceived: 'totalReceived',
+    totalAmount: 'totalAmount',
+    paymentMethod: 'paymentMethod',
     createdAt: 'created_at',
   },
 };
