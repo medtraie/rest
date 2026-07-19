@@ -1580,7 +1580,16 @@ const Factory = () => {
     const created = await supabaseService.create<Invoice>('factory_invoices', newInvoice);
     if (!created) {
       const dbErr = (window as any).lastSupabaseError || 'Unknown Error';
-      alert(`Erreur Supabase: ${dbErr}\nPayload: ${JSON.stringify(newInvoice, null, 2)}`);
+      const debugState = (window as any).__factoryInvoiceDebug;
+      const initialPayload = debugState?.initialPayload ?? null;
+      const attempts = Array.isArray(debugState?.attempts) ? debugState.attempts : [];
+      const lastAttempt = attempts.length ? attempts[attempts.length - 1] : null;
+      alert(
+        `Erreur Supabase: ${dbErr}\n` +
+        `Payload: ${JSON.stringify(newInvoice, null, 2)}\n` +
+        `InitialPayload: ${JSON.stringify(initialPayload, null, 2)}\n` +
+        `LastAttemptPayload: ${JSON.stringify(lastAttempt?.payload ?? null, null, 2)}`
+      );
       return;
     }
     const finalInvoice = created;

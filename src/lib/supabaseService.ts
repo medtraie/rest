@@ -157,12 +157,12 @@ const columnMap: Record<string, Record<string, string>> = {
     bankAccountName: 'bank_account_name',
   },
   factory_invoices: {
-    supplierId: 'supplierId',
-    blReferences: 'blReferences',
-    totalSent: 'totalSent',
-    totalReceived: 'totalReceived',
-    totalAmount: 'totalAmount',
-    paymentMethod: 'paymentMethod',
+    supplierId: 'supplier_id',
+    blReferences: 'bl_references',
+    totalSent: 'total_sent',
+    totalReceived: 'total_received',
+    totalAmount: 'total_amount',
+    paymentMethod: 'payment_method',
     createdAt: 'created_at',
   },
 };
@@ -171,7 +171,6 @@ const resolveColumnName = (table: string, key: string) => {
   const tableMap = columnMap[table] || {};
   const columns = tableColumnHints[table] || [];
   const explicit = tableMap[key];
-  if (explicit) return explicit;
   const normalizedTarget = key.toLowerCase();
   if (columns.length) {
     const direct = columns.find(col => col.toLowerCase() === normalizedTarget);
@@ -183,7 +182,7 @@ const resolveColumnName = (table: string, key: string) => {
     const candidates = [snake, flat, snake.replace(/_/g, '')];
     const candidate = candidates.find(c => columns.includes(c));
     if (candidate) return candidate;
-    return null;
+    return explicit ?? null;
   }
   return explicit ?? null;
 };
@@ -192,6 +191,18 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
   const columns = tableColumnHints[table] || [];
   for (const [key, val] of Object.entries(value)) {
     if (val === undefined || (typeof val === 'number' && isNaN(val))) continue;
+    if (table === 'factory_invoices' && !columns.length) {
+      // Some existing Supabase projects ended up with camelCase or flat lowercase
+      // columns for this table. Emit a few candidates; create()/update() already
+      // strips missing columns on retry until the real schema remains.
+      payload[key] = val;
+      const snake = toSnakeKey(key);
+      payload[snake] = val;
+      const flat = key.toLowerCase();
+      payload[flat] = val;
+      payload[snake.replace(/_/g, '')] = val;
+      continue;
+    }
     const resolved = resolveColumnName(table, key);
     if (resolved) {
       payload[resolved] = val;
@@ -209,10 +220,15 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
   return payload;
 };
 const missingColumnRegex = /Could not find the '([^']+)' column/;
-const stripMissingColumn = (payload: Record<string, any>, column: string) => {
+const stripMissingColumn = (payload: Record<string, any>, column: string, table?: string) => {
   const next = { ...payload };
   // Remove the exact column reported by Supabase
   delete next[column];
+  if (table === 'factory_invoices') {
+    // Keep alternative candidates for this table so retries can converge
+    // on the real schema instead of deleting sibling variants too early.
+    return next;
+  }
   // Also try to remove variations
   const variations = [
     toSnakeKey(column),
@@ -551,6 +567,15 @@ export const supabaseService = {
     if (!Object.keys(payload).length) return null;
     
     let lastError = null;
+    // #region debug-point factory-invoice-create
+    if (table === 'factory_invoices') {
+      (window as any).__factoryInvoiceDebug = {
+        nextItem: { ...nextItem },
+        initialPayload: { ...payload },
+        attempts: [],
+      };
+    }
+    // #endregion
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const { error } = await supabase.from(table).insert(payload);
       if (error) {
@@ -559,6 +584,16 @@ export const supabaseService = {
         if (table === 'factory_invoices') {
           console.error(`FACTORY INVOICE INSERT ERROR: ${error.message}`);
           (window as any).lastSupabaseError = error.message; // Expose globally for debugging
+          // #region debug-point factory-invoice-create
+          const debugState = (window as any).__factoryInvoiceDebug;
+          if (debugState) {
+            debugState.attempts.push({
+              attempt: attempt + 1,
+              payload: { ...payload },
+              error: error.message,
+            });
+          }
+          // #endregion
         }
       }
       if (!error) {
@@ -591,12 +626,12 @@ export const supabaseService = {
       const missingCol = match[1];
       if (uid && missingCol === 'user_id') {
         console.log(`Retrying ${table} insert without user_id scope.`);
-        payload = stripMissingColumn(payload, missingCol);
+        payload = stripMissingColumn(payload, missingCol, table);
         if (!Object.keys(payload).length) return null;
         continue;
       }
       console.log(`Stripping missing column: ${missingCol}`);
-      payload = stripMissingColumn(payload, missingCol);
+      payload = stripMissingColumn(payload, missingCol, table);
       if (!Object.keys(payload).length) return null;
     }
     console.error(`Error inserting into ${table}:`, "Too many missing columns");
