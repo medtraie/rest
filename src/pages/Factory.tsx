@@ -1567,20 +1567,20 @@ const Factory = () => {
 
     const newInvoice: any = {
       id: `INV-${Date.now()}`,
-      supplier_id: selectedSupplierForInvoice,
+      supplierId: selectedSupplierForInvoice,
       date: new Date().toISOString(),
-      bl_references: selectedBLsForInvoice,
-      total_sent: totalSentSelected || 0,
-      total_received: totalReceivedSelected || 0,
-      total_amount: totalAmountSelected || 0,
+      blReferences: selectedBLsForInvoice,
+      totalSent: totalSentSelected || 0,
+      totalReceived: totalReceivedSelected || 0,
+      totalAmount: totalAmountSelected || 0,
       status,
-      payment_method: invoicePaymentMethod
+      paymentMethod: invoicePaymentMethod
     };
 
     const created = await supabaseService.create<Invoice>('factory_invoices', newInvoice);
     if (!created) {
-      alert(tr('Erreur de connexion à Supabase. La facture n\'a pas été enregistrée.', 'خطأ في الاتصال بـ Supabase. لم يتم حفظ الفاتورة.'));
-      console.error('Invoice payload:', newInvoice);
+      const dbErr = (window as any).lastSupabaseError || 'Unknown Error';
+      alert(`Erreur Supabase: ${dbErr}\nPayload: ${JSON.stringify(newInvoice, null, 2)}`);
       return;
     }
     const finalInvoice = created;

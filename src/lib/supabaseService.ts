@@ -549,12 +549,16 @@ export const supabaseService = {
         : (item as Record<string, any>);
     let payload = toWritePayload(table, nextItem);
     if (!Object.keys(payload).length) return null;
+    
+    let lastError = null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const { error } = await supabase.from(table).insert(payload);
       if (error) {
+        lastError = error;
         console.log(`[DEBUG] Insert error in ${table}:`, error);
         if (table === 'factory_invoices') {
           console.error(`FACTORY INVOICE INSERT ERROR: ${error.message}`);
+          (window as any).lastSupabaseError = error.message; // Expose globally for debugging
         }
       }
       if (!error) {
