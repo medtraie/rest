@@ -1565,25 +1565,30 @@ const Factory = () => {
       return;
     }
 
-    const newInvoice: Invoice = {
+    const newInvoice: any = {
       id: `INV-${Date.now()}`,
-      supplierId: selectedSupplierForInvoice,
+      supplier_id: selectedSupplierForInvoice,
       date: new Date().toISOString(),
-      blReferences: selectedBLsForInvoice,
-      totalSent: totalSentSelected,
-      totalReceived: totalReceivedSelected,
-      totalAmount: totalAmountSelected,
+      bl_references: selectedBLsForInvoice,
+      total_sent: totalSentSelected || 0,
+      total_received: totalReceivedSelected || 0,
+      total_amount: totalAmountSelected || 0,
       status,
-      paymentMethod: invoicePaymentMethod
+      payment_method: invoicePaymentMethod
     };
 
     const created = await supabaseService.create<Invoice>('factory_invoices', newInvoice);
-    const finalInvoice = created || newInvoice;
+    if (!created) {
+      alert(tr('Erreur de connexion à Supabase. La facture n\'a pas été enregistrée.', 'خطأ في الاتصال بـ Supabase. لم يتم حفظ الفاتورة.'));
+      console.error('Invoice payload:', newInvoice);
+      return;
+    }
+    const finalInvoice = created;
     
     setInvoices(prev => [finalInvoice, ...prev]);
     
     // Add to global transactions
-    addTransaction({
+    await addTransaction({
       type: 'factory_invoice',
       date: finalInvoice.date,
       supplierId: finalInvoice.supplierId,
@@ -1626,37 +1631,41 @@ const Factory = () => {
         alert(tr('Ce fournisseur n’a pas de compte banque configuré.', 'هذا المورد ليس لديه حساب بنك مضبوط.'));
         return;
       }
-      if (amount > 0) {
-        await addCashOperation({
-          date: new Date().toISOString(),
-          name: `Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
-          amount,
-          type: 'retrait',
-          accountAffected: 'banque',
-          accountDetails: supplierBankAccount || undefined,
-          status: 'validated',
-        });
-      }
       const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'paid' });
       if (updated) {
+        if (amount > 0) {
+          await addCashOperation({
+            date: new Date().toISOString(),
+            name: `Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
+            amount,
+            type: 'retrait',
+            accountAffected: 'banque',
+            accountDetails: supplierBankAccount || undefined,
+            status: 'validated',
+          });
+        }
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? updated : inv));
+      } else {
+        alert(tr('Erreur de connexion à Supabase.', 'خطأ في الاتصال بـ Supabase.'));
       }
     } else {
       const amount = invoice.totalAmount || 0;
-      if (amount > 0) {
-        await addCashOperation({
-          date: new Date().toISOString(),
-          name: `Annulation Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
-          amount,
-          type: 'versement',
-          accountAffected: 'banque',
-          accountDetails: supplierBankAccount || undefined,
-          status: 'validated',
-        });
-      }
       const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'pending' });
       if (updated) {
+        if (amount > 0) {
+          await addCashOperation({
+            date: new Date().toISOString(),
+            name: `Annulation Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
+            amount,
+            type: 'versement',
+            accountAffected: 'banque',
+            accountDetails: supplierBankAccount || undefined,
+            status: 'validated',
+          });
+        }
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? updated : inv));
+      } else {
+        alert(tr('Erreur de connexion à Supabase.', 'خطأ في الاتصال بـ Supabase.'));
       }
     }
   };

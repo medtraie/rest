@@ -15,7 +15,7 @@ const hasNoRowsSingleError = (message?: string) => {
   const text = (message || '').toLowerCase();
   return text.includes('json object requested') && text.includes('no rows');
 };
-const sharedTables = new Set(["supply_orders", "return_orders"]);
+const sharedTables = new Set(["supply_orders", "return_orders", "factory_invoices"]);
 const SHARED_TABLES_PAGE_SIZE = 1000;
 const fetchSharedTableRows = async (table: string) => {
   const rows: Record<string, any>[] = [];
@@ -23,12 +23,14 @@ const fetchSharedTableRows = async (table: string) => {
 
   while (true) {
     const to = from + SHARED_TABLES_PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from(table)
-      .select("*")
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    let query = supabase.from(table).select("*").order("date", { ascending: false });
+    
+    // Only order by created_at if not factory_invoices to avoid missing column errors if schema differs
+    if (table !== 'factory_invoices') {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    const { data, error } = await query.range(from, to);
 
     if (error) {
       return { data: null, error };
@@ -153,6 +155,15 @@ const columnMap: Record<string, Record<string, string>> = {
   },
   suppliers: {
     bankAccountName: 'bank_account_name',
+  },
+  factory_invoices: {
+    supplierId: 'supplier_id',
+    blReferences: 'bl_references',
+    totalSent: 'total_sent',
+    totalReceived: 'total_received',
+    totalAmount: 'total_amount',
+    paymentMethod: 'payment_method',
+    createdAt: 'created_at',
   },
 };
 const tableColumnHints: Record<string, string[]> = {};
@@ -425,7 +436,31 @@ const normalizeSupplyOrderRow = (row: Record<string, any>) => {
   };
 };
 
+const normalizeFactoryInvoiceRow = (row: Record<string, any>) => {
+  let blReferences: string[] = [];
+  const rawBl = row.blReferences ?? row.bl_references ?? row.blreferences;
+  if (Array.isArray(rawBl)) {
+    blReferences = rawBl;
+  } else if (typeof rawBl === "string") {
+    try {
+      blReferences = JSON.parse(rawBl);
+    } catch {
+      blReferences = [];
+    }
+  }
+  return {
+    ...row,
+    blReferences,
+    totalSent: Number(row.totalSent ?? row.total_sent ?? row.totalsent) || 0,
+    totalReceived: Number(row.totalReceived ?? row.total_received ?? row.totalreceived) || 0,
+    totalAmount: Number(row.totalAmount ?? row.total_amount ?? row.totalamount) || 0,
+  };
+};
+
 const normalizeRow = (table: string, row: Record<string, any>) => {
+  if (table === 'factory_invoices') {
+    return normalizeFactoryInvoiceRow(row);
+  }
   if (table === 'factory_operations') {
     return normalizeFactoryOperationRow(row);
   }
@@ -516,6 +551,12 @@ export const supabaseService = {
     if (!Object.keys(payload).length) return null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const { error } = await supabase.from(table).insert(payload);
+      if (error) {
+        console.log(`[DEBUG] Insert error in ${table}:`, error);
+        if (table === 'factory_invoices') {
+          console.error(`FACTORY INVOICE INSERT ERROR: ${error.message}`);
+        }
+      }
       if (!error) {
         const insertedId = (payload.id ?? (nextItem as Record<string, any>).id) as string | number | undefined;
         if (insertedId !== undefined && insertedId !== null && insertedId !== "") {
