@@ -22,29 +22,46 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) return;
+          const normalizedId = id.replace(/\\/g, "/");
+          if (!normalizedId.includes("node_modules")) return;
 
-          if (id.includes("jspdf") || id.includes("html2canvas")) {
+          if (normalizedId.includes("jspdf") || normalizedId.includes("html2canvas")) {
             return "vendor_pdf";
           }
 
-          if (id.includes("leaflet")) {
+          if (normalizedId.includes("leaflet")) {
             return "vendor_map";
           }
 
-          if (id.includes("@supabase")) {
+          if (normalizedId.includes("@supabase")) {
             return "vendor_supabase";
           }
 
-          if (id.includes("react") || id.includes("scheduler")) {
+          const isReactCore =
+            normalizedId.includes("/node_modules/react/") ||
+            normalizedId.includes("/node_modules/react-dom/") ||
+            normalizedId.includes("/node_modules/react-router/") ||
+            normalizedId.includes("/node_modules/react-router-dom/") ||
+            normalizedId.includes("/node_modules/react-is/") ||
+            normalizedId.includes("/node_modules/use-sync-external-store/") ||
+            normalizedId.includes("/node_modules/scheduler/") ||
+            normalizedId.includes("/node_modules/@remix-run/router/");
+
+          if (isReactCore) {
             return "vendor_react";
           }
 
-          if (id.includes("@radix-ui") || id.includes("framer-motion") || id.includes("embla-carousel")) {
+          if (
+            normalizedId.includes("@radix-ui") ||
+            normalizedId.includes("framer-motion") ||
+            normalizedId.includes("embla-carousel") ||
+            normalizedId.includes("/node_modules/sonner/") ||
+            normalizedId.includes("/node_modules/next-themes/")
+          ) {
             return "vendor_ui";
           }
 
-          if (id.includes("@tanstack")) {
+          if (normalizedId.includes("@tanstack")) {
             return "vendor_query";
           }
         },
