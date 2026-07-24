@@ -235,19 +235,19 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LanguageProvider>
-          <PageTransitionProvider>
-            <AppProvider>
-            <UIToaster />
-            <Sonner />
-            <BrowserRouter>
-              <ErrorBoundary>
+        <ErrorBoundary>
+          <LanguageProvider>
+            <PageTransitionProvider>
+              <AppProvider>
+              <UIToaster />
+              <Sonner />
+              <BrowserRouter>
                 <AppContent supabaseConfigured={supabaseConfigured} />
-              </ErrorBoundary>
-            </BrowserRouter>
-            </AppProvider>
-          </PageTransitionProvider>
-        </LanguageProvider>
+              </BrowserRouter>
+              </AppProvider>
+            </PageTransitionProvider>
+          </LanguageProvider>
+        </ErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

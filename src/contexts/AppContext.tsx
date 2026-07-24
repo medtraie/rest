@@ -33,8 +33,16 @@ import {
 
 function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
-    const stickyValue = window.localStorage.getItem(key);
-    return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+    try {
+      const stickyValue = window.localStorage.getItem(key);
+      return stickyValue !== null ? JSON.parse(stickyValue) : defaultValue;
+    } catch (error) {
+      console.warn(`Failed to parse sticky state for "${key}", resetting to default.`, error);
+      try {
+        window.localStorage.removeItem(key);
+      } catch {}
+      return defaultValue;
+    }
   });
   React.useEffect(() => {
     let active = true;
