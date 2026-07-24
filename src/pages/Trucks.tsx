@@ -22,10 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { loadPdfTools } from '@/lib/pdf';
 
 const formatMetric = (value: number, locale: string, decimals: number) =>
   value.toLocaleString(locale, {
@@ -130,7 +129,11 @@ const TruckTypeBadge = ({
 
 const Trucks = () => {
   const { trucks, drivers, updateTruck, deleteTruck, clearAllTrucks, bulkSetRepos, bulkReactivate, bulkDissociateDriver, driverHasActiveTruck, truckAssignments } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
+  const availableDrivers = useMemo(() => drivers.filter((driver: any) => !driver.isUnavailable), [drivers]);
+  const driversById = useMemo(
+    () => new Map(drivers.map((driver: any) => [String(driver.id), driver])),
+    [drivers]
+  );
   const { toast } = useToast();
   const t = useT();
   const { language } = useLanguage();
@@ -165,6 +168,7 @@ const Trucks = () => {
     return base64;
   }, []);
   const createPdfDoc = React.useCallback(async () => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
     if (isArabicPdf) {
       const fontData = await getArabicPdfFontData();
@@ -172,9 +176,9 @@ const Trucks = () => {
       doc.addFont(arabicPdfFontFile, arabicPdfFontName, 'normal');
       doc.setFont(arabicPdfFontName, 'normal');
     }
-    return doc;
+    return { doc, autoTable };
   }, [isArabicPdf, getArabicPdfFontData]);
-  const setPdfFont = (doc: jsPDF, weight: 'normal' | 'bold' = 'normal') => {
+  const setPdfFont = (doc: any, weight: 'normal' | 'bold' = 'normal') => {
     if (isArabicPdf) {
       doc.setFont(arabicPdfFontName, 'normal');
       return;
@@ -233,7 +237,7 @@ const Trucks = () => {
   const filteredTrucks = useMemo(() => {
     return trucks
       .filter(t => {
-        const driver = drivers.find(d => d.id === t.driverId);
+        const driver = driversById.get(String(t.driverId));
         const matchesSearch =
           t.matricule.toLowerCase().includes(search.toLowerCase()) ||
           (driver?.name || '').toLowerCase().includes(search.toLowerCase());
@@ -249,8 +253,8 @@ const Trucks = () => {
           return cmp * (sortOrder === 'asc' ? 1 : -1);
         }
         if (sortBy === 'name') {
-          const an = (drivers.find(d => d.id === a.driverId)?.name || '').toLowerCase();
-          const bn = (drivers.find(d => d.id === b.driverId)?.name || '').toLowerCase();
+          const an = (driversById.get(String(a.driverId))?.name || '').toLowerCase();
+          const bn = (driversById.get(String(b.driverId))?.name || '').toLowerCase();
           const cmp = an.localeCompare(bn);
           return cmp * (sortOrder === 'asc' ? 1 : -1);
         }
@@ -259,11 +263,11 @@ const Trucks = () => {
         const cmp = ad - bd;
         return cmp * (sortOrder === 'asc' ? 1 : -1);
       });
-  }, [trucks, drivers, search, filters, sortBy, sortOrder]);
+  }, [trucks, driversById, search, filters, sortBy, sortOrder]);
   const commandFilteredTrucks = useMemo(() => {
     const term = commandSearch.trim().toLowerCase();
     return filteredTrucks.filter((truck) => {
-      const driverName = (drivers.find((d) => d.id === truck.driverId)?.name || '').toLowerCase();
+      const driverName = (driversById.get(String(truck.driverId))?.name || '').toLowerCase();
       const matchesTerm =
         !term ||
         truck.matricule.toLowerCase().includes(term) ||
@@ -279,7 +283,7 @@ const Trucks = () => {
       }
       return !truck.driverId;
     });
-  }, [filteredTrucks, commandSearch, fleetPulse, drivers]);
+  }, [filteredTrucks, commandSearch, fleetPulse, driversById]);
   const truckPriority = useMemo(() => {
     return new Map(commandFilteredTrucks.map((truck) => {
       const updatedAt = truck.updatedAt ? Date.parse(truck.updatedAt) : 0;
@@ -292,6 +296,19 @@ const Trucks = () => {
   const criticalCount = useMemo(() => {
     return commandFilteredTrucks.filter((truck) => truckPriority.get(truck.id)?.level === 'critical').length;
   }, [commandFilteredTrucks, truckPriority]);
+  const commandMetrics = useMemo(() => {
+    const active = commandFilteredTrucks.filter((truck) => truck.isActive).length;
+    const withoutDriver = commandFilteredTrucks.filter((truck) => !truck.driverId).length;
+    const watch = commandFilteredTrucks.filter((truck) => truckPriority.get(truck.id)?.level === 'watch').length;
+    const stable = Math.max(commandFilteredTrucks.length - criticalCount - watch, 0);
+    return {
+      visible: commandFilteredTrucks.length,
+      active,
+      withoutDriver,
+      watch,
+      stable,
+    };
+  }, [commandFilteredTrucks, criticalCount, truckPriority]);
   const criticalQueue = useMemo(() => {
     return commandFilteredTrucks
       .filter((truck) => truckPriority.get(truck.id)?.level === 'critical')
@@ -733,7 +750,7 @@ const Trucks = () => {
   const downloadAssignmentHistoryPDF = async () => {
     if (!selectedHistoryTruck) return;
 
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const now = new Date();
     const dateStr = now.toLocaleString(uiLocale);
 
@@ -943,92 +960,136 @@ const Trucks = () => {
         })}
       </div>
       </div>
-      <Card className="border-none shadow-xl bg-white/95 rounded-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white p-5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 font-bold text-lg">
-                <Command className="w-5 h-5" />
-                {tr('Centre de Commande Camions', 'مركز قيادة الشاحنات')}
+      <Card className="border-none overflow-hidden rounded-[28px] bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white shadow-2xl shadow-slate-300/30">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.28),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.2),transparent_28%)]" />
+          <div className="relative p-5 md:p-6 space-y-5">
+            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-5">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-100">
+                  <Command className="w-3.5 h-3.5" />
+                  {tr('Commande 2026', 'لوحة قيادة 2026')}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <h2 className="text-2xl md:text-3xl font-black tracking-tight">
+                    {tr('Centre de Commande Camions', 'مركز قيادة الشاحنات')}
+                  </h2>
+                  <Badge className="border-none bg-emerald-400/15 text-emerald-100 hover:bg-emerald-400/15">
+                    {opsPresetLabel}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-200/90">
+                  {tr(
+                    'Pilotage temps réel, priorités d’exploitation et macros de décision dans une seule surface de contrôle.',
+                    'قيادة لحظية، أولويات تشغيل، وماكروهات قرار داخل سطح تحكم واحد واضح وسريع.'
+                  )}
+                </p>
+                <p className="mt-2 text-xs text-indigo-100/80">
+                  {tv('sections.commandCenterShortcuts', 'Alt+1 Tableau · Alt+2 Cartes · Alt+3 Sécurité · Alt+4 Prévision · Alt+K Recherche', 'Alt+1 جدول · Alt+2 بطاقات · Alt+3 أمان · Alt+4 توقع · Alt+K بحث')}
+                </p>
               </div>
-              <p className="text-indigo-100 text-sm mt-1">{tv('sections.commandCenterShortcuts', 'Alt+1 Tableau · Alt+2 Cartes · Alt+3 Sécurité · Alt+4 Prévision · Alt+K Recherche', 'Alt+1 جدول · Alt+2 بطاقات · Alt+3 أمان · Alt+4 توقع · Alt+K بحث')}</p>
+
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 min-w-[280px]">
+                <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-3">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{tr('Visibles', 'مرئية')}</div>
+                  <div className="mt-2 text-2xl font-black">{commandMetrics.visible}</div>
+                  <div className="text-xs text-slate-300">{tr('dans la fenêtre active', 'في النافذة الحالية')}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-3">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{tr('Actifs', 'نشطة')}</div>
+                  <div className="mt-2 text-2xl font-black">{commandMetrics.active}</div>
+                  <div className="text-xs text-emerald-200">{commandMetrics.stable} {tr('stables', 'مستقرة')}</div>
+                </div>
+                <div className="rounded-2xl border border-rose-300/20 bg-rose-500/10 backdrop-blur-xl p-3">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-rose-100">{tr('Critiques', 'حرجة')}</div>
+                  <div className="mt-2 text-2xl font-black text-white">{criticalCount}</div>
+                  <div className="text-xs text-rose-100/80">{commandMetrics.watch} {tr('à surveiller', 'تحت المراقبة')}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/10 backdrop-blur-xl p-3">
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-slate-300">{tr('Sans chauffeur', 'بدون سائق')}</div>
+                  <div className="mt-2 text-2xl font-black">{commandMetrics.withoutDriver}</div>
+                  <div className="text-xs text-amber-100">{tr('à traiter vite', 'تحتاج معالجة سريعة')}</div>
+                </div>
+                <div className="col-span-2 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 backdrop-blur-xl p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-cyan-100">{tr('Mode tactique', 'الوضع التكتيكي')}</div>
+                      <div className="mt-2 text-lg font-black text-white">{opsPresetLabel}</div>
+                    </div>
+                    <ArrowUpRight className="w-5 h-5 text-cyan-100" />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-2 min-w-[320px]">
-              <div className="app-panel-soft rounded-lg bg-white/10 border border-white/20 p-2">
-                <div className="text-[10px] uppercase tracking-wider text-indigo-100">{tr('Visibles', 'مرئية')}</div>
-                <div className="text-lg font-black">{commandFilteredTrucks.length}</div>
+
+            <div className="grid lg:grid-cols-[1.4fr_0.8fr] gap-4">
+              <div className="rounded-[24px] border border-white/10 bg-white/8 backdrop-blur-2xl p-4 md:p-5">
+                <div className="grid md:grid-cols-[1fr_auto] gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      id="trucks-command-search"
+                      value={commandSearch}
+                      onChange={(e) => setCommandSearch(e.target.value)}
+                      placeholder={tu('placeholder.quickCommand', 'Commande rapide par matricule ou chauffeur...')}
+                      className="h-12 rounded-2xl border-white/10 bg-slate-950/50 pl-10 text-white placeholder:text-slate-400"
+                    />
+                  </div>
+                  <div className="inline-flex items-center rounded-2xl border border-white/10 bg-slate-950/40 p-1">
+                    <Button size="sm" variant={trucksView === 'table' ? 'secondary' : 'ghost'} className={trucksView === 'table' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200'} onClick={() => setTrucksView('table')}>
+                      <Table2 className="w-4 h-4 mr-1.5" />
+                      {tu('views.table', 'Tableau')}
+                    </Button>
+                    <Button size="sm" variant={trucksView === 'cards' ? 'secondary' : 'ghost'} className={trucksView === 'cards' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-200'} onClick={() => setTrucksView('cards')}>
+                      <LayoutGrid className="w-4 h-4 mr-1.5" />
+                      {tu('views.cards', 'Cartes')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button size="sm" variant={fleetPulse === 'all' ? 'default' : 'outline'} className={fleetPulse === 'all' ? 'bg-white text-slate-900 hover:bg-slate-100' : 'border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => setFleetPulse('all')}>{tu('filters.all', 'Tout')}</Button>
+                  <Button size="sm" variant={fleetPulse === 'active' ? 'default' : 'outline'} className={fleetPulse === 'active' ? 'bg-emerald-400 text-slate-950 hover:bg-emerald-300' : 'border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => setFleetPulse('active')}>
+                    <Activity className="w-4 h-4 mr-1.5" />
+                    {tu('stats.active', 'Actifs')}
+                  </Button>
+                  <Button size="sm" variant={fleetPulse === 'inactive' ? 'default' : 'outline'} className={fleetPulse === 'inactive' ? 'bg-amber-300 text-slate-950 hover:bg-amber-200' : 'border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => setFleetPulse('inactive')}>
+                    <PauseCircle className="w-4 h-4 mr-1.5" />
+                    {tu('stats.inactive', 'Inactifs')}
+                  </Button>
+                  <Button size="sm" variant={fleetPulse === 'nodriver' ? 'default' : 'outline'} className={fleetPulse === 'nodriver' ? 'bg-cyan-300 text-slate-950 hover:bg-cyan-200' : 'border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => setFleetPulse('nodriver')}>
+                    <UserX className="w-4 h-4 mr-1.5" />
+                    {tu('stats.withoutDriver', 'Sans chauffeur')}
+                  </Button>
+                  <Button size="sm" variant={fleetPulse === 'critical' ? 'default' : 'outline'} className={fleetPulse === 'critical' ? 'bg-rose-400 text-white hover:bg-rose-300' : 'border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => setFleetPulse('critical')}>
+                    <AlertCircle className="w-4 h-4 mr-1.5" />
+                    {tu('stats.critical', 'Critiques')}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="ml-auto text-slate-200 hover:bg-white/10 hover:text-white" onClick={() => setCommandSearch('')}>
+                    <Zap className="w-4 h-4 mr-1.5" />
+                    {tu('actions.reset', 'Réinitialiser')}
+                  </Button>
+                </div>
               </div>
-              <div className="app-panel-soft rounded-lg bg-white/10 border border-white/20 p-2">
-                <div className="text-[10px] uppercase tracking-wider text-indigo-100">{tr('Actifs', 'نشطة')}</div>
-                <div className="text-lg font-black">{commandFilteredTrucks.filter(t => t.isActive).length}</div>
-              </div>
-              <div className="app-panel-soft rounded-lg bg-white/10 border border-white/20 p-2">
-                <div className="text-[10px] uppercase tracking-wider text-indigo-100">{tr('Sans chauffeur', 'بدون سائق')}</div>
-                <div className="text-lg font-black">{commandFilteredTrucks.filter(t => !t.driverId).length}</div>
-              </div>
-              <div className="app-panel-soft rounded-lg bg-rose-500/20 border border-rose-300/40 p-2">
-                <div className="text-[10px] uppercase tracking-wider text-rose-100">{tr('Critiques', 'حرجة')}</div>
-                <div className="text-lg font-black text-rose-50">{criticalCount}</div>
+
+              <div className="rounded-[24px] border border-white/10 bg-white/8 backdrop-blur-2xl p-4 md:p-5">
+                <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-300">{tr('Macros rapides', 'ماكروهات سريعة')}</div>
+                <div className="mt-3 grid gap-2">
+                  <Button size="sm" variant={opsPreset === 'balanced' ? 'secondary' : 'outline'} className={opsPreset === 'balanced' ? 'justify-start bg-white text-slate-900 hover:bg-slate-100' : 'justify-start border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => applyOpsPreset('balanced')}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {tu('presets.balanced', 'Équilibré')}
+                  </Button>
+                  <Button size="sm" variant={opsPreset === 'safety' ? 'secondary' : 'outline'} className={opsPreset === 'safety' ? 'justify-start bg-amber-300 text-slate-950 hover:bg-amber-200' : 'justify-start border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => applyOpsPreset('safety')}>
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    {tu('presets.safety', 'Sécurité')}
+                  </Button>
+                  <Button size="sm" variant={opsPreset === 'dispatch' ? 'secondary' : 'outline'} className={opsPreset === 'dispatch' ? 'justify-start bg-cyan-300 text-slate-950 hover:bg-cyan-200' : 'justify-start border-white/15 bg-white/5 text-slate-100 hover:bg-white/10'} onClick={() => applyOpsPreset('dispatch')}>
+                    <ArrowUpRight className="w-4 h-4 mr-2" />
+                    {tu('presets.dispatch', 'Expédition')}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="grid md:grid-cols-3 gap-3">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                id="trucks-command-search"
-                value={commandSearch}
-                onChange={(e) => setCommandSearch(e.target.value)}
-                placeholder={tu('placeholder.quickCommand', 'Commande rapide par matricule ou chauffeur...')}
-                className="pl-9 h-11 rounded-xl border-slate-200 bg-slate-50"
-              />
-            </div>
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-              <Button size="sm" variant={trucksView === 'table' ? 'secondary' : 'ghost'} className={trucksView === 'table' ? 'bg-white shadow-sm' : ''} onClick={() => setTrucksView('table')}>
-                <Table2 className="w-4 h-4 mr-1.5" />
-                {tu('views.table', 'Tableau')}
-              </Button>
-              <Button size="sm" variant={trucksView === 'cards' ? 'secondary' : 'ghost'} className={trucksView === 'cards' ? 'bg-white shadow-sm' : ''} onClick={() => setTrucksView('cards')}>
-                <LayoutGrid className="w-4 h-4 mr-1.5" />
-                {tu('views.cards', 'Cartes')}
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant={fleetPulse === 'all' ? 'default' : 'outline'} onClick={() => setFleetPulse('all')}>{tu('filters.all', 'Tout')}</Button>
-            <Button size="sm" variant={fleetPulse === 'active' ? 'default' : 'outline'} onClick={() => setFleetPulse('active')}>
-              <Activity className="w-4 h-4 mr-1.5" />
-              {tu('stats.active', 'Actifs')}
-            </Button>
-            <Button size="sm" variant={fleetPulse === 'inactive' ? 'default' : 'outline'} onClick={() => setFleetPulse('inactive')}>
-              <PauseCircle className="w-4 h-4 mr-1.5" />
-              {tu('stats.inactive', 'Inactifs')}
-            </Button>
-            <Button size="sm" variant={fleetPulse === 'nodriver' ? 'default' : 'outline'} onClick={() => setFleetPulse('nodriver')}>
-              <UserX className="w-4 h-4 mr-1.5" />
-              {tu('stats.withoutDriver', 'Sans chauffeur')}
-            </Button>
-            <Button size="sm" variant={fleetPulse === 'critical' ? 'default' : 'outline'} onClick={() => setFleetPulse('critical')}>
-              <AlertCircle className="w-4 h-4 mr-1.5" />
-              {tu('stats.critical', 'Critiques')}
-            </Button>
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setCommandSearch('')}>
-              <Zap className="w-4 h-4 mr-1.5" />
-              {tu('actions.reset', 'Réinitialiser')}
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-            <Button size="sm" variant={opsPreset === 'balanced' ? 'default' : 'outline'} onClick={() => applyOpsPreset('balanced')}>
-              {tu('presets.balanced', 'Équilibré')}
-            </Button>
-            <Button size="sm" variant={opsPreset === 'safety' ? 'default' : 'outline'} onClick={() => applyOpsPreset('safety')}>
-              {tu('presets.safety', 'Sécurité')}
-            </Button>
-            <Button size="sm" variant={opsPreset === 'dispatch' ? 'default' : 'outline'} onClick={() => applyOpsPreset('dispatch')}>
-              {tu('presets.dispatch', 'Expédition')}
-            </Button>
           </div>
         </div>
       </Card>

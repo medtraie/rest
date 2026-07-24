@@ -13,8 +13,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { kvGet, kvSet } from "@/lib/kv";
 import { useLanguage } from "@/contexts/LanguageContext";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { loadPdfTools } from "@/lib/pdf";
 import "leaflet/dist/leaflet.css";
 
 type GpsDevice = {
@@ -153,6 +152,15 @@ const TransferLiveStudio = () => {
   const colors = useMemo(() => ["#2563eb", "#0ea5e9", "#8b5cf6", "#22c55e", "#f59e0b", "#ef4444", "#14b8a6"], []);
   const zoneColorPresets = useMemo(() => ["#2563eb", "#16a34a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"], []);
 
+  const activeMissionByDeviceId = useMemo(() => {
+    const map = new Map<string, TransferMission>();
+    missions.forEach((mission) => {
+      if (mission.status === "termine") return;
+      map.set(mission.deviceId, mission);
+    });
+    return map;
+  }, [missions]);
+
   const colorFor = useCallback((id: string) => {
     const hash = id.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0);
     return colors[hash % colors.length];
@@ -290,7 +298,7 @@ const TransferLiveStudio = () => {
 
   const transferRows = useMemo(() => {
     return devices.map((device) => {
-      const activeMission = missions.find((m) => m.deviceId === device.id && m.status !== "termine");
+      const activeMission = activeMissionByDeviceId.get(device.id);
       const path = traceHistory[device.id] || [];
       
       let distanceKm = 0;
@@ -359,7 +367,7 @@ const TransferLiveStudio = () => {
         mission: activeMission,
       };
     });
-  }, [costPerKm, depotZone, devices, traceHistory, tr, usineZone, missions]);
+  }, [costPerKm, depotZone, devices, traceHistory, tr, usineZone, activeMissionByDeviceId]);
 
   const activeTransfers = transferRows.filter((row) => row.status === tr("En transfert", "في التحويل")).length;
   const totalCost = transferRows.reduce((sum, row) => sum + row.cost, 0);
@@ -407,7 +415,7 @@ const TransferLiveStudio = () => {
     
     setDevices(prev => prev.map(d => {
       // Find mission for this device
-      const activeMission = missions.find(m => m.deviceId === d.id && m.status !== "termine");
+      const activeMission = activeMissionByDeviceId.get(d.id);
       if (!activeMission) return d;
       
       // Move towards Usine
@@ -444,7 +452,7 @@ const TransferLiveStudio = () => {
     }));
     
     simulationRef.current.timer = window.setTimeout(runSimulationStep, 2000); // Update every 2s
-  }, [usineZone, depotZone, missions]);
+  }, [usineZone, depotZone, activeMissionByDeviceId]);
 
   const toggleSimulation = useCallback(() => {
     if (isSimulating) {
@@ -518,7 +526,7 @@ const TransferLiveStudio = () => {
     }));
     
     // Auto generate PDF
-    generateMissionPDF({
+    void generateMissionPDF({
       ...arrivedMissionToConfirm,
       arrivalTime: Date.now(),
       expenses: exp,
@@ -535,8 +543,9 @@ const TransferLiveStudio = () => {
     }
   }, [arrivedMissionToConfirm, expensesInput, transferRows, costPerKm, isSimulating, depotZone]);
 
-  const generateMissionPDF = (mission: TransferMission) => {
+  const generateMissionPDF = async (mission: TransferMission) => {
     try {
+      const { jsPDF } = await loadPdfTools();
       const doc = new jsPDF();
       const primaryColor = [79, 70, 229];
       

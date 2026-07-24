@@ -14,8 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Repair } from '@/types';
 import { Wrench, Plus, Search, Filter, Calendar, DollarSign, FileText, Truck, FileDown, Play, Pencil, Trash2, AlertCircle, CheckCircle2, History, CreditCard, Banknote, TrendingUp, TrendingDown, Sparkles, ShieldAlert, Brain, Rocket, Siren, Gauge, Target, Flame, BarChart3, Zap } from 'lucide-react';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { loadPdfTools } from '@/lib/pdf';
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 
@@ -71,7 +70,8 @@ const Repairs = () => {
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
 
-  const handleDownloadPDF = (repair: Repair) => {
+  const handleDownloadPDF = async (repair: Repair) => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
     const truck = trucks.find(t => t.id === repair.truckId);
     const typeLabel = repair.type === 'mecanique' ? tr('Mécanique', 'ميكانيك') : repair.type === 'electrique' ? tr('Électrique', 'كهربائي') : tr('Garage', 'مرآب');

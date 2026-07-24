@@ -129,10 +129,14 @@ const Inventory = () => {
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
   const dayUnit = language === 'ar' ? 'ي' : 'j';
   const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, updateEmptyBottlesStockByBottleType, addStockHistory, currentUserEmail } = useApp();
+  const bottleTypesById = useMemo(
+    () => new Map(bottleTypes.map((bottle) => [String(bottle.id), bottle])),
+    [bottleTypes]
+  );
   const [selectedBottleId, setSelectedBottleId] = useState<string | null>(null);
-  const selectedBottle = React.useMemo(() => 
-    bottleTypes.find(b => b.id === selectedBottleId) || null,
-    [bottleTypes, selectedBottleId]
+  const selectedBottle = React.useMemo(
+    () => (selectedBottleId ? bottleTypesById.get(String(selectedBottleId)) || null : null),
+    [bottleTypesById, selectedBottleId]
   );
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -168,6 +172,35 @@ const Inventory = () => {
   const MotionTableRow = motion(TableRow);
 
   const { deleteBottleType } = useApp();
+  const emptyQuantityByBottleTypeId = useMemo(
+    () =>
+      emptyBottlesStock.reduce((acc, stock) => {
+        acc[String(stock.bottleTypeId)] = Number(stock.quantity || 0);
+        return acc;
+      }, {} as Record<string, number>),
+    [emptyBottlesStock]
+  );
+  const defectiveQuantityByBottleTypeId = useMemo(
+    () =>
+      defectiveBottles.reduce((acc, stock) => {
+        const key = String(stock.bottleTypeId);
+        acc[key] = (acc[key] || 0) + (Number(stock.quantity) || 0);
+        return acc;
+      }, {} as Record<string, number>),
+    [defectiveBottles]
+  );
+  const trucksById = useMemo(
+    () => new Map(trucks.map((truck) => [String(truck.id), truck])),
+    [trucks]
+  );
+  const driversById = useMemo(
+    () => new Map(drivers.map((driver) => [String(driver.id), driver])),
+    [drivers]
+  );
+  const supplyOrdersById = useMemo(
+    () => new Map((supplyOrders || []).map((order: any) => [String(order.id), order])),
+    [supplyOrders]
+  );
 
   const handleDelete = async () => {
     if (bottleToDelete) {
@@ -274,10 +307,10 @@ const Inventory = () => {
   }, [supplyOrders]);
 
   const getEmptyQuantity = (id: string) =>
-    emptyBottlesStock.find(s => s.bottleTypeId === id)?.quantity || 0;
+    emptyQuantityByBottleTypeId[String(id)] || 0;
 
   const getDefectiveQuantity = (id: string) =>
-    defectiveBottles.filter(b => b.bottleTypeId === id).reduce((sum, b) => sum + b.quantity, 0);
+    defectiveQuantityByBottleTypeId[String(id)] || 0;
 
   const handleAdjustPleinStock = async (bottle: BottleType, stockPlein: number, distributed: number) => {
     const rawQty = stockAdjustByBottle[bottle.id] ?? '';
@@ -362,16 +395,16 @@ const Inventory = () => {
 
   const getDriverNameByTruckId = (truckId?: string) => {
     if (!truckId) return undefined;
-    const truck = trucks.find(t => t.id === truckId);
-    const driver = drivers.find(d => String(d.id) === String(truck?.driverId));
+    const truck = trucksById.get(String(truckId));
+    const driver = driversById.get(String(truck?.driverId ?? ''));
     return driver?.name;
   };
 
   const getDriverNameForReturn = (ro: any) => {
     if (ro?.driverName) return ro.driverName;
-    const so = supplyOrders.find((s: any) => String(s.id) === String(ro?.supplyOrderId));
+    const so = supplyOrdersById.get(String(ro?.supplyOrderId ?? ''));
     if (so?.driverName) return so.driverName;
-    const driver = drivers.find(d => String(d.id) === String(ro?.driverId));
+    const driver = driversById.get(String(ro?.driverId ?? ''));
     return driver?.name;
   };
 
@@ -383,7 +416,7 @@ const Inventory = () => {
       .filter(t => t.type === 'supply')
       .forEach(tx => {
         (tx.bottleTypes || []).forEach((bt: any) => {
-          const bottleName = bottleTypes.find(b => b.id === bt.bottleTypeId)?.name || 'Inconnu';
+          const bottleName = bottleTypesById.get(String(bt.bottleTypeId))?.name || 'Inconnu';
           events.push({
             id: `supply-${tx.id || `${tx.date}-${bt.bottleTypeId}`}`,
             date: tx.date,
@@ -447,7 +480,7 @@ const Inventory = () => {
       .filter((tx: any) => tx.type === 'factory_reception')
       .forEach((tx: any) => {
         (tx.bottleTypes || []).forEach((bt: any) => {
-          const bottleName = bottleTypes.find(b => String(b.id) === String(bt.bottleTypeId))?.name || 'Inconnu';
+          const bottleName = bottleTypesById.get(String(bt.bottleTypeId))?.name || 'Inconnu';
           events.push({
             id: `factory-reception-${tx.id || `${tx.date}-${bt.bottleTypeId}`}`,
             date: tx.date,
@@ -464,7 +497,7 @@ const Inventory = () => {
       });
 
     return events.sort((a, b) => safeDate(b.date).getTime() - safeDate(a.date).getTime());
-  }, [transactions, returnOrders, foreignBottles, bottleTypes, trucks, drivers, supplyOrders, t]);
+  }, [transactions, returnOrders, foreignBottles, bottleTypesById, trucksById, driversById, supplyOrdersById, t]);
 
   const { filteredImpactEvents, summaryTotals, summaryTitle } = React.useMemo(() => {
     const now = new Date();
@@ -551,8 +584,7 @@ const Inventory = () => {
       const distributedField = Number(bottle.distributedQuantity ?? (bottle as any).distributedquantity ?? 0);
       const pendingCirculation = getPendingCirculation(bottle.id);
       const distributed = Math.max(distributedField, pendingCirculation);
-      const emptyStockEntry = emptyBottlesStock.find(s => s.bottleTypeId === bottle.id);
-      const warehouseEmpty = Number(emptyStockEntry?.quantity || 0);
+      const warehouseEmpty = Number(emptyQuantityByBottleTypeId[String(bottle.id)] || 0);
       const totalStored = Number(bottle.totalQuantity ?? (bottle as any).totalquantity ?? 0);
       const stockPlein = Math.max(totalStored - distributed, 0);
       const computedTotal = totalStored > 0 ? totalStored : (stockPlein + distributed);
@@ -570,7 +602,7 @@ const Inventory = () => {
         distributionRate,
       };
     });
-  }, [availableBottleTypes, emptyBottlesStock, pendingCirculationByBottle, thresholdsByBottle]);
+  }, [availableBottleTypes, emptyQuantityByBottleTypeId, pendingCirculationByBottle, thresholdsByBottle]);
 
   const filteredBottleCards = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
@@ -593,16 +625,35 @@ const Inventory = () => {
     });
   }, [inventoryCards, searchTerm, stockFilter, sortMode]);
 
-  const totalEmpty = emptyBottlesStock.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
-  const totalDefective = defectiveBottles.reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
-  const totalGeneral = inventoryCards.reduce((sum, card) => sum + Number((card.bottle as any).totalQuantity ?? (card.bottle as any).totalquantity ?? 0), 0);
-  const totalDistributed = inventoryCards.reduce((sum, card) => sum + card.distributed, 0);
-  const totalRemaining = inventoryCards.reduce((sum, card) => sum + card.stockPlein, 0);
-  const avgDistributionRate = inventoryCards.length > 0 ? inventoryCards.reduce((sum, c) => sum + c.distributionRate, 0) / inventoryCards.length : 0;
+  const totalEmpty = useMemo(
+    () => Object.values(emptyQuantityByBottleTypeId).reduce((sum, qty) => sum + qty, 0),
+    [emptyQuantityByBottleTypeId]
+  );
+  const totalDefective = useMemo(
+    () => Object.values(defectiveQuantityByBottleTypeId).reduce((sum, qty) => sum + qty, 0),
+    [defectiveQuantityByBottleTypeId]
+  );
+  const inventorySummary = useMemo(() => {
+    const totalGeneralValue = inventoryCards.reduce((sum, card) => sum + Number((card.bottle as any).totalQuantity ?? (card.bottle as any).totalquantity ?? 0), 0);
+    const totalDistributedValue = inventoryCards.reduce((sum, card) => sum + card.distributed, 0);
+    const totalRemainingValue = inventoryCards.reduce((sum, card) => sum + card.stockPlein, 0);
+    const avgDistributionRateValue = inventoryCards.length > 0
+      ? inventoryCards.reduce((sum, card) => sum + card.distributionRate, 0) / inventoryCards.length
+      : 0;
+    const critical = inventoryCards.filter((card) => card.stockPlein <= card.criticalThreshold);
+    const criticalShortageValue = critical.reduce((sum, card) => sum + Math.max(card.criticalThreshold - card.stockPlein, 0), 0);
+    return {
+      totalGeneral: totalGeneralValue,
+      totalDistributed: totalDistributedValue,
+      totalRemaining: totalRemainingValue,
+      avgDistributionRate: avgDistributionRateValue,
+      criticalCards: critical,
+      criticalShortage: criticalShortageValue,
+    };
+  }, [inventoryCards]);
+  const { totalGeneral, totalDistributed, totalRemaining, avgDistributionRate, criticalCards, criticalShortage } = inventorySummary;
   const fullOutflowLast7 = last7DaysEvents.reduce((sum, e) => sum + Math.max(0, -Number(e.fullDelta || 0)), 0);
   const rotationRate = totalRemaining > 0 ? (fullOutflowLast7 / totalRemaining) * 100 : 0;
-  const criticalCards = inventoryCards.filter(card => card.stockPlein <= card.criticalThreshold);
-  const criticalShortage = criticalCards.reduce((sum, card) => sum + Math.max(card.criticalThreshold - card.stockPlein, 0), 0);
   const bottleOutflowByName = useMemo(() => {
     return last7DaysEvents.reduce((acc, event) => {
       const key = String(event.bottleTypeName || '').toLowerCase();
@@ -650,8 +701,13 @@ const Inventory = () => {
       d.setDate(today.getDate() - (7 - idx));
       return format(d, 'yyyy-MM-dd');
     });
+    const eventsByDay = impactEvents.reduce((acc, event) => {
+      const key = format(safeDate(event.date), 'yyyy-MM-dd');
+      (acc[key] ||= []).push(event);
+      return acc;
+    }, {} as Record<string, InventoryImpactEvent[]>);
     return keys.map((key) => {
-      const events = impactEvents.filter((event) => format(safeDate(event.date), 'yyyy-MM-dd') === key);
+      const events = eventsByDay[key] || [];
       const netFull = events.reduce((sum, event) => sum + Number(event.fullDelta || 0), 0);
       const volatility = events.reduce((sum, event) => sum + Math.abs(Number(event.fullDelta || 0)) + Math.abs(Number(event.emptyDelta || 0)), 0);
       const spotlight = events.reduce(
@@ -780,7 +836,7 @@ const Inventory = () => {
     return emptyBottlesStock
       .filter(s => s.quantity > 0 && s.bottleTypeName)
       .filter(s => !normalized || s.bottleTypeName.toLowerCase().includes(normalized))
-      .sort((a, b) => b.quantity - a.quantity);
+      ;
   }, [emptyBottlesStock, searchTerm]);
 
   const defectiveRows = useMemo(() => {
@@ -788,7 +844,7 @@ const Inventory = () => {
     return defectiveBottles
       .filter(d => d.quantity > 0 && d.bottleTypeName)
       .filter(d => !normalized || d.bottleTypeName.toLowerCase().includes(normalized))
-      .sort((a, b) => b.quantity - a.quantity);
+      ;
   }, [defectiveBottles, searchTerm]);
 
   const bottleById = useMemo(() => {
@@ -905,9 +961,18 @@ const Inventory = () => {
     const emptyAliases = ['empty', 'emptystock', 'emptybottles', 'emptybottlesstock', 'vide', 'vides', 'stockvide', 'stockvides'];
     const defectiveAliases = ['defective', 'defectivestock', 'defectivebottles', 'defectivebottlesstock', 'defectueux', 'defectueuse', 'stockdefectueux', 'stockdefectueuses'];
     const fullAliases = ['full', 'fullstock', 'fullbottles', 'stockfull', 'plein', 'pleins', 'stockplein', 'stockpleins'];
+    const historyByBottleId = stockHistory.reduce((acc, entry) => {
+      const key = String(entry.bottleTypeId ?? '');
+      if (!key) return acc;
+      (acc[key] ||= []).push(entry);
+      return acc;
+    }, {} as Record<string, typeof stockHistory>);
+    const inventoryCardByBottleId = inventoryCards.reduce((acc, card) => {
+      acc[String(card.bottle.id)] = card;
+      return acc;
+    }, {} as Record<string, typeof inventoryCards[number]>);
     return availableBottleTypes.reduce((acc, bottle) => {
-      const relatedHistory = stockHistory
-        .filter((entry) => String(entry.bottleTypeId ?? '') === String(bottle.id))
+      const relatedHistory = (historyByBottleId[String(bottle.id)] || [])
         .sort((a, b) => safeDate(a.date).getTime() - safeDate(b.date).getTime());
       const toSeries = (aliases: string[], fallback: number) => {
         const values = relatedHistory
@@ -921,10 +986,10 @@ const Inventory = () => {
         if (recent.length === 0) return [Math.max(0, fallback)];
         return recent;
       };
-      const fullFallback = inventoryCards.find((card) => String(card.bottle.id) === String(bottle.id))?.stockPlein ?? 0;
+      const fullFallback = inventoryCardByBottleId[String(bottle.id)]?.stockPlein ?? 0;
       const fullSeries = toSeries(fullAliases, fullFallback);
-      const emptySeries = toSeries(emptyAliases, getEmptyQuantity(bottle.id));
-      const defectiveSeries = toSeries(defectiveAliases, getDefectiveQuantity(bottle.id));
+      const emptySeries = toSeries(emptyAliases, emptyQuantityByBottleTypeId[String(bottle.id)] || 0);
+      const defectiveSeries = toSeries(defectiveAliases, defectiveQuantityByBottleTypeId[String(bottle.id)] || 0);
       acc[bottle.id] = {
         full: {
           series: fullSeries,
@@ -947,7 +1012,7 @@ const Inventory = () => {
       };
       return acc;
     }, {} as Record<string, { full: { series: number[]; path: string; areaPath: string; lastPoint: { x: number; y: number }; trend: 'up' | 'down' | 'flat'; volatility: number }; empty: { series: number[]; path: string; areaPath: string; lastPoint: { x: number; y: number }; trend: 'up' | 'down' | 'flat'; volatility: number }; defective: { series: number[]; path: string; areaPath: string; lastPoint: { x: number; y: number }; trend: 'up' | 'down' | 'flat'; volatility: number } }>);
-  }, [availableBottleTypes, stockHistory, emptyBottlesStock, defectiveBottles, inventoryCards]);
+  }, [availableBottleTypes, stockHistory, emptyQuantityByBottleTypeId, defectiveQuantityByBottleTypeId, inventoryCards]);
 
   const emptyTableStats = useMemo(() => {
     const now = new Date();
@@ -1725,7 +1790,7 @@ const Inventory = () => {
                 <Archive className="w-6 h-6 text-indigo-600" />
               </div>
               <div className="text-3xl font-black text-slate-900">
-                {availableBottleTypes.reduce((sum, bt) => sum + Number((bt as any).totalQuantity ?? (bt as any).totalquantity ?? 0), 0)}
+                {totalGeneral}
               </div>
               <div className="text-sm font-bold text-slate-500 uppercase tracking-wide">{t('inventory.summary.totalGeneral', 'Total général')}</div>
             </div>
@@ -1741,14 +1806,7 @@ const Inventory = () => {
                 <PackageCheck className="w-6 h-6 text-emerald-600" />
               </div>
               <div className="text-3xl font-black text-emerald-600">
-                {availableBottleTypes.reduce((sum, bt) => {
-                  const totalStored = Number((bt as any).totalQuantity ?? (bt as any).totalquantity ?? 0);
-                  const distributedField = Number((bt as any).distributedQuantity ?? (bt as any).distributedquantity ?? bt.distributedQuantity ?? 0);
-                  const pending = getPendingCirculation(bt.id);
-                  const distributed = Math.max(distributedField, pending);
-                  const stockPlein = Math.max(totalStored - distributed, 0);
-                  return sum + stockPlein;
-                }, 0)}
+                {totalRemaining}
               </div>
               <div className="text-sm font-bold text-slate-500 uppercase tracking-wide">{t('inventory.summary.remaining', 'Restantes')}</div>
             </div>
@@ -1763,10 +1821,10 @@ const Inventory = () => {
               </Button>
               {showTotalValue ? (
                 <div className="text-3xl font-black text-indigo-600">
-                  {availableBottleTypes.reduce((sum, bt) => {
-                    const rem = Number((bt as any).remainingQuantity ?? 0);
-                    const price = Number((bt as any).unitPrice ?? 0);
-                    return sum + (rem * price);
+                  {inventoryCards.reduce((sum, card) => {
+                    const remaining = Number((card.bottle as any).remainingQuantity ?? card.stockPlein ?? 0);
+                    const price = Number((card.bottle as any).unitPrice ?? 0);
+                    return sum + (remaining * price);
                   }, 0).toLocaleString(uiLocale)} DH
                 </div>
               ) : (
@@ -2263,7 +2321,7 @@ const Inventory = () => {
                               size="sm"
                               className="h-7 px-2 text-slate-500 hover:text-purple-700 hover:bg-purple-50"
                               onClick={() => {
-                                const bottle = availableBottleTypes.find((b) => b.id === stock.bottleTypeId);
+                                const bottle = bottleTypesById.get(String(stock.bottleTypeId));
                                 if (!bottle) return;
                                 setHistoryBottle({ bottle, type: 'empty' });
                                 setStockHistoryDialogOpen(true);
@@ -2482,7 +2540,7 @@ const Inventory = () => {
                               size="sm"
                               className="h-7 px-2 text-slate-500 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
-                                const bottle = availableBottleTypes.find((b) => b.id === defective.bottleTypeId);
+                                const bottle = bottleTypesById.get(String(defective.bottleTypeId));
                                 if (!bottle) return;
                                 setHistoryBottle({ bottle, type: 'defective' });
                                 setStockHistoryDialogOpen(true);

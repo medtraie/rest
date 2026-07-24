@@ -39,8 +39,6 @@ import {
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -50,6 +48,7 @@ import { cn } from '@/lib/utils';
 import { supabaseService } from '@/lib/supabaseService';
 import { kvGetShared, kvSetShared } from '@/lib/kv';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { loadPdfTools } from '@/lib/pdf';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -192,8 +191,9 @@ const Factory = () => {
     String(a ?? '') === String(b ?? '');
   const [localPurchasePrices, setLocalPurchasePrices] = useState<Record<string, number>>({});
 
-  const handleDownloadInvoicePDF = (invoice: Invoice) => {
+  const handleDownloadInvoicePDF = async (invoice: Invoice) => {
     try {
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       const now = new Date();
       const supplier = safeSuppliers.find(s => s.id === invoice.supplierId);
@@ -429,8 +429,9 @@ const Factory = () => {
     }
   };
 
-  const handleDownloadPDF = (operation: FactoryOperation) => {
+  const handleDownloadPDF = async (operation: FactoryOperation) => {
     try {
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       const now = new Date();
       const truck = trucks.find(t => t.id === operation.truckId);
@@ -645,8 +646,9 @@ const Factory = () => {
   };
 
   // Nouveau: Export PDF pour toutes les opérations
-  const exportOperationsPDF = () => {
+  const exportOperationsPDF = async () => {
     try {
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       const now = new Date();
       const primaryColor = [79, 70, 229]; // Indigo-600
@@ -777,6 +779,8 @@ const Factory = () => {
   const [factoryOperations, setFactoryOperations] = useState<FactoryOperation[]>([]);
   const [debtSettlements, setDebtSettlements] = useState<DebtSettlement[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState({ settlements: false, invoices: false });
+  const [historyLoading, setHistoryLoading] = useState({ settlements: false, invoices: false });
   const [settlementUnlocked, setSettlementUnlocked] = useState<boolean>(() => {
     try { return sessionStorage.getItem('factory_settlement_unlocked') === 'true'; } catch { return false; }
   });
@@ -800,10 +804,6 @@ const Factory = () => {
   const [originalInvoiceId, setOriginalInvoiceId] = useState<string | null>(null);
   const [showEditInvoice, setShowEditInvoice] = useState(false);
   const [invoicePaymentMethod, setInvoicePaymentMethod] = useState<'banque' | 'none'>('none');
-  const selectedInvoiceSupplier = safeSuppliers.find(s => sameId(s.id, selectedSupplierForInvoice)) || null;
-  const [supplierFilterFromDate, setSupplierFilterFromDate] = useState('');
-  const [supplierFilterToDate, setSupplierFilterToDate] = useState('');
-
   // Opération actuelle
   const [currentOperation, setCurrentOperation] = useState<Partial<FactoryOperation>>({});
   const [historyTab, setHistoryTab] = useState<'operations' | 'settlements' | 'invoices'>('operations');
@@ -812,6 +812,174 @@ const Factory = () => {
   const [commandCenterSearch, setCommandCenterSearch] = useState('');
   const [commandCenterSort, setCommandCenterSort] = useState<'priority' | 'recent'>('priority');
   const [pendingPriorityOrder, setPendingPriorityOrder] = useState<string[]>([]);
+  const [commandCenterMounted, setCommandCenterMounted] = useState(false);
+  const [historySectionMounted, setHistorySectionMounted] = useState(false);
+  const commandCenterSectionRef = React.useRef<HTMLDivElement | null>(null);
+  const historySectionRef = React.useRef<HTMLDivElement | null>(null);
+  const needsInvoiceData = historyTab === 'invoices' || showInvoiceForm || showSupplierManagement;
+  const needsSupplierManagementData = showSupplierManagement;
+  const needsSupplierDebtData = showSupplierManagement || showSettlementForm;
+  const needsStockData = showSendForm || showReturnForm || showSettlementForm;
+  const suppliersById = useMemo(
+    () => new Map(safeSuppliers.map((supplier) => [String(supplier.id), supplier])),
+    [safeSuppliers]
+  );
+  const bottleTypesById = useMemo(
+    () => new Map(bottleTypes.map((bottleType) => [String(bottleType.id), bottleType])),
+    [bottleTypes]
+  );
+  const nonDetendeurBottleTypes = useMemo(
+    () => bottleTypes.filter((bottleType) => !bottleType.name.includes('Détendeur')),
+    [bottleTypes]
+  );
+  const factoryOperationsById = useMemo(
+    () => new Map(factoryOperations.map((operation) => [String(operation.id), operation])),
+    [factoryOperations]
+  );
+  const factoryOperationSummaryById = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        totalSent: number;
+        totalReceived: number;
+        totalAmount: number;
+        uniquePrices: number[];
+        sentDetails: string[];
+        receivedDetails: string[];
+      }
+    >();
+    factoryOperations.forEach((operation) => {
+      const sentDetails: string[] = [];
+      const receivedDetails: string[] = [];
+      let totalSent = 0;
+      let totalReceived = 0;
+      let totalAmount = 0;
+      const priceSet = new Set<number>();
+
+      (operation.sentBottles || []).forEach((bottle) => {
+        totalSent += Number(bottle.quantity || 0);
+        const bottleType = bottleTypesById.get(String(bottle.bottleTypeId));
+        sentDetails.push(`${bottleType?.name || tr('Type inconnu', 'نوع غير معروف')}: ${bottle.quantity}`);
+      });
+
+      (operation.receivedBottles || []).forEach((bottle) => {
+        const quantity = Number(bottle.quantity || 0);
+        const bottleType = bottleTypesById.get(String(bottle.bottleTypeId));
+        const price = Number(bottleType?.purchasePrice || 0);
+        totalReceived += quantity;
+        totalAmount += price * quantity;
+        if (price > 0) priceSet.add(price);
+        receivedDetails.push(`${bottleType?.name || tr('Type inconnu', 'نوع غير معروف')}: ${quantity}`);
+      });
+
+      map.set(String(operation.id), {
+        totalSent,
+        totalReceived,
+        totalAmount,
+        uniquePrices: Array.from(priceSet.values()),
+        sentDetails,
+        receivedDetails,
+      });
+    });
+    return map;
+  }, [factoryOperations, bottleTypesById, tr]);
+  const operationsByBlReference = useMemo(() => {
+    const map = new Map<string, FactoryOperation>();
+    factoryOperations.forEach((operation) => {
+      if (operation.blReference) {
+        map.set(String(operation.blReference), operation);
+      }
+    });
+    return map;
+  }, [factoryOperations]);
+  const remorqueTrucks = useMemo(
+    () =>
+      trucks
+        .filter((truck) => truck.truckType === 'remorque')
+        .map((truck) => ({
+          truck,
+          driver: drivers.find((driver) => driver.id === truck.driverId) || null,
+        })),
+    [trucks, drivers]
+  );
+  const emptyStockByBottleTypeId = useMemo(
+    () => (needsStockData ? new Map(emptyBottlesStock.map((stock) => [String(stock.bottleTypeId), Number(stock.quantity || 0)])) : new Map<string, number>()),
+    [needsStockData, emptyBottlesStock]
+  );
+  const defectiveStockByBottleTypeId = useMemo(() => {
+    if (!needsStockData) return new Map<string, number>();
+    const map = new Map<string, number>();
+    defectiveBottles.forEach((bottle) => {
+      const key = String(bottle.bottleTypeId);
+      map.set(key, (map.get(key) || 0) + Number(bottle.quantity || 0));
+    });
+    return map;
+  }, [needsStockData, defectiveBottles]);
+  const supplierOperationCountById = useMemo(() => {
+    const counts = new Map<string, number>();
+    factoryOperations.forEach((operation) => {
+      const key = String(operation.supplierId || '');
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [factoryOperations]);
+  const pendingOperations = useMemo(
+    () => factoryOperations.filter((op) => (op.receivedBottles || []).length === 0),
+    [factoryOperations]
+  );
+  const factoryOverview = useMemo(() => {
+    let supplierDebtValue = 0;
+    let totalSentValue = 0;
+    let totalReceivedValue = 0;
+    const activityCounts = new Map<string, number>();
+    const delayed: Array<FactoryOperation & { diffDays: number }> = [];
+    const sortedDesc = [...factoryOperations].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const now = Date.now();
+
+    sortedDesc.forEach((operation) => {
+      const summary = factoryOperationSummaryById.get(String(operation.id));
+      supplierDebtValue += Number(operation.debtChange || 0);
+      totalSentValue += summary?.totalSent || 0;
+      totalReceivedValue += summary?.totalReceived || 0;
+
+      const dateMs = new Date(operation.date).getTime();
+      if (!Number.isNaN(dateMs)) {
+        const key = format(new Date(dateMs), 'yyyy-MM-dd');
+        activityCounts.set(key, (activityCounts.get(key) || 0) + 1);
+        if ((operation.receivedBottles || []).length === 0) {
+          const diffDays = Math.floor((now - dateMs) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 2) delayed.push({ ...operation, diffDays });
+        }
+      }
+    });
+
+    delayed.sort((a, b) => b.diffDays - a.diffDays);
+    const timeline = sortedDesc.slice(0, 6);
+    const activityByDayValue = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - index));
+      const key = format(date, 'yyyy-MM-dd');
+      return {
+        key,
+        label: format(date, 'dd/MM'),
+        count: activityCounts.get(key) || 0,
+      };
+    });
+
+    return {
+      supplierDebt: supplierDebtValue,
+      totalSent: totalSentValue,
+      totalReceived: totalReceivedValue,
+      delayedOperations: delayed,
+      timelineOperations: timeline,
+      activityByDay: activityByDayValue,
+      maxActivityCount: Math.max(1, ...activityByDayValue.map((day) => day.count)),
+    };
+  }, [factoryOperations, factoryOperationSummaryById]);
+  const selectedInvoiceSupplier = selectedSupplierForInvoice ? suppliersById.get(String(selectedSupplierForInvoice)) || null : null;
+  const [supplierFilterFromDate, setSupplierFilterFromDate] = useState('');
+  const [supplierFilterToDate, setSupplierFilterToDate] = useState('');
 
   const persistFactoryOperationsSnapshot = React.useCallback(async (operations: FactoryOperation[]) => {
     const snapshot = mergeFactoryOperations(operations);
@@ -826,14 +994,88 @@ const Factory = () => {
     return snapshot;
   }, []);
 
+  const historyLoadedRef = React.useRef({ settlements: false, invoices: false });
+  const historyLoadingRef = React.useRef({ settlements: false, invoices: false });
+
   useEffect(() => {
+    if (commandCenterMounted && historySectionMounted) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          if (entry.target === commandCenterSectionRef.current) {
+            setCommandCenterMounted(true);
+            observer.unobserve(entry.target);
+          }
+          if (entry.target === historySectionRef.current) {
+            setHistorySectionMounted(true);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: '360px 0px', threshold: 0.01 }
+    );
+
+    if (!commandCenterMounted && commandCenterSectionRef.current) {
+      observer.observe(commandCenterSectionRef.current);
+    }
+    if (!historySectionMounted && historySectionRef.current) {
+      observer.observe(historySectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [commandCenterMounted, historySectionMounted]);
+
+  useEffect(() => {
+    if (historyTab !== 'operations') {
+      setHistorySectionMounted(true);
+    }
+  }, [historyTab]);
+
+  const loadDebtSettlements = React.useCallback(async (force = false) => {
+    if (!force && (historyLoadedRef.current.settlements || historyLoadingRef.current.settlements)) return;
+    historyLoadingRef.current.settlements = true;
+    setHistoryLoading((prev) => ({ ...prev, settlements: true }));
+    try {
+      const settlements = await supabaseService.getAll<DebtSettlement>('debt_settlements');
+      setDebtSettlements(settlements);
+      historyLoadedRef.current.settlements = true;
+      setHistoryLoaded((prev) => ({ ...prev, settlements: true }));
+    } catch (error) {
+      console.error('Failed to fetch factory settlements:', error);
+    } finally {
+      historyLoadingRef.current.settlements = false;
+      setHistoryLoading((prev) => ({ ...prev, settlements: false }));
+    }
+  }, []);
+
+  const loadInvoices = React.useCallback(async (force = false) => {
+    if (!force && (historyLoadedRef.current.invoices || historyLoadingRef.current.invoices)) return;
+    historyLoadingRef.current.invoices = true;
+    setHistoryLoading((prev) => ({ ...prev, invoices: true }));
+    try {
+      const nextInvoices = await supabaseService.getAll<Invoice>('factory_invoices');
+      setInvoices(nextInvoices);
+      historyLoadedRef.current.invoices = true;
+      setHistoryLoaded((prev) => ({ ...prev, invoices: true }));
+    } catch (error) {
+      console.error('Failed to fetch factory invoices:', error);
+    } finally {
+      historyLoadingRef.current.invoices = false;
+      setHistoryLoading((prev) => ({ ...prev, invoices: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
     (async () => {
-      const [ops, settlements, invs, cloudOps] = await Promise.all([
+      const [ops, cloudOps] = await Promise.all([
         supabaseService.getAll<FactoryOperation>('factory_operations'),
-        supabaseService.getAll<DebtSettlement>('debt_settlements'),
-        supabaseService.getAll<Invoice>('factory_invoices'),
         kvGetShared<FactoryOperation[]>(FACTORY_OPERATIONS_CLOUD_KEY),
       ]);
+      if (!active) return;
+
       const localOps = safeParseFactoryOperations(localStorage.getItem(FACTORY_OPERATIONS_LOCAL_KEY));
       const mergedOps = mergeFactoryOperations(
         ops,
@@ -842,10 +1084,28 @@ const Factory = () => {
       );
       setFactoryOperations(mergedOps);
       void persistFactoryOperationsSnapshot(mergedOps);
-      setDebtSettlements(settlements);
-      setInvoices(invs);
     })();
+
+    return () => {
+      active = false;
+    };
   }, [persistFactoryOperationsSnapshot]);
+
+  useEffect(() => {
+    if (historyTab === 'settlements') {
+      void loadDebtSettlements();
+      return;
+    }
+    if (historyTab === 'invoices') {
+      void loadInvoices();
+    }
+  }, [historyTab, loadDebtSettlements, loadInvoices]);
+
+  useEffect(() => {
+    if (needsInvoiceData) {
+      void loadInvoices();
+    }
+  }, [needsInvoiceData, loadInvoices]);
 
   // Formulaire d'envoi au fournisseur
   const [sendForm, setSendForm] = useState({
@@ -853,8 +1113,7 @@ const Factory = () => {
     truckId: '',
     supplierId: '',
     blReference: '',
-    bottles: bottleTypes
-      .filter(bt => !bt.name.includes('Détendeur'))
+    bottles: nonDetendeurBottleTypes
       .map(bt => ({
         bottleTypeId: bt.id,
         emptyQuantity: 0,
@@ -944,47 +1203,37 @@ const Factory = () => {
     description: ''
   });
 
-  const supplierDebt = factoryOperations.reduce((sum, op) => sum + op.debtChange, 0);
-  const totalSent = factoryOperations.reduce((sum, op) => 
-    sum + (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0), 0
-  );
-  const totalReceived = factoryOperations.reduce((sum, op) => 
-    sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0), 0
-  );
+  const { supplierDebt, totalSent, totalReceived, delayedOperations, timelineOperations, activityByDay, maxActivityCount } = factoryOverview;
   const invoiceRows = useMemo(() => {
+    if (!needsInvoiceData) return [];
     const invoicedBl = new Set(invoices.flatMap(inv => inv.blReferences || []));
     const standalone = factoryOperations
       .filter(op => op.blReference && !invoicedBl.has(op.blReference))
       .map((op) => {
-        const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
-        const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
-        const totalAmount = (op.receivedBottles || []).reduce((sum, b) => {
-          const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
-          const price = bt?.purchasePrice || 0;
-          return sum + price * b.quantity;
-        }, 0);
+        const summary = factoryOperationSummaryById.get(String(op.id));
         return {
           source: 'single-bl' as const,
           id: `BL-${op.blReference}`,
           supplierId: op.supplierId || '',
           date: op.date,
           blReferences: [op.blReference],
-          totalSent: sent,
-          totalReceived: received,
-          totalAmount,
+          totalSent: summary?.totalSent || 0,
+          totalReceived: summary?.totalReceived || 0,
+          totalAmount: summary?.totalAmount || 0,
           status: 'pending' as const,
           operationId: op.id
         };
       });
     const grouped = invoices.map(inv => ({ ...inv, source: 'invoice' as const }));
     return [...grouped, ...standalone].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [invoices, factoryOperations, bottleTypes]);
+  }, [needsInvoiceData, invoices, factoryOperations, factoryOperationSummaryById]);
   const historySearchValue = commandCenterSearch.trim().toLowerCase();
   const filteredFactoryOperations = useMemo(() => {
+    if (!historySectionMounted) return [] as FactoryOperation[];
     const base = factoryOperations.slice().reverse();
     if (!historySearchValue) return base;
     return base.filter((operation) => {
-      const supplierName = safeSuppliers.find((s) => s.id === operation.supplierId)?.name || '';
+      const supplierName = suppliersById.get(String(operation.supplierId || ''))?.name || '';
       const haystack = [
         operation.driverName,
         operation.blReference || '',
@@ -994,12 +1243,13 @@ const Factory = () => {
         .toLowerCase();
       return haystack.includes(historySearchValue);
     });
-  }, [factoryOperations, safeSuppliers, historySearchValue]);
+  }, [historySectionMounted, factoryOperations, suppliersById, historySearchValue]);
   const filteredDebtSettlements = useMemo(() => {
+    if (!historySectionMounted) return [] as DebtSettlement[];
     if (!historySearchValue) return debtSettlements;
     return debtSettlements.filter((settlement) => {
-      const supplierName = safeSuppliers.find((s) => s.id === settlement.supplierId)?.name || '';
-      const bottleTypeName = bottleTypes.find((bt) => bt.id === settlement.bottleTypeId)?.name || '';
+      const supplierName = suppliersById.get(String(settlement.supplierId || ''))?.name || '';
+      const bottleTypeName = bottleTypesById.get(String(settlement.bottleTypeId || ''))?.name || '';
       const haystack = [
         supplierName,
         bottleTypeName,
@@ -1009,25 +1259,31 @@ const Factory = () => {
         .toLowerCase();
       return haystack.includes(historySearchValue);
     });
-  }, [debtSettlements, safeSuppliers, bottleTypes, historySearchValue]);
+  }, [historySectionMounted, debtSettlements, suppliersById, bottleTypesById, historySearchValue]);
   const filteredInvoiceRows = useMemo(() => {
+    if (!historySectionMounted || !needsInvoiceData) return [];
     if (!historySearchValue) return invoiceRows;
     return invoiceRows.filter((invoice) => {
-      const supplierName = safeSuppliers.find((s) => s.id === invoice.supplierId)?.name || '';
+      const supplierName = suppliersById.get(String(invoice.supplierId || ''))?.name || '';
       const blRefs = (invoice.blReferences || []).join(' ');
       const statusLabel = invoice.status === 'paid' ? 'payee paid' : 'en attente pending';
       const haystack = [invoice.id, supplierName, blRefs, statusLabel].join(' ').toLowerCase();
       return haystack.includes(historySearchValue);
     });
-  }, [invoiceRows, safeSuppliers, historySearchValue]);
+  }, [historySectionMounted, needsInvoiceData, invoiceRows, suppliersById, historySearchValue]);
   const selectedInvoiceOps = useMemo(
-    () =>
-      factoryOperations.filter(op =>
-        op.blReference &&
-        selectedBLsForInvoice.includes(op.blReference) &&
-        (!selectedSupplierForInvoice || op.supplierId === selectedSupplierForInvoice)
-      ),
-    [factoryOperations, selectedBLsForInvoice, selectedSupplierForInvoice]
+    () => {
+      const selectedRefs = new Set(selectedBLsForInvoice);
+      return selectedBLsForInvoice
+        .map((reference) => operationsByBlReference.get(String(reference)))
+        .filter((operation): operation is FactoryOperation =>
+          Boolean(operation) &&
+          operation.blReference &&
+          selectedRefs.has(operation.blReference) &&
+          (!selectedSupplierForInvoice || operation.supplierId === selectedSupplierForInvoice)
+        );
+    },
+    [selectedBLsForInvoice, selectedSupplierForInvoice, operationsByBlReference]
   );
   const selectedInvoiceTotals = useMemo(() => {
     const totalSentSelected = selectedInvoiceOps.reduce(
@@ -1040,14 +1296,14 @@ const Factory = () => {
     );
     const totalAmountSelected = selectedInvoiceOps.reduce((sum, op) => {
       const amountOp = (op.receivedBottles || []).reduce((s, b) => {
-        const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
+        const bt = bottleTypesById.get(String(b.bottleTypeId));
         const price = bt?.purchasePrice || 0;
         return s + price * b.quantity;
       }, 0);
       return sum + amountOp;
     }, 0);
     return { totalSentSelected, totalReceivedSelected, totalAmountSelected };
-  }, [selectedInvoiceOps, bottleTypes]);
+  }, [selectedInvoiceOps, bottleTypesById]);
   const openInvoiceFromOperation = (operation: FactoryOperation) => {
     if (!operation.supplierId || !operation.blReference) {
       alert(tr('Veuillez sélectionner un fournisseur et un BL valide', 'يرجى اختيار مورّد وBL صالح'));
@@ -1059,20 +1315,15 @@ const Factory = () => {
   };
 
   const getEmptyStock = (bottleTypeId: string): number => {
-    const stock = emptyBottlesStock.find(s => s.bottleTypeId === bottleTypeId);
-    return stock?.quantity || 0;
+    return emptyStockByBottleTypeId.get(String(bottleTypeId)) || 0;
   };
 
   const getDefectiveStock = (bottleTypeId: string): number => {
-    return defectiveBottles
-      .filter(b => b.bottleTypeId === bottleTypeId)
-      .reduce((sum, b) => sum + b.quantity, 0);
+    return defectiveStockByBottleTypeId.get(String(bottleTypeId)) || 0;
   };
 
   const getSupplierDebt = (supplierId: string, bottleTypeId: string): { emptyDebt: number; defectiveDebt: number } => {
-    const supplier = safeSuppliers.find(s => s.id === supplierId);
-    if (!supplier) return { emptyDebt: 0, defectiveDebt: 0 };
-    return supplier.debts?.find(d => d.bottleTypeId === bottleTypeId) || {
+    return supplierDebtsBySupplierId.get(String(supplierId))?.get(String(bottleTypeId)) || {
       bottleTypeId,
       emptyDebt: 0,
       defectiveDebt: 0
@@ -1094,7 +1345,7 @@ const Factory = () => {
         settlementForm.bottleTypeId, 
         settlementForm.quantity,
         'factory',
-        `${tr('Règlement dette', 'تسوية دين')} - ${safeSuppliers.find(s => s.id === settlementForm.supplierId)?.name || tr('Fournisseur inconnu', 'مورّد غير معروف')}`,
+        `${tr('Règlement dette', 'تسوية دين')} - ${suppliersById.get(String(settlementForm.supplierId))?.name || tr('Fournisseur inconnu', 'مورّد غير معروف')}`,
         {
           supplierId: settlementForm.supplierId
         }
@@ -1355,8 +1606,7 @@ const Factory = () => {
       truckId: '',
       supplierId: '',
       blReference: '',
-      bottles: bottleTypes
-        .filter(bt => !bt.name.includes('Détendeur'))
+      bottles: nonDetendeurBottleTypes
         .map(bt => ({
           bottleTypeId: bt.id,
           emptyQuantity: 0,
@@ -1679,7 +1929,6 @@ const Factory = () => {
     }
   };
 
-  const pendingOperations = factoryOperations.filter(op => (op.receivedBottles || []).length === 0);
   const completedOperations = factoryOperations.length - pendingOperations.length;
   const completionRate = factoryOperations.length > 0 ? Math.round((completedOperations / factoryOperations.length) * 100) : 0;
   const emptyDebtTotal = safeSuppliers.reduce((s, sup) => s + (sup.debts?.reduce((acc, d) => acc + d.emptyDebt, 0) || 0), 0);
@@ -1687,18 +1936,11 @@ const Factory = () => {
   const topSupplierInsight = safeSuppliers
     .map(supplier => ({
       name: supplier.name,
-      ops: factoryOperations.filter(op => op.supplierId === supplier.id).length
+      ops: supplierOperationCountById.get(String(supplier.id)) || 0
     }))
     .sort((a, b) => b.ops - a.ops)[0] || { name: 'N/A', ops: 0 };
-  const delayedOperations = pendingOperations
-    .map((op) => {
-      const opDate = new Date(op.date);
-      const diffDays = Number.isNaN(opDate.getTime()) ? 0 : Math.floor((Date.now() - opDate.getTime()) / (1000 * 60 * 60 * 24));
-      return { ...op, diffDays };
-    })
-    .filter((op) => op.diffDays >= 2)
-    .sort((a, b) => b.diffDays - a.diffDays);
   const supplierPurchaseStats = useMemo(() => {
+    if (!needsSupplierManagementData) return {} as Record<string, { total: number; count: number }>;
     const bySupplier: Record<string, { total: number; count: number }> = {};
     invoices.forEach((inv) => {
       const invDay = String(inv.date || '').slice(0, 10);
@@ -1711,39 +1953,61 @@ const Factory = () => {
       bySupplier[sid].count += 1;
     });
     return bySupplier;
-  }, [invoices, supplierFilterFromDate, supplierFilterToDate]);
-  const timelineOperations = [...factoryOperations]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 6);
-  const activityByDay = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    const key = format(date, 'yyyy-MM-dd');
-    return {
-      key,
-      label: format(date, 'dd/MM'),
-      count: factoryOperations.filter((op) => {
-        const opDate = new Date(op.date);
-        return !Number.isNaN(opDate.getTime()) && format(opDate, 'yyyy-MM-dd') === key;
-      }).length
-    };
-  });
-  const maxActivityCount = Math.max(1, ...activityByDay.map((day) => day.count));
+  }, [needsSupplierManagementData, invoices, supplierFilterFromDate, supplierFilterToDate]);
+  const supplierBlReferencesById = useMemo(() => {
+    if (!needsSupplierManagementData && !showInvoiceForm) return new Map<string, FactoryOperation[]>();
+    const map = new Map<string, FactoryOperation[]>();
+    factoryOperations.forEach((operation) => {
+      const supplierId = String(operation.supplierId || '');
+      if (!supplierId || !operation.blReference) return;
+      const current = map.get(supplierId);
+      if (current) {
+        current.push(operation);
+      } else {
+        map.set(supplierId, [operation]);
+      }
+    });
+    map.forEach((items, key) => {
+      map.set(
+        key,
+        items
+          .slice()
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      );
+    });
+    return map;
+  }, [needsSupplierManagementData, showInvoiceForm, factoryOperations]);
+  const supplierDebtsBySupplierId = useMemo(() => {
+    if (!needsSupplierDebtData) return new Map<string, Map<string, SupplierDebt>>();
+    return new Map(
+      safeSuppliers.map((supplier) => [
+        String(supplier.id),
+        new Map((supplier.debts || []).map((debt) => [String(debt.bottleTypeId), debt])),
+      ])
+    );
+  }, [needsSupplierDebtData, safeSuppliers]);
+  const availableInvoiceOperations = useMemo(() => {
+    if (!showInvoiceForm || !selectedSupplierForInvoice) return [] as FactoryOperation[];
+    return supplierBlReferencesById.get(String(selectedSupplierForInvoice)) || [];
+  }, [showInvoiceForm, selectedSupplierForInvoice, supplierBlReferencesById]);
   const priorityByOperationId = useMemo(() => {
+    if (!commandCenterMounted) return {} as Record<string, number>;
     const now = Date.now();
     return factoryOperations.reduce<Record<string, number>>((acc, op) => {
       const dateMs = new Date(op.date).getTime();
       const ageDays = Number.isNaN(dateMs) ? 0 : Math.max(0, Math.floor((now - dateMs) / (1000 * 60 * 60 * 24)));
-      const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
-      const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
+      const summary = factoryOperationSummaryById.get(String(op.id));
+      const sent = summary?.totalSent || 0;
+      const received = summary?.totalReceived || 0;
       const pendingGap = Math.max(0, sent - received);
       const isPending = (op.receivedBottles || []).length === 0;
       const score = (ageDays * 8) + (pendingGap * 2) + (isPending ? 20 : 0) + Math.round(Math.abs(op.debtChange || 0) * 4);
       acc[op.id] = score;
       return acc;
     }, {});
-  }, [factoryOperations]);
+  }, [commandCenterMounted, factoryOperations, factoryOperationSummaryById]);
   const commandCenterOperations = useMemo(() => {
+    if (!commandCenterMounted) return [] as FactoryOperation[];
     return [...factoryOperations]
       .filter((op) => {
         const matchesLane =
@@ -1763,7 +2027,7 @@ const Factory = () => {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       })
       .slice(0, 14);
-  }, [factoryOperations, commandCenterLane, commandCenterSearch, commandCenterSort, priorityByOperationId]);
+  }, [commandCenterMounted, factoryOperations, commandCenterLane, commandCenterSearch, commandCenterSort, priorityByOperationId]);
   const commandCenterPendingLane = commandCenterOperations
     .filter((op) => (op.receivedBottles || []).length === 0)
     .sort((a, b) => {
@@ -1784,8 +2048,9 @@ const Factory = () => {
   const commandCenterReceived = commandCenterOperations.filter((op) => (op.receivedBottles || []).length > 0).length;
   const commandCenterPending = commandCenterOperations.length - commandCenterReceived;
   const commandCenterBalance = commandCenterOperations.reduce((acc, op) => {
-    const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
-    const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
+    const summary = factoryOperationSummaryById.get(String(op.id));
+    const sent = summary?.totalSent || 0;
+    const received = summary?.totalReceived || 0;
     return acc + (received - sent);
   }, 0);
   useEffect(() => {
@@ -2062,7 +2327,8 @@ const Factory = () => {
         </Card>
       </motion.div>
 
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} ref={commandCenterSectionRef}>
+        {commandCenterMounted ? (
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white/95 rounded-3xl overflow-hidden">
           <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-slate-900 to-indigo-900 text-white p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -2162,7 +2428,8 @@ const Factory = () => {
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {commandCenterPendingLane.map((op, index) => {
-                    const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
+                    const summary = factoryOperationSummaryById.get(String(op.id));
+                    const sent = summary?.totalSent || 0;
                     const score = priorityByOperationId[op.id] || 0;
                     const canMoveUp = index > 0;
                     const canMoveDown = index < commandCenterPendingLane.length - 1;
@@ -2209,8 +2476,9 @@ const Factory = () => {
                 </div>
                 <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                   {commandCenterReceivedLane.map((op) => {
-                    const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
-                    const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
+                    const summary = factoryOperationSummaryById.get(String(op.id));
+                    const sent = summary?.totalSent || 0;
+                    const received = summary?.totalReceived || 0;
                     return (
                       <div key={op.id} className="rounded-xl border border-emerald-200 bg-white p-3">
                         <div className="flex items-center justify-between gap-2">
@@ -2269,6 +2537,21 @@ const Factory = () => {
             </div>
           </CardContent>
         </Card>
+        ) : (
+        <Card className="border-slate-200/80 shadow-sm bg-white/80 rounded-3xl overflow-hidden">
+          <CardHeader className="border-b border-slate-100 bg-slate-50/70 p-6">
+            <CardTitle className="text-xl font-black flex items-center gap-2 text-slate-900">
+              <Settings2 className="w-5 h-5 text-indigo-600" />
+              {tr('Command Center V4', 'مركز القيادة V4')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+              {tr('Cette section se charge à l’approche pour alléger le chargement initial.', 'يتم تحميل هذا القسم عند الاقتراب منه لتخفيف التحميل الأولي.')}
+            </div>
+          </CardContent>
+        </Card>
+        )}
       </motion.div>
 
       {/* Send Form Dialog */}
@@ -2315,8 +2598,7 @@ const Factory = () => {
                     <SelectValue placeholder={tr('Choisir le camion...', 'اختر الشاحنة...')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {trucks.filter(truck => truck.truckType === 'remorque').map(truck => {
-                      const driver = drivers.find(d => d.id === truck.driverId);
+                    {remorqueTrucks.map(({ truck, driver }) => {
                       return (
                         <SelectItem key={truck.id} value={truck.id}>
                           {truck.matricule} - {driver?.name || 'N/A'}
@@ -2381,9 +2663,7 @@ const Factory = () => {
             <div className="space-y-6">
               <h4 className="text-lg font-black text-slate-900 border-b pb-2">{tr('Bouteilles à envoyer', 'القنينات المراد إرسالها')}</h4>
               <div className="grid gap-4">
-                {bottleTypes
-                  .filter(bt => !bt.name.includes('Détendeur'))
-                  .map((bt) => {
+                {nonDetendeurBottleTypes.map((bt) => {
                     const emptyStock = getEmptyStock(bt.id);
                     const defectiveStock = getDefectiveStock(bt.id);
                     const bottleIndex = sendForm.bottles.findIndex(b => b.bottleTypeId === bt.id);
@@ -2648,7 +2928,7 @@ const Factory = () => {
                               {supplier.transactionCount} {tr('Transaction(s)', 'معاملة')}
                             </span>
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-slate-100">
-                              {factoryOperations.filter(op => op.supplierId === supplier.id && op.blReference).length} {tr('BL(s)', 'BL')}
+                              {(supplierBlReferencesById.get(String(supplier.id)) || []).length} {tr('BL(s)', 'BL')}
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 mt-2">
@@ -2719,7 +2999,9 @@ const Factory = () => {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{tr('Derniers Bons de Livraison (BL)', 'آخر سندات التسليم (BL)')}</p>
                       <div className="flex flex-wrap gap-2">
                         {factoryOperations
-                          .filter(op => op.supplierId === supplier.id && op.blReference)
+                          .filter(() => false)
+                          }
+                        {(supplierBlReferencesById.get(String(supplier.id)) || [])
                           .slice(-5)
                           .reverse()
                           .map(op => (
@@ -2727,17 +3009,15 @@ const Factory = () => {
                               {op.blReference}
                             </Badge>
                           ))}
-                        {factoryOperations.filter(op => op.supplierId === supplier.id && op.blReference).length === 0 && (
+                        {(supplierBlReferencesById.get(String(supplier.id)) || []).length === 0 && (
                           <span className="text-xs text-slate-400 italic">{tr('Aucun BL enregistré', 'لا يوجد BL مسجّل')}</span>
                         )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {bottleTypes
-                        .filter(bt => !bt.name.includes('Détendeur'))
-                        .map(bt => {
-                          const debt = supplier.debts?.find(d => d.bottleTypeId === bt.id) || { emptyDebt: 0, defectiveDebt: 0 };
+                      {nonDetendeurBottleTypes.map(bt => {
+                          const debt = supplierDebtsBySupplierId.get(String(supplier.id))?.get(String(bt.id)) || { emptyDebt: 0, defectiveDebt: 0 };
                           return (
                             <div key={bt.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-b pb-2">{bt.name}</p>
@@ -2812,9 +3092,7 @@ const Factory = () => {
                 <span className="text-xs font-bold text-indigo-600">{selectedBLsForInvoice.length} {tr('sélectionné(s)', 'محدد')}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {factoryOperations
-                  .filter(op => op.supplierId === selectedSupplierForInvoice && op.blReference)
-                  .map(op => {
+                {availableInvoiceOperations.map(op => {
                     const isSelected = selectedBLsForInvoice.includes(op.blReference!);
                     const isAlreadyInvoiced = invoices.some(inv => inv.blReferences.includes(op.blReference!));
                     
@@ -2852,7 +3130,7 @@ const Factory = () => {
                     );
                   })}
               </div>
-              {factoryOperations.filter(op => op.supplierId === selectedSupplierForInvoice && op.blReference).length === 0 && (
+              {availableInvoiceOperations.length === 0 && (
                 <div className="text-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                   <p className="text-slate-400 font-bold">{tr('Aucun BL disponible pour ce fournisseur', 'لا يوجد BL متاح لهذا المورّد')}</p>
                 </div>
@@ -3053,9 +3331,7 @@ const Factory = () => {
                   <SelectValue placeholder={settlementForm.supplierId ? tr("Choisir le type...", "اختر النوع...") : tr("Sélectionnez d'abord un fournisseur", "اختر مورّدًا أولاً")} />
                 </SelectTrigger>
                 <SelectContent className="text-left">
-                  {bottleTypes
-                    .filter(bt => !bt.name.includes('Détendeur'))
-                    .map(bt => {
+                  {nonDetendeurBottleTypes.map(bt => {
                       const debt = settlementForm.supplierId ? getSupplierDebt(settlementForm.supplierId, bt.id) : null;
                       const debtText = debt 
                         ? (language === 'ar' ? ` (فارغ: ${debt.emptyDebt}، معيب: ${debt.defectiveDebt})` : ` (Vides: ${debt.emptyDebt}, Déf: ${debt.defectiveDebt})`) 
@@ -3298,8 +3574,9 @@ const Factory = () => {
       </Dialog>
 
       {/* History Section */}
-      <motion.div variants={itemVariants} layout>
-        <Card id="factory-history" className="border-none shadow-xl shadow-slate-200/50 bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden text-left">
+      <motion.div variants={itemVariants} layout id="factory-history" ref={historySectionRef}>
+        {historySectionMounted ? (
+        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden text-left">
           <CardHeader className="border-b border-slate-100 p-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="flex items-center gap-3">
@@ -3329,6 +3606,11 @@ const Factory = () => {
                     className={`h-9 px-4 rounded-lg font-bold transition-all ${historyTab === 'settlements' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
                   >
                     {tr('Règlements', 'التسويات')}
+                    {historyLoading.settlements ? (
+                      <span className="ml-2 text-[10px] text-slate-400">...</span>
+                    ) : historyLoaded.settlements ? (
+                      <span className="ml-2 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                    ) : null}
                   </Button>
                   <Button
                     variant={historyTab === 'invoices' ? 'secondary' : 'ghost'}
@@ -3337,6 +3619,11 @@ const Factory = () => {
                     className={`h-9 px-4 rounded-lg font-bold transition-all ${historyTab === 'invoices' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}
                   >
                     {tr('Factures', 'الفواتير')}
+                    {historyLoading.invoices ? (
+                      <span className="ml-2 text-[10px] text-slate-400">...</span>
+                    ) : historyLoaded.invoices ? (
+                      <span className="ml-2 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                    ) : null}
                   </Button>
                 </div>
                 <div className="relative group min-w-[200px]">
@@ -3387,18 +3674,12 @@ const Factory = () => {
                   <AnimatePresence mode="popLayout">
                     {filteredFactoryOperations.length > 0 ? (
                       filteredFactoryOperations.map((operation, idx) => {
-                        const totalSentOp = (operation.sentBottles || []).reduce((sum, bottle) => sum + bottle.quantity, 0);
-                        const totalReceivedOp = (operation.receivedBottles || []).reduce((sum, bottle) => sum + bottle.quantity, 0);
+                        const operationSummary = factoryOperationSummaryById.get(String(operation.id));
+                        const totalSentOp = operationSummary?.totalSent || 0;
+                        const totalReceivedOp = operationSummary?.totalReceived || 0;
                         const isPending = (operation.receivedBottles || []).length === 0;
-                        const totalAmountOp = (operation.receivedBottles || []).reduce((s, b) => {
-                          const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
-                          const price = bt?.purchasePrice || 0;
-                          return s + price * b.quantity;
-                        }, 0);
-                        const uniquePrices = Array.from(new Set((operation.receivedBottles || []).map(b => {
-                          const bt = bottleTypes.find(t => t.id === b.bottleTypeId);
-                          return bt?.purchasePrice || 0;
-                        })).values()).filter(p => p > 0);
+                        const totalAmountOp = operationSummary?.totalAmount || 0;
+                        const uniquePrices = operationSummary?.uniquePrices || [];
 
                         return (
                           <motion.tr
@@ -3632,7 +3913,18 @@ const Factory = () => {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence mode="popLayout">
-                      {filteredDebtSettlements.length > 0 ? (
+                      {historyLoading.settlements ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-20 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="p-4 bg-slate-50 rounded-full animate-pulse">
+                                <History className="w-8 h-8 text-slate-300" />
+                              </div>
+                              <p className="text-slate-400 font-medium">{tr('Chargement des règlements...', 'جار تحميل التسويات...')}</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredDebtSettlements.length > 0 ? (
                         filteredDebtSettlements.map((settlement, idx) => {
                           const supplier = safeSuppliers.find(s => s.id === settlement.supplierId);
                           const bottleType = bottleTypes.find(bt => bt.id === settlement.bottleTypeId);
@@ -3715,13 +4007,24 @@ const Factory = () => {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence mode="popLayout">
-                      {filteredInvoiceRows.length > 0 ? (
+                      {historyLoading.invoices ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="py-20 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="p-4 bg-slate-50 rounded-full animate-pulse">
+                                <History className="w-8 h-8 text-slate-300" />
+                              </div>
+                              <p className="text-slate-400 font-medium">{tr('Chargement des factures...', 'جار تحميل الفواتير...')}</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredInvoiceRows.length > 0 ? (
                         filteredInvoiceRows.map((invoice, idx) => {
-                          const supplier = safeSuppliers.find(s => s.id === invoice.supplierId);
+                          const supplier = suppliersById.get(String(invoice.supplierId || ''));
                           const isGrouped = invoice.source === 'invoice' && (invoice.blReferences?.length || 0) > 1;
                           const isSingle = invoice.source === 'single-bl';
                           const operation = isSingle
-                            ? factoryOperations.find(op => String(op.id) === String((invoice as any).operationId))
+                            ? factoryOperationsById.get(String((invoice as any).operationId))
                             : null;
                           return (
                             <motion.tr
@@ -3861,7 +4164,7 @@ const Factory = () => {
           </CardContent>
           <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              {tr('Total', 'الإجمالي')} {historyTab === 'operations' ? tr('opérations', 'عمليات') : historyTab === 'settlements' ? tr('règlements', 'تسويات') : tr('factures', 'فواتير')}: {historyTab === 'operations' ? factoryOperations.length : historyTab === 'settlements' ? debtSettlements.length : invoiceRows.length}
+              {tr('Total', 'الإجمالي')} {historyTab === 'operations' ? tr('opérations', 'عمليات') : historyTab === 'settlements' ? tr('règlements', 'تسويات') : tr('factures', 'فواتير')}: {historyTab === 'operations' ? factoryOperations.length : historyTab === 'settlements' ? (historyLoading.settlements ? '...' : debtSettlements.length) : (historyLoading.invoices ? '...' : invoiceRows.length)}
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled className="h-9 rounded-lg border-slate-200 text-slate-400">{tr('Précédent', 'السابق')}</Button>
@@ -3870,6 +4173,21 @@ const Factory = () => {
             </div>
           </div>
         </Card>
+        ) : (
+        <Card className="border-slate-200/80 shadow-sm bg-white/80 rounded-3xl overflow-hidden text-left">
+          <CardHeader className="border-b border-slate-100 p-8">
+            <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <History className="w-5 h-5 text-slate-900" />
+              {tr('Journal des opérations', 'سجل العمليات')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
+              {tr('Le journal sera chargé automatiquement dès que cette zone devient proche de l’écran.', 'سيتم تحميل السجل تلقائياً بمجرد اقتراب هذه المنطقة من الشاشة.')}
+            </div>
+          </CardContent>
+        </Card>
+        )}
       </motion.div>
     </motion.div>
   );

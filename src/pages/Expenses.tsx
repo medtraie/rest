@@ -16,8 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { loadPdfTools } from '@/lib/pdf';
 import { DateRange } from 'react-day-picker';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 
@@ -79,7 +78,7 @@ const Expenses = () => {
     window.localStorage.setItem(cacheKey, base64);
     return base64;
   }, []);
-  const createPdfDoc = useCallback(async () => {
+  const createPdfDoc = useCallback(async (jsPDF: any) => {
     const doc = new jsPDF();
     if (isArabicPdf) {
       const fontData = await getArabicPdfFontData();
@@ -200,7 +199,8 @@ const Expenses = () => {
   };
 
   const handleDownloadPDF = async () => {
-    const doc = await createPdfDoc();
+    const { jsPDF, autoTable } = await loadPdfTools();
+    const doc = await createPdfDoc(jsPDF);
     doc.text(te('title', 'Liste des Dépenses'), 14, 16);
 
     const tableColumn = [te('type', 'Type'), te('code', 'Code'), te('date', 'Date'), te('paymentMethod', 'Mode de paiement'), te('note', 'Note'), te('amountMad', 'Montant (MAD)')];

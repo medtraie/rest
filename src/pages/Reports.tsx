@@ -12,7 +12,6 @@ import {
   Filter, 
   Calendar,
   BarChart3,
-  PieChart,
   TrendingUp,
   Package,
   Truck,
@@ -35,14 +34,20 @@ import {
   Maximize2,
   Radar
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { loadPdfTools } from '@/lib/pdf';
 import type { Revenue } from '@/types';
 import { supabaseService } from '@/lib/supabaseService';
 import { kvGet, kvSet } from '@/lib/kv';
 import { motion } from 'framer-motion';
 import { buildReportsStockKpis, type KpiComparisonPoint } from '@/lib/reportsKpi';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
+
+const ReportsTransactionsSection = React.lazy(() => import('@/components/reports/ReportsTransactionsSection'));
+const ReportsDailySection = React.lazy(() => import('@/components/reports/ReportsDailySection'));
+const ReportsStockSection = React.lazy(() => import('@/components/reports/ReportsStockSection'));
+const ReportsDriversSection = React.lazy(() => import('@/components/reports/ReportsDriversSection'));
+const ReportsAnalysisSection = React.lazy(() => import('@/components/reports/ReportsAnalysisSection'));
+const ReportsFleetSection = React.lazy(() => import('@/components/reports/ReportsFleetSection'));
 
 type ReportsUIPreferences = {
   startDate: string;
@@ -96,7 +101,8 @@ const Reports = () => {
     return base64;
   }, [arabicPdfFontUrl]);
 
-  const createPdfDoc = React.useCallback(async (options?: ConstructorParameters<typeof jsPDF>[0]) => {
+  const createPdfDoc = React.useCallback(async (options?: any) => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF(options as any);
     if (isArabicPdf) {
       const fontData = await getArabicPdfFontData();
@@ -104,10 +110,10 @@ const Reports = () => {
       doc.addFont(arabicPdfFontFile, arabicPdfFontName, 'normal');
       doc.setFont(arabicPdfFontName, 'normal');
     }
-    return doc;
+    return { doc, autoTable };
   }, [isArabicPdf, getArabicPdfFontData, arabicPdfFontFile, arabicPdfFontName]);
 
-  const setPdfFont = (doc: jsPDF, weight: 'normal' | 'bold' = 'normal') => {
+  const setPdfFont = (doc: any, weight: 'normal' | 'bold' = 'normal') => {
     if (isArabicPdf) {
       doc.setFont(arabicPdfFontName, 'normal');
       return;
@@ -142,6 +148,12 @@ const Reports = () => {
   const [dailyReportsDisplayMode, setDailyReportsDisplayMode] = useState<'cards' | 'list'>('list');
   const [reportsView, setReportsView] = useState<'executive' | 'operational' | 'finance'>('executive');
   const [layoutMode, setLayoutMode] = useState<'immersive' | 'compact'>('immersive');
+  const showAnalysisSection = reportsView === 'operational';
+  const showFleetSection = reportsView !== 'finance';
+  const showStockSection = reportsView !== 'finance';
+  const showDriversSection = reportsView !== 'executive';
+  const showTransactionsSection = reportsView !== 'executive';
+  const showDailyReportsSection = reportsView !== 'executive';
   const [kpiOrder, setKpiOrder] = useState<Array<'value' | 'supply' | 'return' | 'mix'>>([
     'value',
     'supply',
@@ -151,6 +163,60 @@ const Reports = () => {
   const [factoryOps, setFactoryOps] = useState<any[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const driversById = React.useMemo(
+    () => new Map(drivers.map((driver: any) => [String(driver.id), driver])),
+    [drivers]
+  );
+  const trucksById = React.useMemo(
+    () => new Map(trucks.map((truck: any) => [String(truck.id), truck])),
+    [trucks]
+  );
+  const bottleTypesById = React.useMemo(
+    () => new Map(bottleTypes.map((bottleType: any) => [String(bottleType.id), bottleType])),
+    [bottleTypes]
+  );
+  const suppliersById = React.useMemo(
+    () => new Map(suppliers.map((supplier: any) => [String(supplier.id), supplier])),
+    [suppliers]
+  );
+  const supplyOrdersById = React.useMemo(
+    () => new Map((supplyOrders || []).map((order: any) => [String(order.id), order])),
+    [supplyOrders]
+  );
+  const supplyOrdersByNumber = React.useMemo(
+    () => new Map((supplyOrders || []).map((order: any) => [String(order.orderNumber || ''), order]).filter(([key]) => key)),
+    [supplyOrders]
+  );
+  const returnOrdersById = React.useMemo(
+    () => new Map((returnOrders || []).map((order: any) => [String(order.id), order])),
+    [returnOrders]
+  );
+  const returnOrdersByNumber = React.useMemo(
+    () => new Map((returnOrders || []).map((order: any) => [String(order.orderNumber || ''), order]).filter(([key]) => key)),
+    [returnOrders]
+  );
+  const returnOrdersByDriverId = React.useMemo(() => {
+    const map = new Map<string, any[]>();
+    (returnOrders || []).forEach((order: any) => {
+      const key = String(order?.driverId || '');
+      if (!key) return;
+      const bucket = map.get(key);
+      if (bucket) bucket.push(order);
+      else map.set(key, [order]);
+    });
+    return map;
+  }, [returnOrders]);
+  const repairsByTruckId = React.useMemo(() => {
+    const map = new Map<string, any[]>();
+    (repairs || []).forEach((repair: any) => {
+      const key = String(repair?.truckId || '');
+      if (!key) return;
+      const bucket = map.get(key);
+      if (bucket) bucket.push(repair);
+      else map.set(key, [repair]);
+    });
+    return map;
+  }, [repairs]);
   React.useEffect(() => {
     (async () => {
       const ops = await supabaseService.getAll<any>('factory_operations');
@@ -263,7 +329,7 @@ const Reports = () => {
     return { label: t('reports.types.factory', 'Usine'), className: 'bg-gray-50 text-gray-700' };
   };
 
-  const filteredTransactions = transactions.filter(transaction => {
+  const filteredTransactions = React.useMemo(() => transactions.filter(transaction => {
     const transactionDate = new Date(transaction.date);
     const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
     const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
@@ -273,8 +339,8 @@ const Reports = () => {
     if (selectedFilter !== 'all') {
       if (selectedFilter === 'factory') {
         if (!String(transaction.type || '').includes('factory')) return false;
-      } else {
-        if (transaction.type !== selectedFilter) return false;
+      } else if (transaction.type !== selectedFilter) {
+        return false;
       }
     }
     if (selectedTruck !== 'all' && transaction.truckId !== selectedTruck) return false;
@@ -282,16 +348,16 @@ const Reports = () => {
 
     if (transactionSearch) {
       const search = transactionSearch.toLowerCase();
-      const dName = drivers.find((d) => d.id === transaction.driverId)?.name?.toLowerCase() || '';
-      const trk = trucks.find((tr) => tr.id === transaction.truckId) as any;
+      const dName = driversById.get(String(transaction.driverId))?.name?.toLowerCase() || '';
+      const trk = trucksById.get(String(transaction.truckId)) as any;
       const tName = (trk?.name || trk?.plateNumber || trk?.registration || '')?.toLowerCase() || '';
-      
+
       let cName = '';
       if (transaction.type === 'supply') {
-        const order = supplyOrders.find(o => o.id === transaction.relatedOrderId || o.orderNumber === transaction.relatedOrderId);
+        const order = supplyOrdersById.get(String(transaction.relatedOrderId)) || supplyOrdersByNumber.get(String(transaction.relatedOrderId));
         cName = order?.clientName?.toLowerCase() || '';
       } else if (transaction.type === 'return') {
-        const order = returnOrders.find(o => o.id === transaction.relatedOrderId);
+        const order = returnOrdersById.get(String(transaction.relatedOrderId));
         cName = order?.clientName?.toLowerCase() || '';
       }
 
@@ -299,22 +365,25 @@ const Reports = () => {
         dName.includes(search) ||
         tName.includes(search) ||
         cName.includes(search) ||
-        transaction.type.toLowerCase().includes(search)
+        String(transaction.type || '').toLowerCase().includes(search)
       );
     }
 
     return true;
-  });
+  }), [transactions, dateFilter.startDate, dateFilter.endDate, selectedFilter, selectedTruck, selectedDriver, transactionSearch, driversById, trucksById, supplyOrdersById, supplyOrdersByNumber, returnOrdersById]);
 
   // Calculate metrics
-  const totalValue = filteredTransactions.reduce((sum, t) => sum + getTransactionValue(t), 0);
-  const transactionsByType = {
-    supply: filteredTransactions.filter(t => t.type === 'supply').length,
-    return: filteredTransactions.filter(t => t.type === 'return').length,
-    exchange: filteredTransactions.filter(t => t.type === 'exchange').length,
-    factory: filteredTransactions.filter(t => String(t.type || '').includes('factory')).length,
-  };
-  const summaryTransactions = transactions.filter(transaction => {
+  const totalValue = React.useMemo(
+    () => (showTransactionsSection ? filteredTransactions.reduce((sum, transaction) => sum + getTransactionValue(transaction), 0) : 0),
+    [filteredTransactions, showTransactionsSection]
+  );
+  const transactionsByType = React.useMemo(() => ({
+    supply: showTransactionsSection ? filteredTransactions.filter(t => t.type === 'supply').length : 0,
+    return: showTransactionsSection ? filteredTransactions.filter(t => t.type === 'return').length : 0,
+    exchange: showTransactionsSection ? filteredTransactions.filter(t => t.type === 'exchange').length : 0,
+    factory: showTransactionsSection ? filteredTransactions.filter(t => String(t.type || '').includes('factory')).length : 0,
+  }), [filteredTransactions, showTransactionsSection]);
+  const summaryTransactions = React.useMemo(() => transactions.filter(transaction => {
     const transactionDate = new Date(transaction.date);
     const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
     const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
@@ -326,8 +395,8 @@ const Reports = () => {
     if (selectedTruck !== 'all' && transaction.truckId !== selectedTruck) return false;
     if (selectedDriver !== 'all' && transaction.driverId !== selectedDriver) return false;
     return true;
-  });
-  const summaryByType = {
+  }), [transactions, dateFilter.startDate, dateFilter.endDate, selectedTruck, selectedDriver]);
+  const summaryByType = React.useMemo(() => ({
     supply: (supplyOrders || []).filter((order: any) => {
       const orderDate = new Date(order.date || '');
       const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
@@ -349,7 +418,7 @@ const Reports = () => {
       if (startDate && orderDate < startDate) return false;
       if (endOfDay && orderDate > endOfDay) return false;
       if (selectedTruck !== 'all') {
-        const linkedSupply = (supplyOrders || []).find((s: any) => String(s.id) === String(order.supplyOrderId));
+        const linkedSupply = supplyOrdersById.get(String(order.supplyOrderId));
         if ((linkedSupply?.truckId || '') !== selectedTruck) return false;
       }
       if (selectedDriver !== 'all' && order.driverId !== selectedDriver) return false;
@@ -357,7 +426,7 @@ const Reports = () => {
     }).length,
     exchange: summaryTransactions.filter(t => t.type === 'exchange').length,
     factory: summaryTransactions.filter(t => String(t.type || '').includes('factory')).length,
-  };
+  }), [supplyOrders, returnOrders, dateFilter.startDate, dateFilter.endDate, selectedTruck, selectedDriver, supplyOrdersById, summaryTransactions]);
   const summaryTotalValue = summaryTransactions.reduce((sum, t) => sum + getTransactionValue(t), 0);
 
   const sortedTransactions = React.useMemo(() => {
@@ -374,6 +443,7 @@ const Reports = () => {
   }, [filteredTransactions, transactionsSort]);
 
   const tableFilteredTransactions = React.useMemo(() => {
+    if (!showTransactionsSection) return [] as any[];
     return sortedTransactions.filter((t: any) => {
       if (transactionTypeFilter !== 'all') {
         if (transactionTypeFilter === 'factory') {
@@ -385,13 +455,14 @@ const Reports = () => {
       if (showNonZeroOnly && getTransactionValue(t) <= 0) return false;
       return true;
     });
-  }, [sortedTransactions, transactionTypeFilter, showNonZeroOnly]);
+  }, [sortedTransactions, transactionTypeFilter, showNonZeroOnly, showTransactionsSection]);
 
   const visibleTransactions = React.useMemo(() => {
+    if (!showTransactionsSection) return [] as any[];
     if (transactionsLimit === 'all') return tableFilteredTransactions;
     const limit = Number(transactionsLimit);
     return tableFilteredTransactions.slice(0, limit);
-  }, [tableFilteredTransactions, transactionsLimit]);
+  }, [tableFilteredTransactions, transactionsLimit, showTransactionsSection]);
   const visibleTransactionsTotal = React.useMemo(
     () => visibleTransactions.reduce((sum, t: any) => sum + getTransactionValue(t), 0),
     [visibleTransactions]
@@ -400,6 +471,155 @@ const Reports = () => {
     () => visibleTransactions.filter((t: any) => getTransactionValue(t) > 0).length,
     [visibleTransactions]
   );
+  const visibleTransactionRows = React.useMemo(() => {
+    if (!showTransactionsSection) return [] as any[];
+    return visibleTransactions.map((transaction: any, index: number) => {
+      let driverName = driversById.get(String(transaction.driverId))?.name || '-';
+      const rawDetails = transaction.details ?? transaction.detail ?? transaction.meta ?? transaction.data;
+      let parsedDetails: any = undefined;
+      if (typeof rawDetails === 'string') {
+        try {
+          parsedDetails = JSON.parse(rawDetails);
+        } catch {
+          parsedDetails = undefined;
+        }
+      } else if (rawDetails && typeof rawDetails === 'object') {
+        parsedDetails = rawDetails;
+      }
+
+      const detailTruckId = parsedDetails?.truckId ?? parsedDetails?.truck_id;
+      const detailTruckName =
+        parsedDetails?.truckName ??
+        parsedDetails?.truck ??
+        parsedDetails?.camion ??
+        parsedDetails?.plateNumber ??
+        parsedDetails?.registration;
+
+      const truck = trucksById.get(String(transaction.truckId || detailTruckId)) as any;
+      let truckName = (truck?.name || truck?.plateNumber || truck?.registration || truck?.matricule || detailTruckName || '-') as string;
+
+      const supplyOrder = transaction.type === 'supply'
+        ? supplyOrdersById.get(String(transaction.relatedOrderId)) || supplyOrdersByNumber.get(String(transaction.relatedOrderId))
+        : undefined;
+      const returnOrder = transaction.type === 'return'
+        ? returnOrdersById.get(String(transaction.relatedOrderId)) || returnOrdersByNumber.get(String(transaction.relatedOrderId))
+        : undefined;
+
+      const isFactoryType =
+        transaction.type === 'factory' ||
+        transaction.type === 'factory_reception' ||
+        transaction.type === 'factory_invoice' ||
+        transaction.type === 'factory_settlement';
+
+      let clientName = '-';
+      if (supplyOrder) clientName = supplyOrder.clientName || '-';
+      else if (returnOrder) clientName = returnOrder.clientName || '-';
+      else if (isFactoryType) {
+        const supplierId = transaction.supplierId || parsedDetails?.supplierId || parsedDetails?.supplier_id;
+        if (supplierId) {
+          clientName = suppliersById.get(String(supplierId))?.name || '-';
+        }
+      }
+
+      const detailRef =
+        parsedDetails?.reference ??
+        parsedDetails?.ref ??
+        parsedDetails?.orderNumber ??
+        parsedDetails?.blReference ??
+        parsedDetails?.bl ??
+        parsedDetails?.id;
+      const rawRef = String(
+        supplyOrder?.orderNumber ||
+        returnOrder?.orderNumber ||
+        transaction.orderNumber ||
+        transaction.reference ||
+        transaction.ref ||
+        detailRef ||
+        transaction.relatedOrderId ||
+        transaction.id ||
+        ''
+      );
+      let ref = rawRef || '-';
+      const dateLabel = transaction?.date
+        ? new Date(transaction.date).toLocaleString(uiLocale, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : '-';
+
+      if (isFactoryType && (truckName === '-' || !rawRef || ref === '-' || driverName === '-')) {
+        const td = new Date(transaction.date || 0).getTime();
+        const match = factoryOps.find((operation: any) => {
+          const od = new Date(operation.receivedDate || operation.date).getTime();
+          const diff = Math.abs(od - td);
+          const supplierMatch = !transaction.supplierId || String(operation.supplierId || '') === String(transaction.supplierId);
+          const refMatch = !!rawRef && rawRef !== '-' && operation.blReference && String(operation.blReference) === String(rawRef);
+          const opIdMatch = parsedDetails?.operationId && String(operation.id) === String(parsedDetails.operationId);
+          return refMatch || opIdMatch || (diff <= 2 * 60 * 60 * 1000 && supplierMatch);
+        });
+        if (match) {
+          const matchTruck = trucksById.get(String(match.truckId)) as any;
+          const matchedTruckName = (matchTruck?.name || matchTruck?.plateNumber || matchTruck?.registration || matchTruck?.matricule || '-') as string;
+          if (truckName === '-' && matchedTruckName !== '-') truckName = matchedTruckName;
+          if ((!rawRef || rawRef === '-' || ref === '-') && match.blReference) ref = match.blReference;
+          if (driverName === '-') {
+            const driverFromTruckId = matchTruck?.driverId;
+            if (driverFromTruckId) {
+              const driver = driversById.get(String(driverFromTruckId));
+              if (driver?.name) driverName = driver.name;
+            } else if (match.driverName) {
+              driverName = match.driverName;
+            }
+          }
+        }
+      }
+
+      if (driverName === '-') {
+        const parsedDriverId = parsedDetails?.driverId ?? parsedDetails?.driver_id;
+        if (parsedDriverId) {
+          const driver = driversById.get(String(parsedDriverId));
+          if (driver?.name) {
+            driverName = driver.name;
+          }
+        } else {
+          const truckForDriver = trucksById.get(String(transaction.truckId || detailTruckId)) as any;
+          const driverId = truckForDriver?.driverId;
+          if (driverId) {
+            const driver = driversById.get(String(driverId));
+            if (driver?.name) {
+              driverName = driver.name;
+            }
+          } else {
+            const nameHint = parsedDetails?.driverName ?? parsedDetails?.driver ?? parsedDetails?.chauffeur;
+            if (nameHint) driverName = String(nameHint);
+          }
+        }
+      }
+
+      const valueNumber = getTransactionValue(transaction);
+      const typeMeta = getTypeMeta(String(transaction.type || ''));
+      const bottleBreakdown = (transaction.bottleTypes || []).map((bt: any) => {
+        const name = bottleTypesById.get(String(bt.bottleTypeId))?.name || bt.bottleTypeName || bt.bottleTypeId || '-';
+        return {
+          key: `${transaction.id}-${bt.bottleTypeId}-${bt.status || 'na'}`,
+          name,
+          quantity: Number(bt.quantity || 0),
+          status: bt.status ? String(bt.status) : '',
+        };
+      });
+
+      return {
+        id: transaction.id,
+        index,
+        original: transaction,
+        dateLabel,
+        driverName,
+        clientName,
+        ref,
+        truckName,
+        valueNumber,
+        typeMeta,
+        bottleBreakdown,
+      };
+    });
+  }, [visibleTransactions, driversById, trucksById, supplyOrdersById, supplyOrdersByNumber, returnOrdersById, returnOrdersByNumber, suppliersById, uiLocale, factoryOps, bottleTypesById, showTransactionsSection]);
 
   const stockKpiBundle = React.useMemo(() => buildReportsStockKpis({
     bottleTypes: bottleTypes as any,
@@ -523,7 +743,7 @@ const Reports = () => {
 
   const generateDailyExpenseReport = async (currentExpenses: any[]) => {
     const reportDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.dailyExpense', 'Rapport Journalier des Notes de Frais'), [
       `${tp('labels.period', 'Période')}: ${reportDate}`,
@@ -664,7 +884,7 @@ const Reports = () => {
 
   const generateDriverDebtReport = async () => {
     const reportDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.driverDebts', 'Rapport des Dettes des Chauffeurs'), [
       `${tp('labels.period', 'Période')}: ${reportDate}`,
@@ -738,7 +958,7 @@ const Reports = () => {
 
   const generateMiscellaneousExpensesReport = async () => {
     const reportDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.miscExpenses', 'Rapport des Dépenses Diverses'), [
       `${tp('labels.period', 'Période')}: ${reportDate}`,
@@ -821,7 +1041,7 @@ const Reports = () => {
 
   const generateTransportReport = async () => {
     const reportDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.transport', 'Rapport Journalier des Dépenses de Transport'), [
       `${tp('labels.period', 'Période')}: ${reportDate}`,
@@ -921,7 +1141,7 @@ const Reports = () => {
 
   const generateGeneralReport = async () => {
     const reportDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.generalDaily', 'Rapport Général Journalier'), [
       `${tp('labels.period', 'Période')}: ${reportDate}`,
@@ -1013,7 +1233,7 @@ const Reports = () => {
 
   const generateDiversesReport = async () => {
     const selectedDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.miscSales', 'Rapport Ventes Diverses'), [
       `${tp('labels.period', 'Période')}: ${selectedDate}`,
@@ -1088,7 +1308,7 @@ const Reports = () => {
 
   const generateRepairsReport = async () => {
     const selectedDate = periodLabel;
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.repairs', 'Rapport des Réparations'), [
       `${tp('labels.period', 'Période')}: ${selectedDate}`,
@@ -1150,8 +1370,8 @@ const Reports = () => {
     doc.save(`rapport_reparations_${(dailyStartDate || '').replaceAll('-','')}_${(dailyEndDate || dailyStartDate || '').replaceAll('-','')}.pdf`);
   };
 
-  const truckHealthAnalysis = trucks.map(truck => {
-    const truckRepairs = (repairs || []).filter(r => r.truckId === truck.id);
+  const truckHealthAnalysis = React.useMemo(() => trucks.map(truck => {
+    const truckRepairs = repairsByTruckId.get(String(truck.id)) || [];
     const totalRepairCost = truckRepairs.reduce((sum, r) => sum + r.totalCost, 0);
     const repairCount = truckRepairs.length;
     
@@ -1189,10 +1409,10 @@ const Reports = () => {
       color,
       recommendation
     };
-  }).sort((a, b) => a.score - b.score);
+  }).sort((a, b) => a.score - b.score), [trucks, repairsByTruckId, tp]);
 
   const generateFleetHealthReport = async () => {
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     doc.setFontSize(16);
     doc.text(tp('headers.fleetHealth', 'Analyse de Santé du Parc Automobile'), 14, 16);
     doc.setFontSize(10);
@@ -1313,7 +1533,7 @@ const Reports = () => {
   };
 
   const generateCombinedDriversReport = async () => {
-    const doc = await createPdfDoc({ orientation: 'landscape' });
+    const { doc, autoTable } = await createPdfDoc({ orientation: 'landscape' });
     const selectedDate = periodLabel;
     const driverName =
       dailyReportDriver === 'all'
@@ -1501,7 +1721,7 @@ const Reports = () => {
   };
 
   const generateDailyPetitCamionReport = async () => {
-    const doc = await createPdfDoc({ orientation: 'landscape' });
+    const { doc, autoTable } = await createPdfDoc({ orientation: 'landscape' });
     const selectedDate = periodLabel;
     const driverName =
       dailyReportDriver === 'all'
@@ -1678,7 +1898,7 @@ const Reports = () => {
   };
 
   const generateTotalVenteReport = async () => {
-    const doc = await createPdfDoc({ orientation: 'landscape' });
+    const { doc, autoTable } = await createPdfDoc({ orientation: 'landscape' });
     const selectedDate = periodLabel;
     const driverName =
       dailyReportDriver === 'all'
@@ -1865,8 +2085,8 @@ const Reports = () => {
   };
 
   // 1. Analysis of Foreign Bottles by Driver
-  const foreignBottlesAnalysis = drivers.map(driver => {
-    const driverReturnOrders = (returnOrders || []).filter(o => o.driverId === driver.id);
+  const foreignBottlesAnalysis = React.useMemo(() => drivers.map(driver => {
+    const driverReturnOrders = returnOrdersByDriverId.get(String(driver.id)) || [];
     const foreignData = {
       total: 0,
       byType: {} as Record<string, number>,
@@ -1877,12 +2097,13 @@ const Reports = () => {
       (order.items || []).forEach(item => {
         if ((item.foreignQuantity || 0) > 0) {
           foreignData.total += item.foreignQuantity;
-          foreignData.byType[item.bottleTypeName] = (foreignData.byType[item.bottleTypeName] || 0) + item.foreignQuantity;
+          const bottleTypeName = item.bottleTypeName || bottleTypesById.get(String(item.bottleTypeId))?.name || String(item.bottleTypeId || '-');
+          foreignData.byType[bottleTypeName] = (foreignData.byType[bottleTypeName] || 0) + item.foreignQuantity;
           foreignData.history.push({
             date: order.date,
             orderNumber: order.orderNumber,
             quantity: item.foreignQuantity,
-            bottleType: item.bottleTypeName
+            bottleType: bottleTypeName
           });
         }
       });
@@ -1893,11 +2114,11 @@ const Reports = () => {
       driverName: driver.name,
       ...foreignData
     };
-  }).filter(d => d.total > 0);
+  }).filter(d => d.total > 0), [drivers, returnOrdersByDriverId, bottleTypesById]);
 
   // 2. Analysis of Remaining Bottles (R.C / Lost) by Driver
-  const rcBottlesAnalysis = drivers.map(driver => {
-    const driverReturnOrders = (returnOrders || []).filter(o => o.driverId === driver.id);
+  const rcBottlesAnalysis = React.useMemo(() => drivers.map(driver => {
+    const driverReturnOrders = returnOrdersByDriverId.get(String(driver.id)) || [];
     const rcData = {
       total: 0,
       byType: {} as Record<string, number>,
@@ -1908,12 +2129,13 @@ const Reports = () => {
       (order.items || []).forEach(item => {
         if ((item.lostQuantity || 0) > 0) {
           rcData.total += item.lostQuantity;
-          rcData.byType[item.bottleTypeName] = (rcData.byType[item.bottleTypeName] || 0) + item.lostQuantity;
+          const bottleTypeName = item.bottleTypeName || bottleTypesById.get(String(item.bottleTypeId))?.name || String(item.bottleTypeId || '-');
+          rcData.byType[bottleTypeName] = (rcData.byType[bottleTypeName] || 0) + item.lostQuantity;
           rcData.history.push({
             date: order.date,
             orderNumber: order.orderNumber,
             quantity: item.lostQuantity,
-            bottleType: item.bottleTypeName
+            bottleType: bottleTypeName
           });
         }
       });
@@ -1924,10 +2146,10 @@ const Reports = () => {
       driverName: driver.name,
       ...rcData
     };
-  }).filter(d => d.total > 0);
+  }).filter(d => d.total > 0), [drivers, returnOrdersByDriverId, bottleTypesById]);
 
   const generateForeignBottlesReport = async () => {
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     const filterLabel = analysisSearch.trim() ? analysisSearch.trim() : tp('labels.none', 'Aucun');
     const filtered = foreignBottlesAnalysis
@@ -2054,7 +2276,7 @@ const Reports = () => {
   };
 
   const generateRCReport = async () => {
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const generatedAt = new Date().toLocaleString(uiLocale);
     const filterLabel = analysisSearch.trim() ? analysisSearch.trim() : tp('labels.none', 'Aucun');
     const filtered = rcBottlesAnalysis
@@ -2185,195 +2407,23 @@ const Reports = () => {
   };
 
   const renderAnalysisSection = () => {
-    const totalForeign = foreignBottlesAnalysis.reduce((sum, d) => sum + d.total, 0);
-    const totalRC = rcBottlesAnalysis.reduce((sum, d) => sum + d.total, 0);
-
     return (
-      <div className="space-y-6">
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <div>
-              <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                <Package className="w-6 h-6 text-orange-600" />
-                {t('reports.impact.title', "Suivi d'impact du stock")}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{t('reports.impact.subtitle', 'Analyse des pertes (R.C) et des bouteilles étrangères par chauffeur')}</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative w-64">
-                <Filter className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t('reports.impact.filterByDriver', 'Filtrer par chauffeur...')}
-                  className="pl-8 h-9"
-                  value={analysisSearch}
-                  onChange={(e) => setAnalysisSearch(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex items-center gap-4">
-                <div className="bg-orange-500 p-3 rounded-lg text-white">
-                  <Activity className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-orange-800 text-xs font-bold uppercase tracking-wider">{t('reports.impact.globalImpact', 'Impact Global')}</div>
-                  <div className="text-2xl font-black text-orange-900">{totalForeign + totalRC}</div>
-                </div>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center gap-4">
-                <div className="bg-blue-500 p-3 rounded-lg text-white">
-                  <Package className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-blue-800 text-xs font-bold uppercase tracking-wider">{t('reports.impact.foreignTotal', 'Étrangères Total')}</div>
-                  <div className="text-2xl font-black text-blue-900">{totalForeign}</div>
-                </div>
-              </div>
-              <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-center gap-4">
-                <div className="bg-red-500 p-3 rounded-lg text-white">
-                  <ArrowRightLeft className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-red-800 text-xs font-bold uppercase tracking-wider">{t('reports.impact.rcLossesTotal', 'R.C (Pertes) Total')}</div>
-                  <div className="text-2xl font-black text-red-900">{totalRC}</div>
-                </div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex items-center gap-4">
-                <div className="bg-green-500 p-3 rounded-lg text-white">
-                  <Users className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-green-800 text-xs font-bold uppercase tracking-wider">{t('reports.impact.impactedDrivers', 'Chauffeurs Impactés')}</div>
-                  <div className="text-2xl font-black text-green-900">
-                    {new Set([...foreignBottlesAnalysis.map(d => d.driverId), ...rcBottlesAnalysis.map(d => d.driverId)]).size}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Foreign Bottles Analysis */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold flex items-center gap-2 text-blue-700">
-                    <div className="w-2 h-6 bg-blue-500 rounded-full"></div>
-                    {t('reports.impact.foreignBottles', 'Bouteilles Étrangères')}
-                  </h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                    onClick={generateForeignBottlesReport}
-                    disabled={foreignBottlesAnalysis.length === 0}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    PDF
-                  </Button>
-                </div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                  {foreignBottlesAnalysis
-                    .filter(d => d.driverName.toLowerCase().includes(analysisSearch.toLowerCase()))
-                    .map(d => (
-                      <div key={d.driverId} className="group p-4 bg-white border rounded-xl hover:shadow-md transition-all border-blue-100 hover:border-blue-300">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-sm font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{d.driverName}</span>
-                            <div className="flex gap-1 mt-1">
-                              {Object.entries(d.byType).map(([type, qty]) => (
-                                <Badge key={type} variant="secondary" className="text-[10px] py-0 bg-blue-50 text-blue-700 border-blue-100">
-                                  {qty} {type}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xl font-black text-blue-600">{d.total}</span>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('reports.impact.units', 'Unités')}</p>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className="bg-blue-500 h-full rounded-full transition-all"
-                            style={{ width: `${Math.min(100, (d.total / totalForeign) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  {foreignBottlesAnalysis.length === 0 && (
-                    <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed">
-                      <Package className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">{t('reports.impact.noForeignBottle', 'Aucune bouteille étrangère détectée.')}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* R.C Bottles Analysis */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold flex items-center gap-2 text-red-700">
-                    <div className="w-2 h-6 bg-red-500 rounded-full"></div>
-                    {t('reports.impact.rcTracking', 'Suivi des Restants (R.C)')}
-                  </h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={generateRCReport}
-                    disabled={rcBottlesAnalysis.length === 0}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    PDF
-                  </Button>
-                </div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                  {rcBottlesAnalysis
-                    .filter(d => d.driverName.toLowerCase().includes(analysisSearch.toLowerCase()))
-                    .map(d => (
-                      <div key={d.driverId} className="group p-4 bg-white border rounded-xl hover:shadow-md transition-all border-red-100 hover:border-red-300">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-sm font-bold text-gray-900 group-hover:text-red-700 transition-colors">{d.driverName}</span>
-                            <div className="flex gap-1 mt-1">
-                              {Object.entries(d.byType).map(([type, qty]) => (
-                                <Badge key={type} variant="secondary" className="text-[10px] py-0 bg-red-50 text-red-700 border-red-100">
-                                  {qty} {type}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-xl font-black text-red-600">{d.total}</span>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{t('reports.impact.units', 'Unités')}</p>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className="bg-red-500 h-full rounded-full transition-all"
-                            style={{ width: `${Math.min(100, (d.total / totalRC) * 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  {rcBottlesAnalysis.length === 0 && (
-                    <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed">
-                      <ArrowRightLeft className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">{t('reports.impact.noRcLoss', 'Aucun R.C (perte) détecté.')}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <React.Suspense fallback={reportsSectionFallback}>
+        <ReportsAnalysisSection
+          t={t}
+          analysisSearch={analysisSearch}
+          setAnalysisSearch={setAnalysisSearch}
+          foreignBottlesAnalysis={foreignBottlesAnalysis}
+          rcBottlesAnalysis={rcBottlesAnalysis}
+          generateForeignBottlesReport={generateForeignBottlesReport}
+          generateRCReport={generateRCReport}
+        />
+      </React.Suspense>
     );
   };
 
   const generateMygazReport = async () => {
-    const doc = await createPdfDoc();
+    const { doc, autoTable } = await createPdfDoc();
     const selectedDate = periodLabel;
     const driverName =
       dailyReportDriver === 'all'
@@ -2498,7 +2548,7 @@ const Reports = () => {
 
   const generateDriversSupplyReturnReport = async () => {
     const selectedDate = periodLabel;
-    const doc = await createPdfDoc({ orientation: 'landscape' });
+    const { doc, autoTable } = await createPdfDoc({ orientation: 'landscape' });
     const driverFilterLabel = dailyReportDriver === 'all' ? t('reports.filters.all', 'Tous') : (drivers.find(d => d.id === dailyReportDriver)?.name || t('reports.daily.unknown', 'Inconnu'));
     const generatedAt = new Date().toLocaleString(uiLocale);
     addPdfHeader(doc, tp('headers.driversBdHistory', "Historique des Bons d'Entrée (B.D) — Camions"), [
@@ -2653,7 +2703,7 @@ const Reports = () => {
     doc.save(`historique_bd_camions_${(dailyStartDate || '').replaceAll('-','')}_${(dailyEndDate || dailyStartDate || '').replaceAll('-','')}.pdf`);
   };
   const generateFactoryReceptionReport = async () => {
-    const doc = await createPdfDoc({ orientation: 'landscape' });
+    const { doc, autoTable } = await createPdfDoc({ orientation: 'landscape' });
     const selectedDate = periodLabel;
     const driverName =
       dailyReportDriver === 'all'
@@ -3000,12 +3050,6 @@ const Reports = () => {
       className: 'from-white to-indigo-50/50',
     },
   };
-  const showAnalysisSection = reportsView === 'operational';
-  const showFleetSection = reportsView !== 'finance';
-  const showStockSection = reportsView !== 'finance';
-  const showDriversSection = reportsView !== 'executive';
-  const showTransactionsSection = reportsView !== 'executive';
-  const showDailyReportsSection = reportsView !== 'executive';
   const topDebtDriver = driverAnalysis.reduce(
     (best, current) => (current.debt > best.debt ? current : best),
     driverAnalysis[0] || { name: '-', debt: 0 },
@@ -3024,6 +3068,13 @@ const Reports = () => {
       section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+  const reportsSectionFallback = (
+    <Card className="border-slate-200 shadow-sm">
+      <CardContent className="py-8 text-center text-sm text-muted-foreground">
+        {t('reports.common.loadingSection', 'Chargement de la section...')}
+      </CardContent>
+    </Card>
+  );
 
   return (
       <div className={layoutMode === 'compact' ? 'app-page-shell space-y-4 pb-2' : 'app-page-shell space-y-6 pb-2'}>
@@ -3277,119 +3328,18 @@ const Reports = () => {
   
           {showAnalysisSection && renderAnalysisSection()}
 
-          {showFleetSection && <motion.div {...sectionMotion}>
-          <Card id="reports-fleet" className="border-slate-200 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-bold flex items-center gap-2">
-                <Activity className="w-5 h-5 text-blue-600" />
-                {t('reports.fleet.title', 'Analyse Intelligente de la Flotte')}
-              </CardTitle>
-              <MButton onClick={generateFleetHealthReport} variant="outline" size="sm" whileTap={{ scale: 0.96 }}>
-                <Download className="w-4 h-4 mr-2" />
-                {t('reports.fleet.healthReportPdf', 'Rapport Santé PDF')}
-              </MButton>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                  <div className="flex items-center gap-2 text-blue-800 font-semibold mb-1">
-                    <Truck className="w-4 h-4" />
-                    {t('reports.fleet.totalVehicles', 'Total Véhicules')}
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900">{trucks.length}</div>
-                </div>
-                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                  <div className="flex items-center gap-2 text-red-800 font-semibold mb-1">
-                    <AlertTriangle className="w-4 h-4" />
-                    {t('reports.fleet.criticalVehicles', 'Véhicules Critiques')}
-                  </div>
-                  <div className="text-2xl font-bold text-red-900">
-                    {truckHealthAnalysis.filter(t => t.score < 40).length}
-                  </div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                  <div className="flex items-center gap-2 text-green-800 font-semibold mb-1">
-                    <ThumbsUp className="w-4 h-4" />
-                    {t('reports.fleet.goodVehicles', 'Véhicules en Bon État')}
-                  </div>
-                  <div className="text-2xl font-bold text-green-900">
-                    {truckHealthAnalysis.filter(t => t.score >= 70).length}
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto border rounded-lg hidden md:block smart-scroll-x">
-                <table className="reports-table-ultra w-full text-sm smart-table">
-                  <thead>
-                    <tr className="text-left border-b bg-gray-50 sticky top-0">
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.vehicle', 'Véhicule')}</th>
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.repairsCount', 'Nb Réparations')}</th>
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.totalCost', 'Coût Total')}</th>
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.health', 'Santé')}</th>
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.state', 'État')}</th>
-                      <th className="px-2.5 py-2">{t('reports.fleet.table.advice', 'Conseil')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {truckHealthAnalysis.map((t, index) => (
-                      <tr key={t.id} className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                        <td className="px-2.5 py-2 font-medium">{t.matricule}</td>
-                        <td className="px-2.5 py-2">{t.repairCount}</td>
-                        <td className="px-2.5 py-2">{t.totalRepairCost.toFixed(2)} DH</td>
-                        <td className="px-2.5 py-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2 max-w-[100px]">
-                            <div 
-                              className={`h-2 rounded-full ${
-                                t.score >= 70 ? 'bg-green-500' : t.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}
-                              style={{ width: `${t.score}%` }}
-                            ></div>
-                          </div>
-                        </td>
-                        <td className={`px-2.5 py-2 font-bold ${t.color}`}>
-                          {t.score < 40 && <ThumbsDown className="w-4 h-4 inline mr-1" />}
-                          {t.score >= 70 && <ThumbsUp className="w-4 h-4 inline mr-1" />}
-                          {t.status}
-                        </td>
-                        <td className="px-2.5 py-2">
-                          <Badge variant={t.score < 40 ? 'destructive' : t.score < 70 ? 'default' : 'secondary'}>
-                            {t.recommendation}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="md:hidden grid grid-cols-1 gap-2">
-                {truckHealthAnalysis.map((row) => (
-                  <div key={row.id} className="rounded-xl border border-slate-200 bg-white p-3 app-panel-soft">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{row.matricule}</span>
-                      <Badge variant="outline" className="text-[10px]">{row.status}</Badge>
-                    </div>
-                    <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
-                      <span>{row.repairCount} {t('reports.fleet.table.repairsCount', 'Nb Réparations')}</span>
-                      <span className="font-bold">{row.totalRepairCost.toFixed(2)} DH</span>
-                      <span>{row.score}%</span>
-                    </div>
-                    <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className={`h-2 ${row.score >= 70 ? 'bg-green-500' : row.score >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${row.score}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-start gap-3 border border-gray-200">
-                <Info className="w-5 h-5 text-gray-500 mt-0.5" />
-                <div className="text-xs text-gray-600">
-                  <p className="font-bold mb-1">{t('reports.fleet.analysisHow', "Comment fonctionne l'analyse ?")}</p>
-                  {t('reports.fleet.analysisDescription', "L'algorithme calcule un score de santé basé sur la fréquence des pannes et les coûts cumulés. Un score inférieur à 40 indique une machine coûteuse qui devrait être remplacée pour optimiser la rentabilité.")}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          </motion.div>}
+          {showFleetSection && (
+            <React.Suspense fallback={reportsSectionFallback}>
+              <ReportsFleetSection
+                t={t}
+                MButton={MButton}
+                sectionMotion={sectionMotion}
+                truckHealthAnalysis={truckHealthAnalysis}
+                trucksCount={trucks.length}
+                generateFleetHealthReport={generateFleetHealthReport}
+              />
+            </React.Suspense>
+          )}
 
           <div id="reports-kpis" className="grid md:grid-cols-4 gap-4">
               {kpiOrder.map((id, index) => {
@@ -3438,829 +3388,93 @@ const Reports = () => {
           </div>
   
           {showStockSection && <motion.div {...sectionMotion}>
-          <Card id="reports-stock" className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                      <PieChart className="w-5 h-5 text-purple-600" />
-                      {t('reports.stock.title', 'Analyse du stock')}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-48">
-                      <Filter className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t('reports.common.search', 'Rechercher...')}
-                        className="pl-8 h-9"
-                        value={stockSearch}
-                        onChange={(e) => setStockSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                  <div className="grid md:grid-cols-5 gap-4 mb-6">
-                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                      <div className="text-purple-800 text-sm font-semibold mb-1">{t('reports.stock.remainingValue', 'Valeur Stock Restant')}</div>
-                      <div className="text-2xl font-bold text-purple-900">
-                        {stockRemainingValue.toFixed(2)} MAD
-                      </div>
-                      {renderKpiComparison(stockComparison.stockValueRemaining, ' MAD')}
-                    </div>
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                      <div className="text-green-800 text-sm font-semibold mb-1">{t('reports.stock.totalUnits', 'Total Unités')}</div>
-                      <div className="text-2xl font-bold text-green-900">
-                        {stockTotalUnits}
-                      </div>
-                      {renderKpiComparison(stockComparison.totalUnits)}
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                      <div className="text-blue-800 text-sm font-semibold mb-1">{t('reports.stock.distributedUnits', 'Unités Distribuées')}</div>
-                      <div className="text-2xl font-bold text-blue-900">
-                        {stockDistributedUnits}
-                      </div>
-                      {renderKpiComparison(stockComparison.distributedUnits)}
-                    </div>
-                    <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-                      <div className="text-orange-800 text-sm font-semibold mb-1">{t('reports.stock.averageDistributionRate', 'Taux de Distribution Moyen')}</div>
-                      <div className="text-2xl font-bold text-orange-900">
-                        {stockAverageDistributionRate.toFixed(1)}%
-                      </div>
-                      {renderKpiComparison(stockComparison.averageDistributionRate, '%')}
-                    </div>
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                      <div className="text-red-800 text-sm font-semibold mb-1 flex items-center gap-1">
-                        <AlertTriangle className="w-4 h-4" />
-                        {t('reports.stock.detectedAnomalies', 'Anomalies détectées')}
-                      </div>
-                      <div className="text-2xl font-bold text-red-900">
-                        {stockAnomalies.length}
-                      </div>
-                      <div className="mt-1 text-xs text-red-700 min-h-8">
-                        {stockAnomalies.length > 0 ? stockAnomalies[0].message : t('reports.stock.noCriticalAnomaly', 'Aucune anomalie critique')}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="hidden md:block overflow-x-auto border rounded-lg smart-scroll-x">
-                      <table className="reports-table-ultra w-full text-sm smart-table">
-                          <thead>
-                              <tr className="text-left border-b bg-gray-50 sticky top-0">
-                                  <th className="p-3">{t('reports.stock.table.bottleType', 'Type de Bouteille')}</th>
-                                  <th className="p-3 text-center">{t('reports.stock.table.total', 'Total')}</th>
-                                  <th className="p-3 text-center">{t('reports.stock.table.distributedUnits', 'Unités Distribuées')}</th>
-                                  <th className="p-3 text-center">{t('reports.stock.table.remaining', 'Restant')}</th>
-                                  <th className="p-3 text-right">{t('reports.stock.table.value', 'Valeur')}</th>
-                                  <th className="p-3">{t('reports.stock.table.distributionRate', 'Taux de Distribution')}</th>
-                                  <th className="p-3">{t('reports.stock.table.state', 'État')}</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {stockAnalysis
-                                .filter(s => {
-                                  const query = stockSearch.trim().toLowerCase();
-                                  if (!query) return true;
-                                  return s.name.toLowerCase().includes(query);
-                                })
-                                .map((s, index) => (
-                                  <tr key={s.name} className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                                      <td className="p-3 font-medium">{s.name}</td>
-                                      <td className="p-3 text-center">{s.total}</td>
-                                      <td className="p-3 text-center text-blue-600 font-semibold">{s.distributed}</td>
-                                      <td className="p-3 text-center text-green-600 font-semibold">{s.remaining}</td>
-                                      <td className="p-3 text-right font-mono">{s.value.toFixed(2)}</td>
-                                      <td className="p-3">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-full bg-gray-200 rounded-full h-2 min-w-[100px]">
-                                            <div 
-                                              className="bg-blue-600 h-2 rounded-full transition-all"
-                                              style={{ width: `${Math.min(100, s.distributionRate)}%` }}
-                                            ></div>
-                                          </div>
-                                          <span className="text-xs font-semibold">{s.distributionRate.toFixed(1)}%</span>
-                                        </div>
-                                      </td>
-                                      <td className="p-3">
-                                        <Badge className={`${s.statusColor} bg-white border`}>
-                                          {s.status}
-                                        </Badge>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-                  <div className="md:hidden grid grid-cols-1 gap-2">
-                    {stockAnalysis
-                      .filter(s => {
-                        const query = stockSearch.trim().toLowerCase();
-                        if (!query) return true;
-                        return s.name.toLowerCase().includes(query);
-                      })
-                      .map((s) => (
-                        <div key={s.name} className="rounded-xl border border-slate-200 bg-white p-3 app-panel-soft">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">{s.name}</span>
-                            <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
-                          </div>
-                          <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
-                            <span>{t('reports.stock.table.total', 'Total')}: {s.total}</span>
-                            <span className="text-blue-700 font-semibold">{t('reports.stock.table.distributedUnits', 'Unités Distribuées')}: {s.distributed}</span>
-                            <span className="text-green-700 font-semibold">{t('reports.stock.table.remaining', 'Restant')}: {s.remaining}</span>
-                          </div>
-                          <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                            <div className="h-2 bg-blue-600" style={{ width: `${Math.min(100, s.distributionRate)}%` }} />
-                          </div>
-                          <div className="mt-1 text-xs font-semibold">{s.value.toFixed(2)} MAD</div>
-                        </div>
-                      ))}
-                  </div>
-              </CardContent>
-          </Card>
+            <React.Suspense fallback={reportsSectionFallback}>
+              <ReportsStockSection
+                t={t}
+                stockSearch={stockSearch}
+                setStockSearch={setStockSearch}
+                stockAnalysis={stockAnalysis}
+                stockRemainingValue={stockRemainingValue}
+                stockTotalUnits={stockTotalUnits}
+                stockDistributedUnits={stockDistributedUnits}
+                stockAverageDistributionRate={stockAverageDistributionRate}
+                stockAnomalies={stockAnomalies}
+                stockComparison={stockComparison}
+                renderKpiComparison={renderKpiComparison}
+              />
+            </React.Suspense>
           </motion.div>}
-  
-          {showDriversSection && <motion.div {...sectionMotion}>
-          <Card id="reports-drivers" className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                      <Users className="w-5 h-5 text-blue-600" />
-                      {t('reports.drivers.title', 'Analyse des chauffeurs')}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-48">
-                      <Filter className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t('reports.common.search', 'Rechercher...')}
-                        className="pl-8 h-9"
-                        value={driverSearch}
-                        onChange={(e) => setDriverSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                      <div className="text-red-800 text-sm font-semibold mb-1">{t('reports.drivers.totalDebts', 'Total Dettes')}</div>
-                      <div className="text-2xl font-bold text-red-900">
-                        {driverAnalysis.reduce((sum, d) => sum + d.debt, 0).toFixed(2)} MAD
-                      </div>
-                    </div>
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                      <div className="text-green-800 text-sm font-semibold mb-1">{t('reports.drivers.totalAdvances', 'Total Acomptes')}</div>
-                      <div className="text-2xl font-bold text-green-900">
-                        {driverAnalysis.reduce((sum, d) => sum + d.advances, 0).toFixed(2)} MAD
-                      </div>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                      <div className="text-blue-800 text-sm font-semibold mb-1">{t('reports.drivers.globalNetBalance', 'Solde Net Global')}</div>
-                      <div className="text-2xl font-bold text-blue-900">
-                        {driverAnalysis.reduce((sum, d) => sum + d.balance, 0).toFixed(2)} MAD
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="hidden md:block overflow-x-auto border rounded-lg smart-scroll-x">
-                      <table className="reports-table-ultra w-full text-sm smart-table">
-                          <thead>
-                              <tr className="text-left border-b bg-gray-50 sticky top-0">
-                                  <th className="p-3">{t('reports.drivers.table.driver', 'Chauffeur')}</th>
-                                  <th className="p-3 text-right">{t('reports.drivers.table.cumulativeDebt', 'Dette (Cumulée)')}</th>
-                                  <th className="p-3 text-right">{t('reports.drivers.table.advances', 'Acomptes')}</th>
-                                  <th className="p-3 text-right">{t('reports.drivers.table.currentBalance', 'Solde Actuel')}</th>
-                                  <th className="p-3 text-center">{t('reports.drivers.table.status', 'Statut')}</th>
-                                  <th className="p-3">{t('reports.drivers.table.progress', 'Progression')}</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              {driverAnalysis
-                                .filter(d => d.name.toLowerCase().includes(driverSearch.toLowerCase()))
-                                .map((d, index) => (
-                                  <tr key={d.id} className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                                      <td className="p-3 font-medium">{d.name}</td>
-                                      <td className="p-3 text-right text-red-600 font-mono">{d.debt.toFixed(2)}</td>
-                                      <td className="p-3 text-right text-green-600 font-mono">{d.advances.toFixed(2)}</td>
-                                      <td className={`p-3 text-right font-bold font-mono ${d.balance < 0 ? 'text-red-600' : d.balance > 0 ? 'text-green-600' : ''}`}>
-                                        {d.balance.toFixed(2)}
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <Badge variant={d.statusVariant}>
-                                            {d.status}
-                                          </Badge>
-                                      </td>
-                                      <td className="p-3">
-                                        <div className="w-full bg-gray-200 rounded-full h-1.5 max-w-[100px]">
-                                          <div 
-                                            className={`h-1.5 rounded-full ${d.balance < 0 ? 'bg-red-500' : 'bg-green-500'}`}
-                                            style={{ 
-                                              width: `${Math.min(100, Math.abs(d.balance) / 100)}%` 
-                                            }}
-                                          ></div>
-                                        </div>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
-                  <div className="md:hidden grid grid-cols-1 gap-2">
-                    {driverAnalysis
-                      .filter(d => d.name.toLowerCase().includes(driverSearch.toLowerCase()))
-                      .map((d) => (
-                        <div key={d.id} className="rounded-xl border border-slate-200 bg-white p-3 app-panel-soft">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">{d.name}</span>
-                            <Badge variant={d.statusVariant} className="text-[10px]">{d.status}</Badge>
-                          </div>
-                          <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
-                            <span className="text-red-700 font-semibold">{t('reports.drivers.table.cumulativeDebt', 'Dette')}: {d.debt.toFixed(2)}</span>
-                            <span className="text-green-700 font-semibold">{t('reports.drivers.table.advances', 'Acomptes')}: {d.advances.toFixed(2)}</span>
-                            <span className={`${d.balance < 0 ? 'text-red-700' : 'text-green-700'} font-semibold`}>{t('reports.drivers.table.currentBalance', 'Solde')}: {d.balance.toFixed(2)}</span>
-                          </div>
-                          <div className="mt-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                            <div className={`h-2 ${d.balance < 0 ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${Math.min(100, Math.abs(d.balance) / 100)}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-              </CardContent>
-          </Card>
+          {showDriversSection && <motion.div {...sectionMotion}>
+            <React.Suspense fallback={reportsSectionFallback}>
+              <ReportsDriversSection
+                t={t}
+                driverSearch={driverSearch}
+                setDriverSearch={setDriverSearch}
+                driverAnalysis={driverAnalysis}
+              />
+            </React.Suspense>
           </motion.div>}
   
           {showTransactionsSection && <motion.div {...sectionMotion}>
-          <Card id="reports-transactions" className="border-slate-200 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xl font-bold flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-indigo-600" />
-                      {t('reports.transactions.title', 'Historique des transactions')}
-                  </CardTitle>
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <MButton
-                      variant="outline"
-                      size="sm"
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => {
-                        setShowTransactions((v) => !v);
-                        setExpandedTransactionId(null);
-                      }}
-                    >
-                      {showTransactions ? t('reports.common.hide', 'Cacher') : t('reports.common.show', 'Afficher')}
-                    </MButton>
-                    <MButton
-                      variant="outline"
-                      size="sm"
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => setShowReference(v => !v)}
-                    >
-                      {showReference ? t('reports.transactions.hideReference', 'Cacher Référence') : t('reports.transactions.showReference', 'Afficher Référence')}
-                    </MButton>
-                    <Select value={transactionsSort} onValueChange={(v) => setTransactionsSort(v as any)}>
-                      <SelectTrigger className="h-9 w-[170px]">
-                        <SelectValue placeholder={t('reports.transactions.sort', 'Tri')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="date_desc">{t('reports.transactions.sortDateDesc', 'Date ↓')}</SelectItem>
-                        <SelectItem value="date_asc">{t('reports.transactions.sortDateAsc', 'Date ↑')}</SelectItem>
-                        <SelectItem value="value_desc">{t('reports.transactions.sortValueDesc', 'Valeur ↓')}</SelectItem>
-                        <SelectItem value="value_asc">{t('reports.transactions.sortValueAsc', 'Valeur ↑')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={transactionsLimit} onValueChange={(v) => setTransactionsLimit(v as any)}>
-                      <SelectTrigger className="h-9 w-[140px]">
-                        <SelectValue placeholder={t('reports.transactions.limit', 'Limiter')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="25">25 {t('reports.transactions.lines', 'lignes')}</SelectItem>
-                        <SelectItem value="50">50 {t('reports.transactions.lines', 'lignes')}</SelectItem>
-                        <SelectItem value="100">100 {t('reports.transactions.lines', 'lignes')}</SelectItem>
-                        <SelectItem value="all">{t('reports.filters.all', 'Tous')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={transactionTypeFilter} onValueChange={(v) => setTransactionTypeFilter(v as any)}>
-                      <SelectTrigger className="h-9 w-[170px]">
-                        <SelectValue placeholder={t('reports.filters.type', 'Type')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t('reports.transactions.allTypes', 'Tous types')}</SelectItem>
-                        <SelectItem value="supply">{t('reports.types.supply', 'Alimentation')}</SelectItem>
-                        <SelectItem value="return">{t('reports.types.return', 'Retour')}</SelectItem>
-                        <SelectItem value="exchange">{t('reports.types.exchange', 'Échange')}</SelectItem>
-                        <SelectItem value="factory">{t('reports.types.factory', 'Usine')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <MButton
-                      variant={showNonZeroOnly ? 'default' : 'outline'}
-                      size="sm"
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => setShowNonZeroOnly(v => !v)}
-                    >
-                      {showNonZeroOnly ? t('reports.transactions.amountGtZero', 'Montants > 0') : t('reports.transactions.allAmounts', 'Tous montants')}
-                    </MButton>
-                    <div className="relative w-64">
-                      <Filter className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t('reports.transactions.searchPlaceholder', 'Chercher (Chauffeur, Client, Camion...)')}
-                        className="pl-8 h-9"
-                        value={transactionSearch}
-                        onChange={(e) => setTransactionSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{filteredTransactions.length} {t('reports.transactions.operations', 'opérations')}</Badge>
-                      <Badge variant="secondary">{totalValue.toFixed(2)} MAD</Badge>
-                      <Badge variant="outline">
-                        {t('reports.transactions.supplyShort', 'Alim')}: {transactionsByType.supply} | {t('reports.transactions.returnShort', 'Ret')}: {transactionsByType.return} | {t('reports.transactions.exchangeShort', 'Éch')}: {transactionsByType.exchange} | {t('reports.types.factory', 'Usine')}: {transactionsByType.factory}
-                      </Badge>
-                      <Badge variant="outline">{t('reports.transactions.displayed', 'Affiché')}: {visibleTransactionsTotal.toFixed(2)} MAD</Badge>
-                      <Badge variant="outline">{t('reports.transactions.withAmount', 'Avec montant')}: {visibleTransactionsWithValue}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {t('reports.transactions.displayed', 'Affiché')}: {visibleTransactions.length}/{tableFilteredTransactions.length}
-                      </span>
-                    </div>
-                  </div>
-
-                  {!showTransactions ? (
-                    <div className="text-sm text-muted-foreground py-6 text-center border rounded-lg bg-gray-50">
-                      {t('reports.transactions.historyHidden', 'Historique masqué.')}
-                    </div>
-                  ) : (
-                    <>
-                    <div className="hidden md:block overflow-x-auto border rounded-lg smart-scroll-x">
-                        <table className="reports-table-ultra w-full text-sm smart-table">
-                            <thead>
-                                <tr className="text-left border-b bg-gray-50 sticky top-0">
-                                        <th className="px-3 py-2.5 text-center w-14">#</th>
-                                        <th className="px-3 py-2.5">{t('reports.table.date', 'Date')}</th>
-                                        <th className="px-3 py-2.5">{t('reports.table.type', 'Type')}</th>
-                                        <th className="px-3 py-2.5">{t('reports.table.driver', 'Chauffeur')}</th>
-                                        <th className="px-3 py-2.5">{t('reports.table.client', 'Client')}</th>
-                                        {showReference && <th className="px-3 py-2.5">{t('reports.table.reference', 'Référence')}</th>}
-                                        <th className="px-3 py-2.5">{t('reports.table.truck', 'Camion')}</th>
-                                        <th className="px-3 py-2.5 text-right">{t('reports.table.valueMad', 'Valeur (MAD)')}</th>
-                                        <th className="px-3 py-2.5 text-center">{t('reports.table.details', 'Détails')}</th>
-                                    </tr>
-                            </thead>
-                            <tbody>
-                                {visibleTransactions.map((t: any, index: number) => {
-                                    let dName = drivers.find((d) => d.id === t.driverId)?.name || '-';
-                                    const rawDetails = t.details ?? t.detail ?? t.meta ?? t.data;
-                                    let parsedDetails: any = undefined;
-                                    if (typeof rawDetails === 'string') {
-                                      try {
-                                        parsedDetails = JSON.parse(rawDetails);
-                                      } catch {
-                                        parsedDetails = undefined;
-                                      }
-                                    } else if (rawDetails && typeof rawDetails === 'object') {
-                                      parsedDetails = rawDetails;
-                                    }
-                                    const detailTruckId = parsedDetails?.truckId ?? parsedDetails?.truck_id;
-                                    const detailTruckName =
-                                      parsedDetails?.truckName ??
-                                      parsedDetails?.truck ??
-                                      parsedDetails?.camion ??
-                                      parsedDetails?.plateNumber ??
-                                      parsedDetails?.registration;
-
-                                    const trk = trucks.find((tr) => String(tr.id) === String(t.truckId || detailTruckId)) as any;
-                                    let tName = (trk?.name || trk?.plateNumber || trk?.registration || trk?.matricule || detailTruckName || '-') as string;
-
-                                    const supplyOrder = t.type === 'supply'
-                                      ? supplyOrders.find((o: any) => o.id === t.relatedOrderId || o.orderNumber === t.relatedOrderId)
-                                      : undefined;
-                                    const returnOrder = t.type === 'return'
-                                      ? returnOrders.find((o: any) => o.id === t.relatedOrderId || o.orderNumber === t.relatedOrderId)
-                                      : undefined;
-
-                                    const isFactoryType =
-                                      t.type === 'factory' ||
-                                      t.type === 'factory_reception' ||
-                                      t.type === 'factory_invoice' ||
-                                      t.type === 'factory_settlement';
-
-                                    let cName = '-';
-                                    if (supplyOrder) cName = supplyOrder.clientName || '-';
-                                    else if (returnOrder) cName = returnOrder.clientName || '-';
-                                    else if (isFactoryType) {
-                                      const supplierId = t.supplierId || parsedDetails?.supplierId || parsedDetails?.supplier_id;
-                                      if (supplierId) {
-                                        const sup = suppliers.find(s => String(s.id) === String(supplierId));
-                                        cName = sup?.name || '-';
-                                      }
-                                    }
-
-                                    const detailRef =
-                                      parsedDetails?.reference ??
-                                      parsedDetails?.ref ??
-                                      parsedDetails?.orderNumber ??
-                                      parsedDetails?.blReference ??
-                                      parsedDetails?.bl ??
-                                      parsedDetails?.id;
-                                    const rawRef = String(
-                                      supplyOrder?.orderNumber ||
-                                      returnOrder?.orderNumber ||
-                                      t.orderNumber ||
-                                      t.reference ||
-                                      t.ref ||
-                                      detailRef ||
-                                      t.relatedOrderId ||
-                                      t.id ||
-                                      ''
-                                    );
-                                    let ref = rawRef ? rawRef : '-';
-                                    const dateLabel = t?.date
-                                      ? new Date(t.date).toLocaleString(uiLocale, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-                                      : '-';
-
-                                    if (isFactoryType && (tName === '-' || !rawRef || ref === '-' || dName === '-')) {
-                                      const td = new Date(t.date || 0).getTime();
-                                      const match = factoryOps.find((op: any) => {
-                                        const od = new Date(op.receivedDate || op.date).getTime();
-                                        const diff = Math.abs(od - td);
-                                        const supplierMatch = !t.supplierId || String(op.supplierId || '') === String(t.supplierId);
-                                        const refMatch = !!rawRef && rawRef !== '-' && op.blReference && String(op.blReference) === String(rawRef);
-                                        const opIdMatch = parsedDetails?.operationId && String(op.id) === String(parsedDetails.operationId);
-                                        return refMatch || opIdMatch || (diff <= 2 * 60 * 60 * 1000 && supplierMatch);
-                                      });
-                                      if (match) {
-                                        const tr2 = trucks.find(tr => String(tr.id) === String(match.truckId)) as any;
-                                        const tName2 = (tr2?.name || tr2?.plateNumber || tr2?.registration || tr2?.matricule || '-') as string;
-                                        if (tName === '-' && tName2 !== '-') tName = tName2;
-                                        if ((!rawRef || rawRef === '-' || ref === '-') && match.blReference) ref = match.blReference;
-                                        if (dName === '-') {
-                                          const drvFromTruckId = tr2?.driverId;
-                                          if (drvFromTruckId) {
-                                            const drv = drivers.find(d => d.id === drvFromTruckId);
-                                            if (drv?.name) dName = drv.name;
-                                          } else if (match.driverName) {
-                                            dName = match.driverName;
-                                          }
-                                        }
-                                      }
-                                    }
-                                    if (dName === '-') {
-                                      const pdDriverId = parsedDetails?.driverId ?? parsedDetails?.driver_id;
-                                      if (pdDriverId) {
-                                        const drv = drivers.find(d => d.id === pdDriverId);
-                                        if (drv?.name) dName = drv.name;
-                                      } else {
-                                        const trForD = trucks.find(tr => tr.id === (t.truckId || detailTruckId)) as any;
-                                        const drv2Id = trForD?.driverId;
-                                        if (drv2Id) {
-                                          const drv2 = drivers.find(d => d.id === drv2Id);
-                                          if (drv2?.name) dName = drv2.name;
-                                        } else {
-                                          const nameHint = parsedDetails?.driverName ?? parsedDetails?.driver ?? parsedDetails?.chauffeur;
-                                          if (nameHint) dName = String(nameHint);
-                                        }
-                                      }
-                                    }
-
-                                    const valueNumber = getTransactionValue(t);
-                                    const typeMeta = getTypeMeta(String(t.type || ''));
-
-                                    const isExpanded = expandedTransactionId === t.id;
-                                    const bottleBreakdown = (t.bottleTypes || []).map((bt: any) => {
-                                      const name = bottleTypes.find((b) => b.id === bt.bottleTypeId)?.name || bt.bottleTypeName || bt.bottleTypeId || '-';
-                                      return {
-                                        key: `${t.id}-${bt.bottleTypeId}-${bt.status || 'na'}`,
-                                        name,
-                                        quantity: Number(bt.quantity || 0),
-                                        status: bt.status ? String(bt.status) : '',
-                                      };
-                                    });
-
-                                    return (
-                                      <React.Fragment key={t.id}>
-                                        <tr className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">{index + 1}</td>
-                                          <td className="px-3 py-2.5">{dateLabel}</td>
-                                          <td className="px-3 py-2.5">
-                                            <Badge variant="outline" className={typeMeta.className}>
-                                              {typeMeta.label}
-                                            </Badge>
-                                          </td>
-                                          <td className="px-3 py-2.5 font-medium">{dName}</td>
-                                          <td className="px-3 py-2.5">{cName}</td>
-                                        {showReference && (
-                                          <td className="px-3 py-2.5 font-mono text-xs max-w-[220px] truncate" title={ref}>
-                                            {ref}
-                                          </td>
-                                        )}
-                                          <td className="px-3 py-2.5">{tName}</td>
-                                        <td className={`px-3 py-2.5 text-right font-bold ${valueNumber > 0 ? 'text-slate-900' : 'text-slate-400'}`}>{valueNumber.toFixed(2)}</td>
-                                          <td className="px-3 py-2.5 text-center">
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-8 w-8 p-0"
-                                              onClick={() => setExpandedTransactionId((prev) => (prev === t.id ? null : t.id))}
-                                            >
-                                              <Info className="h-4 w-4 text-blue-600" />
-                                            </Button>
-                                          </td>
-                                        </tr>
-                                        {isExpanded && (
-                                          <tr className="border-b bg-white">
-                                        <td className="px-3 py-2.5" colSpan={showReference ? 9 : 8}>
-                                              <div className="grid md:grid-cols-3 gap-3">
-                                                <div className="text-sm">
-                                                  <div className="text-xs text-muted-foreground">{t('reports.transactions.identifier', 'Identifiant')}</div>
-                                                  <div className="font-mono text-xs">{String(t.id || '-')}</div>
-                                                </div>
-                                                <div className="text-sm">
-                                                  <div className="text-xs text-muted-foreground">{t('reports.table.total', 'Total')}</div>
-                                                  <div className="font-bold">{valueNumber.toFixed(2)} MAD</div>
-                                                </div>
-                                                <div className="text-sm">
-                                                  <div className="text-xs text-muted-foreground">{t('reports.table.bottles', 'Bouteilles')}</div>
-                                                  <div className="flex flex-wrap gap-2 mt-1">
-                                                    {bottleBreakdown.length === 0 ? (
-                                                      <span className="text-xs text-muted-foreground">—</span>
-                                                    ) : (
-                                                      bottleBreakdown.map((b: any) => (
-                                                        <Badge key={b.key} variant="secondary" className="text-xs">
-                                                          {b.quantity} {b.name}{b.status ? ` (${b.status})` : ''}
-                                                        </Badge>
-                                                      ))
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </React.Fragment>
-                                    );
-                                })}
-                                {visibleTransactions.length === 0 && (
-                                  <tr>
-                                    <td className="p-4 text-center text-sm text-muted-foreground" colSpan={showReference ? 9 : 8}>
-                                      {t('reports.transactions.noTransactionForFilters', 'Aucune transaction pour ces filtres.')}
-                                    </td>
-                                  </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="md:hidden grid grid-cols-1 gap-2">
-                      {visibleTransactions.map((t: any, index: number) => {
-                        const valueNumber = getTransactionValue(t);
-                        const typeMeta = getTypeMeta(String(t.type || ''));
-                        const dateLabel = t?.date
-                          ? new Date(t.date).toLocaleString(uiLocale, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-                          : '-';
-                        const dName = drivers.find((d) => d.id === t.driverId)?.name || '-';
-                        const trk = trucks.find((tr) => String(tr.id) === String(t.truckId)) as any;
-                        const tName = (trk?.name || trk?.plateNumber || trk?.registration || trk?.matricule || '-') as string;
-                        return (
-                          <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-3 app-panel-soft">
-                            <div className="flex items-center justify-between">
-                              <Badge variant="outline" className={typeMeta.className + ' text-[10px]'}>{typeMeta.label}</Badge>
-                              <span className="text-xs text-muted-foreground">{dateLabel}</span>
-                            </div>
-                            <div className="mt-1 text-sm font-semibold">{dName}</div>
-                            <div className="text-xs text-muted-foreground">{tName}</div>
-                            <div className={`mt-1 text-sm font-bold ${valueNumber > 0 ? 'text-slate-900' : 'text-slate-400'}`}>{valueNumber.toFixed(2)} MAD</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    </>
-                  )}
-              </CardContent>
-          </Card>
+            <React.Suspense fallback={reportsSectionFallback}>
+              <ReportsTransactionsSection
+                t={t}
+                showTransactions={showTransactions}
+                setShowTransactions={setShowTransactions}
+                setExpandedTransactionId={setExpandedTransactionId}
+                showReference={showReference}
+                setShowReference={setShowReference}
+                transactionsSort={transactionsSort}
+                setTransactionsSort={setTransactionsSort}
+                transactionsLimit={transactionsLimit}
+                setTransactionsLimit={setTransactionsLimit}
+                transactionTypeFilter={transactionTypeFilter}
+                setTransactionTypeFilter={setTransactionTypeFilter}
+                showNonZeroOnly={showNonZeroOnly}
+                setShowNonZeroOnly={setShowNonZeroOnly}
+                transactionSearch={transactionSearch}
+                setTransactionSearch={setTransactionSearch}
+                filteredTransactionsLength={filteredTransactions.length}
+                totalValue={totalValue}
+                transactionsByType={transactionsByType}
+                visibleTransactionsTotal={visibleTransactionsTotal}
+                visibleTransactionsWithValue={visibleTransactionsWithValue}
+                visibleTransactionsLength={visibleTransactions.length}
+                tableFilteredTransactionsLength={tableFilteredTransactions.length}
+                visibleTransactionRows={visibleTransactionRows}
+                expandedTransactionId={expandedTransactionId}
+              />
+            </React.Suspense>
           </motion.div>}
-  
+
           {showDailyReportsSection && <motion.div {...sectionMotion}>
-          <Card id="reports-daily" className="border-slate-200 shadow-sm">
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                      <Truck className="w-5 h-5" />
-                      {t('reports.daily.title', 'Rapport Journalier des Chauffeurs')}
-                  </CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <div className="grid md:grid-cols-4 gap-4 mb-4">
-                      <div>
-                          <Label>{t('reports.filters.start', 'Début')} <span className="text-xs text-muted-foreground">{tr('(jj/mm/aaaa)', '(يوم/شهر/سنة)')}</span></Label>
-                          <Input
-                              type="date"
-                              value={dailyStartDate}
-                              onChange={(e) => setDailyStartDate(e.target.value)}
-                          />
-                      </div>
-                      <div>
-                          <Label>{t('reports.filters.end', 'Fin')} <span className="text-xs text-muted-foreground">{tr('(jj/mm/aaaa)', '(يوم/شهر/سنة)')}</span></Label>
-                          <Input
-                              type="date"
-                              value={dailyEndDate}
-                              onChange={(e) => setDailyEndDate(e.target.value)}
-                          />
-                      </div>
-                      <div>
-                          <Label>{t('reports.filters.driver', 'Chauffeur')}</Label>
-                          <Select value={dailyReportDriver} onValueChange={setDailyReportDriver}>
-                              <SelectTrigger>
-                                  <SelectValue placeholder={t('reports.filters.all', 'Tous')} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="all">{t('reports.filters.all', 'Tous')}</SelectItem>
-                                  {drivers.map((d) => (
-                                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                                  ))}
-                              </SelectContent>
-                          </Select>
-                      </div>
-                      <div>
-                          <Label>{t('reports.daily.quickPeriod', 'Période rapide')}</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <MButton type="button" variant="outline" className="h-10" whileTap={{ scale: 0.98 }} onClick={() => applyDailyPeriodPreset('today')}>{t('reports.daily.today', "Aujourd'hui")}</MButton>
-                            <MButton type="button" variant="outline" className="h-10" whileTap={{ scale: 0.98 }} onClick={() => applyDailyPeriodPreset('last7')}>{t('reports.daily.last7Days', '7 jours')}</MButton>
-                            <MButton type="button" variant="outline" className="h-10" whileTap={{ scale: 0.98 }} onClick={() => applyDailyPeriodPreset('month')}>{t('reports.daily.month', 'Mois')}</MButton>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="mb-4 rounded-lg border bg-slate-50 p-3 flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-sm">
-                      <span className="font-semibold">{t('reports.daily.period', 'Période')}:</span> {periodLabel || t('reports.daily.notDefined', 'Non définie')} · <span className="font-semibold">{t('reports.filters.driver', 'Chauffeur')}:</span> {dailyReportDriver === 'all' ? t('reports.filters.all', 'Tous') : (drivers.find(d => d.id === dailyReportDriver)?.name || t('reports.daily.unknown', 'Inconnu'))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={dailyReportsDisplayMode === 'list' ? 'default' : 'ghost'}
-                          className="h-7 px-2 text-xs"
-                          onClick={() => setDailyReportsDisplayMode('list')}
-                        >
-                          {t('reports.daily.list', 'Liste')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={dailyReportsDisplayMode === 'cards' ? 'default' : 'ghost'}
-                          className="h-7 px-2 text-xs"
-                          onClick={() => setDailyReportsDisplayMode('cards')}
-                        >
-                          {t('reports.daily.cards', 'Cards')}
-                        </Button>
-                      </div>
-                      <Button
-                        onClick={generateAllDailyReports}
-                        disabled={isBulkGeneratingReports}
-                        className="h-9 px-3 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        {isBulkGeneratingReports ? t('reports.daily.generating', 'Génération en cours...') : t('reports.daily.downloadAllReports', 'Télécharger Tous les Rapports')}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {isBulkGeneratingReports && (
-                    <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-2.5">
-                      <div className="mb-1.5 flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-indigo-700">
-                          {t('reports.daily.progress', 'Progression')} {completedReportIds.length}/{dailyReportActions.length}
-                        </span>
-                        <span className="text-indigo-600">
-                          {activeReportId ? dailyReportActions.find((item) => item.id === activeReportId)?.label || '' : ''}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
-                        <motion.div
-                          className="h-full rounded-full bg-indigo-600"
-                          animate={{ width: `${Math.max(6, (completedReportIds.length / Math.max(1, dailyReportActions.length)) * 100)}%` }}
-                          transition={{ duration: 0.35, ease: 'easeOut' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mb-4 pb-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {dailyReportActions.map((report, index) => {
-                        const isRunning = activeReportId === report.id || isBulkGeneratingReports;
-                        const isDone = completedReportIds.includes(report.id);
-                        const isCurrent = activeReportId === report.id;
-                        const isGlow = glowingReportIds.includes(report.id);
-                        const tone = getDailyActionTone(index, isCurrent, isDone);
-                        return (
-                          <React.Fragment key={`timeline-${report.id}`}>
-                            <MButton
-                              variant={isCurrent ? 'default' : isDone ? 'secondary' : 'outline'}
-                              size="sm"
-                              className={`h-7 rounded-full px-2.5 text-[11px] max-w-[220px] truncate ${tone.chip}`}
-                              onClick={() => runReportAction(report.id, report.action)}
-                              disabled={isRunning}
-                              whileHover={{ y: -1, scale: 1.02 }}
-                              whileTap={{ scale: 0.96 }}
-                              animate={isGlow ? { boxShadow: ['0 0 0 rgba(16,185,129,0)', '0 0 0 6px rgba(16,185,129,0.22)', '0 0 0 rgba(16,185,129,0)'] } : undefined}
-                              transition={isGlow ? { duration: 0.9, ease: 'easeOut' } : undefined}
-                            >
-                              <span className="mr-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-black/10 px-1 text-[10px]">
-                                {index + 1}
-                              </span>
-                              <span className="truncate">{report.label}</span>
-                            </MButton>
-                            {index < dailyReportActions.length - 1 && <div className="hidden md:block h-px w-4 bg-slate-300" />}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {dailyReportsDisplayMode === 'cards' ? (
-                  <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-2">
-                      {dailyReportActions.map((report, index) => {
-                        const isRunning = activeReportId === report.id || isBulkGeneratingReports;
-                        const isCurrent = activeReportId === report.id;
-                        const isDone = completedReportIds.includes(report.id);
-                        const isGlow = glowingReportIds.includes(report.id);
-                        const showSuccessCue = isGlow && isDone && !isCurrent;
-                        const tone = getDailyActionTone(index, isCurrent, isDone);
-                        return (
-                          <motion.div key={report.id} {...cardMotion(index)} whileHover={{ y: -2, scale: 1.01 }} animate={isGlow ? { boxShadow: ['0 0 0 rgba(16,185,129,0)', '0 0 0 7px rgba(16,185,129,0.18)', '0 0 0 rgba(16,185,129,0)'] } : undefined} transition={isGlow ? { duration: 0.95, ease: 'easeOut' } : undefined} className={`rounded-lg border bg-white p-2.5 shadow-sm ${tone.card}`}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-900 truncate">{report.label}</p>
-                                <p className={`text-[11px] mt-1 ${isCurrent || isDone ? tone.status : 'text-slate-500'}`}>
-                                  {isCurrent ? t('reports.daily.generating', 'Génération en cours...') : isDone ? t('reports.daily.done', 'Terminé') : t('reports.daily.ready', 'Prêt')}
-                                </p>
-                              </div>
-                              <MButton
-                                onClick={() => runReportAction(report.id, report.action)}
-                                variant={report.variant || 'outline'}
-                                size="sm"
-                                className={`h-7 px-2 shrink-0 text-[11px] ${tone.button}`}
-                                disabled={isRunning}
-                                whileHover={{ y: -1, scale: 1.04 }}
-                                whileTap={{ scale: 0.96 }}
-                              >
-                                <motion.span
-                                  className="mr-1 inline-flex"
-                                  animate={showSuccessCue ? { scale: [1, 1.18, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 }}
-                                  transition={{ duration: 0.45, ease: 'easeOut' }}
-                                >
-                                  {showSuccessCue ? <ThumbsUp className="w-3 h-3" /> : <Download className="w-3 h-3" />}
-                                </motion.span>
-                                {showSuccessCue ? t('reports.daily.doneShort', 'OK') : t('reports.daily.downloadOneShort', 'PDF')}
-                              </MButton>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                  </div>
-                  ) : (
-                  <div className="space-y-2">
-                    {dailyReportActions.map((report, index) => {
-                      const isRunning = activeReportId === report.id || isBulkGeneratingReports;
-                      const isCurrent = activeReportId === report.id;
-                      const isDone = completedReportIds.includes(report.id);
-                      const isGlow = glowingReportIds.includes(report.id);
-                      const showSuccessCue = isGlow && isDone && !isCurrent;
-                      const tone = getDailyActionTone(index, isCurrent, isDone);
-                      return (
-                        <motion.div key={`list-${report.id}`} {...cardMotion(index)} whileHover={{ y: -1, scale: 1.005 }} animate={isGlow ? { boxShadow: ['0 0 0 rgba(16,185,129,0)', '0 0 0 7px rgba(16,185,129,0.18)', '0 0 0 rgba(16,185,129,0)'] } : undefined} transition={isGlow ? { duration: 0.95, ease: 'easeOut' } : undefined} className={`rounded-lg border bg-white p-2.5 shadow-sm ${tone.card}`}>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0 flex items-center gap-2">
-                              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-700">{index + 1}</span>
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-900 truncate">{report.label}</p>
-                                <p className={`text-[11px] ${isCurrent || isDone ? tone.status : 'text-slate-500'}`}>
-                                  {isCurrent ? t('reports.daily.generating', 'Génération en cours...') : isDone ? t('reports.daily.done', 'Terminé') : t('reports.daily.ready', 'Prêt')}
-                                </p>
-                              </div>
-                            </div>
-                            <MButton
-                              onClick={() => runReportAction(report.id, report.action)}
-                              variant={report.variant || 'outline'}
-                              size="sm"
-                              className={`h-7 px-2 shrink-0 text-[11px] ${tone.button}`}
-                              disabled={isRunning}
-                              whileHover={{ y: -1, scale: 1.04 }}
-                              whileTap={{ scale: 0.96 }}
-                            >
-                              <motion.span
-                                className="mr-1 inline-flex"
-                                animate={showSuccessCue ? { scale: [1, 1.18, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 }}
-                                transition={{ duration: 0.45, ease: 'easeOut' }}
-                              >
-                                {showSuccessCue ? <ThumbsUp className="w-3 h-3" /> : <Download className="w-3 h-3" />}
-                              </motion.span>
-                              {showSuccessCue ? t('reports.daily.doneShort', 'OK') : t('reports.daily.downloadOneShort', 'PDF')}
-                            </MButton>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                  )}
-              </CardContent>
-          </Card>
+            <React.Suspense fallback={reportsSectionFallback}>
+              <ReportsDailySection
+                t={t}
+                tr={tr}
+                drivers={drivers}
+                dailyStartDate={dailyStartDate}
+                setDailyStartDate={setDailyStartDate}
+                dailyEndDate={dailyEndDate}
+                setDailyEndDate={setDailyEndDate}
+                dailyReportDriver={dailyReportDriver}
+                setDailyReportDriver={setDailyReportDriver}
+                applyDailyPeriodPreset={applyDailyPeriodPreset}
+                periodLabel={periodLabel}
+                dailyReportsDisplayMode={dailyReportsDisplayMode}
+                setDailyReportsDisplayMode={setDailyReportsDisplayMode}
+                generateAllDailyReports={generateAllDailyReports}
+                isBulkGeneratingReports={isBulkGeneratingReports}
+                completedReportIds={completedReportIds}
+                dailyReportActions={dailyReportActions}
+                activeReportId={activeReportId}
+                runReportAction={runReportAction}
+                glowingReportIds={glowingReportIds}
+                getDailyActionTone={getDailyActionTone}
+                cardMotion={cardMotion}
+              />
+            </React.Suspense>
           </motion.div>}
       </div>
   );

@@ -17,11 +17,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { motion } from 'framer-motion';
 import { useT } from '@/contexts/LanguageContext';
 import { kvGet, kvSet } from '@/lib/kv';
+import { loadPdfTools } from '@/lib/pdf';
 
 const Drivers = () => {
   const { drivers, bottleTypes, transactions, cashOperations, deleteDriver, canDeleteDriver } = useApp();
@@ -311,7 +310,8 @@ const Drivers = () => {
     }
   };
 
-  const handleGenerateRCPDF = (driver: DriverType) => {
+  const handleGenerateRCPDF = async (driver: DriverType) => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
     const now = new Date();
     const dateStr = format(now, 'dd/MM/yyyy HH:mm', { locale: fr });
@@ -596,7 +596,8 @@ const Drivers = () => {
       });
   }, [transactions, drivers, t]);
 
-  const handleGeneratePDF = (driver: DriverType) => {
+  const handleGeneratePDF = async (driver: DriverType) => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
     const now = new Date();
     const dateStr = format(now, 'dd/MM/yyyy HH:mm', { locale: fr });

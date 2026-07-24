@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SupplyOrderItem, SupplyOrder, BottleType } from '@/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { loadPdfTools } from '@/lib/pdf';
 import { RecordReturnDialog } from '@/components/dialogs/RecordReturnDialog';
 import { SupplyTruckDialog } from '@/components/dialogs/SupplyTruckDialog';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -57,7 +56,27 @@ import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const SupplyReturn = () => {
   const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt, refreshSupplyReturnData } = useApp();
-  const availableDrivers = drivers.filter((driver: any) => !driver.isUnavailable);
+  const availableDrivers = useMemo(() => drivers.filter((driver: any) => !driver.isUnavailable), [drivers]);
+  const driversById = useMemo(
+    () => new Map(drivers.map((driver: any) => [String(driver.id), driver])),
+    [drivers]
+  );
+  const clientsById = useMemo(
+    () => new Map(clients.map((client: any) => [String(client.id), client])),
+    [clients]
+  );
+  const trucksById = useMemo(
+    () => new Map(trucks.map((truck: any) => [String(truck.id), truck])),
+    [trucks]
+  );
+  const bottleTypesById = useMemo(
+    () => new Map(bottleTypes.map((bottleType: any) => [String(bottleType.id), bottleType])),
+    [bottleTypes]
+  );
+  const supplyOrdersById = useMemo(
+    () => new Map(supplyOrders.map((order: any) => [String(order.id), order])),
+    [supplyOrders]
+  );
   const { toast } = useToast();
   const t = useT();
   const tsr = (key: string, fallback: string) => t(`supplyReturn.pdf.${key}`, fallback);
@@ -94,13 +113,14 @@ const SupplyReturn = () => {
   const [orderNumber, setOrderNumber] = useState('');
   const [orderDate, setOrderDate] = useState<Date | undefined>(new Date());
   const selectedDriverData = React.useMemo(
-    () => drivers.find((driver: any) => String(driver.id) === String(selectedDriverId)),
-    [drivers, selectedDriverId]
+    () => driversById.get(String(selectedDriverId)),
+    [driversById, selectedDriverId]
   );
   const selectedDriverAideLivreur = String((selectedDriverData as any)?.aideLivreurs || '').trim();
   const selectedDriverAideCode = String((selectedDriverData as any)?.codeAL || '').trim();
   const [driverSectorLabels, setDriverSectorLabels] = useState<Record<string, string>>({});
   const selectedDriverSectors = String(driverSectorLabels[selectedDriverId] || '').trim();
+  const lastAutoRefreshAtRef = useRef(0);
   
   // Load last reference from localStorage when component mounts
   useEffect(() => {
@@ -152,11 +172,15 @@ const SupplyReturn = () => {
   useEffect(() => {
     let active = true;
     let intervalId: number | undefined;
+    const minRefreshGapMs = 180000;
 
     const refreshIfVisible = async () => {
       if (!active || document.hidden) return;
+      const now = Date.now();
+      if (now - lastAutoRefreshAtRef.current < minRefreshGapMs) return;
       try {
         await refreshSupplyReturnData();
+        lastAutoRefreshAtRef.current = now;
       } catch (error) {
         console.error("Failed to auto-refresh supply-return data:", error);
       }
@@ -174,7 +198,7 @@ const SupplyReturn = () => {
 
     intervalId = window.setInterval(() => {
       void refreshIfVisible();
-    }, 60000);
+    }, minRefreshGapMs);
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -337,7 +361,7 @@ const SupplyReturn = () => {
   
   const handleQuantityChange = (bottleTypeId: string, field: 'empty' | 'full', value: string) => {
     const raw = parseInt(value) || 0;
-    const bottleType = bottleTypes.find(bt => bt.id === bottleTypeId);
+    const bottleType = bottleTypesById.get(String(bottleTypeId));
     if (!bottleType) return;
 
     const safeQuantity =
@@ -448,7 +472,7 @@ const SupplyReturn = () => {
       finalClientId = clientId;
       finalClientName = newClientName.trim();
     } else if (selectedClientId) {
-      const client = clients.find(c => String(c.id) === String(selectedClientId));
+      const client = clientsById.get(String(selectedClientId));
       if (client) {
         finalClientId = String(client.id);
         finalClientName = client.name;
@@ -469,7 +493,7 @@ const SupplyReturn = () => {
       finalDriverName = newDriverMatricule.trim();
       // For new drivers, we don't have an ID yet
     } else if (selectedDriverId) {
-      const driver = drivers.find(d => String(d.id) === String(selectedDriverId));
+      const driver = driversById.get(String(selectedDriverId));
       if (driver) {
         finalDriverId = String(driver.id);
         finalDriverName = driver.name;
@@ -478,7 +502,7 @@ const SupplyReturn = () => {
 
     // Special handling for petit-camion driver
     if (selectionType === 'petit-camion' && selectedDriverId) {
-      const driver = drivers.find(d => String(d.id) === String(selectedDriverId));
+      const driver = driversById.get(String(selectedDriverId));
       if (driver) {
         finalDriverId = String(driver.id);
         finalDriverName = driver.name;
@@ -572,8 +596,9 @@ const SupplyReturn = () => {
     setNewClientName('')
   };
   
-  const handlePrintBS = (order: SupplyOrder) => {
+  const handlePrintBS = async (order: SupplyOrder) => {
     try {
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       const now = new Date();
       
@@ -1058,6 +1083,10 @@ const SupplyReturn = () => {
       `${bt.name} ${bt.capacity || ''}`.toLowerCase().includes(q)
     );
   }, [sortedBottleTypes, bottleTypeQuery]);
+  const selectedBottleTypes = useMemo(
+    () => (selectedBottleTypeIds.size > 0 ? sortedBottleTypes.filter((bt) => selectedBottleTypeIds.has(bt.id)) : []),
+    [selectedBottleTypeIds, sortedBottleTypes]
+  );
   const [showQuickActions, setShowQuickActions] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
   const [showAnomaly, setShowAnomaly] = useState(true);
@@ -1192,7 +1221,7 @@ const SupplyReturn = () => {
 
   const handleDeleteSupplyOrder = async (id: string) => {
     // Restore stock from the deleted supply order
-    const order = (supplyOrders || []).find((o: any) => o.id === id);
+    const order = supplyOrdersById.get(String(id));
 
     if (order && order.items && order.items.length > 0) {
       order.items.forEach((item: any) => {
@@ -1247,9 +1276,7 @@ const SupplyReturn = () => {
     }
     
     // Find the original supply order to get unit prices
-    const originalSupplyOrder = supplyOrders.find(order =>
-      order.id === selectedReturnOrderForPayment.supplyOrderId
-    );
+    const originalSupplyOrder = supplyOrdersById.get(String(selectedReturnOrderForPayment.supplyOrderId));
 
     if (!originalSupplyOrder) {
       return { subtotal: 0, taxAmount: 0, total: 0 };
@@ -1384,8 +1411,9 @@ const SupplyReturn = () => {
     return { cash, check, mygaz, debt, total, subtotal, taxAmount };
   };
 
-  const handlePrintBD = (order: any) => {
+  const handlePrintBD = async (order: any) => {
     try {
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       const now = new Date();
       
@@ -2038,7 +2066,7 @@ const SupplyReturn = () => {
                               <SelectItem disabled value="none">{tsu('allogaz.noneAvailable', 'Aucun Allogaz disponible')}</SelectItem>
                             )}
                             {trucks.filter(t => t.truckType === 'petit-camion').map(truck => {
-                              const driver = drivers.find(d => d.id === truck.driverId);
+                              const driver = driversById.get(String(truck.driverId));
                               return (
                                 <SelectItem key={truck.id} value={truck.id}>
                                   {truck.matricule} - {driver?.name || tsu('common.noDriver', 'Sans chauffeur')}
@@ -2275,7 +2303,7 @@ const SupplyReturn = () => {
                           <span className="bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
                             {selectedBottleTypeIds.size === 0
                               ? tr('Sélectionner un produit dans la liste', 'اختر منتجًا من القائمة')
-                              : [...selectedBottleTypeIds].map(id => sortedBottleTypes.find(b => b.id === id)?.name).filter(Boolean).join(', ')}
+                              : selectedBottleTypes.map((bt) => bt.name).join(', ')}
                           </span>
                         </span>
                         <div className="p-1.5 bg-slate-50 rounded-lg group-hover:bg-white transition-colors z-10">
@@ -2340,10 +2368,8 @@ const SupplyReturn = () => {
                         {selectedBottleTypeIds.size > 0 && (
                           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
                             <div className="flex flex-wrap gap-1.5">
-                              {[...selectedBottleTypeIds].slice(0, 2).map(id => {
-                                const name = sortedBottleTypes.find(b => b.id === id)?.name;
-                                if (!name) return null;
-                                return <Badge key={id} className="bg-emerald-100 text-emerald-800 border-emerald-200 font-semibold">{name}</Badge>;
+                              {selectedBottleTypes.slice(0, 2).map((bottleType) => {
+                                return <Badge key={bottleType.id} className="bg-emerald-100 text-emerald-800 border-emerald-200 font-semibold">{bottleType.name}</Badge>;
                               })}
                               {selectedBottleTypeIds.size > 2 && (
                                 <Badge variant="outline" className="bg-slate-50 text-slate-600 font-bold border-slate-200">+{selectedBottleTypeIds.size - 2}</Badge>
@@ -2372,7 +2398,7 @@ const SupplyReturn = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(selectedBottleTypeIds.size > 0 ? sortedBottleTypes.filter(bt => selectedBottleTypeIds.has(bt.id)) : []).map((bt, idx) => {
+                    {selectedBottleTypes.map((bt, idx) => {
                       const currentItem = items.find(i => i.bottleTypeId === bt.id);
                       const fullQty = currentItem?.fullQuantity ?? 0;
                       const amount = currentItem?.amount ?? 0;
@@ -2742,7 +2768,7 @@ const SupplyReturn = () => {
                                 </span>}
                                 {order.truckId && (
                                   <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                                    <Truck className="w-3 h-3" /> {trucks.find(t => t.id === order.truckId)?.matricule}
+                                    <Truck className="w-3 h-3" /> {trucksById.get(String(order.truckId))?.matricule}
                                   </span>
                                 )}
                               </div>
@@ -3146,9 +3172,9 @@ const SupplyReturn = () => {
         />
       )}
 
-      {supplyTruckDialogOpen && selectedTruckId && trucks.find(t => t.id === selectedTruckId) && (
+      {supplyTruckDialogOpen && selectedTruckId && trucksById.get(String(selectedTruckId)) && (
         <SupplyTruckDialog
-          truck={trucks.find(t => t.id === selectedTruckId)!}
+          truck={trucksById.get(String(selectedTruckId))!}
           open={supplyTruckDialogOpen}
           onOpenChange={setSupplyTruckDialogOpen}
         />
@@ -3436,9 +3462,7 @@ const SupplyReturn = () => {
                     <TableBody>
                       {selectedReturnOrderForPayment.items.map((item: any, idx: number) => {
                         // Find the original supply order to get prices
-                        const originalSupplyOrder = supplyOrders.find(order => 
-                          order.id === selectedReturnOrderForPayment.supplyOrderId
-                        );
+                        const originalSupplyOrder = supplyOrdersById.get(String(selectedReturnOrderForPayment.supplyOrderId));
                         const originalItem = originalSupplyOrder?.items.find((origItem: any) => 
                           origItem.bottleTypeId === item.bottleTypeId
                         );

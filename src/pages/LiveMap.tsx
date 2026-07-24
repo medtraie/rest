@@ -239,60 +239,49 @@ const LiveMap = () => {
     });
     headingTargetRef.current = nextTargets;
 
-    setDisplayHeadingById((prev) => {
-      const next: Record<string, number> = {};
-      Object.keys(nextTargets).forEach((id) => {
-        next[id] = prev[id] ?? nextTargets[id];
-      });
-      return next;
-    });
-
     if (headingAnimRef.current) {
-      window.cancelAnimationFrame(headingAnimRef.current);
+      window.clearInterval(headingAnimRef.current);
       headingAnimRef.current = null;
     }
 
-    const animate = () => {
-      let changed = false;
-      let moving = false;
-      setDisplayHeadingById((prev) => {
-        const next: Record<string, number> = {};
-        Object.keys(headingTargetRef.current).forEach((id) => {
-          const current = prev[id] ?? headingTargetRef.current[id];
-          const target = headingTargetRef.current[id];
-          const delta = shortestHeadingDelta(current, target);
-          if (Math.abs(delta) > 0.12) {
-            next[id] = normalizeHeading(current + delta * 0.2);
-            changed = true;
-            moving = true;
-          } else {
-            next[id] = target;
-          }
-        });
-        return next;
-      });
-      if (moving || changed) {
-        headingAnimRef.current = window.requestAnimationFrame(animate);
-      } else {
-        headingAnimRef.current = null;
-      }
-    };
+    setDisplayHeadingById(() => {
+      if (!selectedDeviceId) return {};
+      const initial = nextTargets[selectedDeviceId];
+      if (typeof initial !== 'number') return {};
+      return { [selectedDeviceId]: initial };
+    });
 
-    headingAnimRef.current = window.requestAnimationFrame(animate);
-
-    return () => {
-      if (headingAnimRef.current) {
-        window.cancelAnimationFrame(headingAnimRef.current);
-        headingAnimRef.current = null;
-      }
-      const staleIds = Object.keys(headingTargetRef.current).filter((id) => !activeIds.has(id));
-      if (staleIds.length > 0) {
+    if (!selectedDeviceId) {
+      return () => {
+        const staleIds = Object.keys(headingTargetRef.current).filter((id) => !activeIds.has(id));
         staleIds.forEach((id) => {
           delete headingTargetRef.current[id];
         });
+      };
+    }
+
+    headingAnimRef.current = window.setInterval(() => {
+      setDisplayHeadingById((prev) => {
+        const target = headingTargetRef.current[selectedDeviceId];
+        if (typeof target !== 'number') return prev;
+        const current = typeof prev[selectedDeviceId] === 'number' ? prev[selectedDeviceId] : target;
+        const delta = shortestHeadingDelta(current, target);
+        if (Math.abs(delta) <= 0.12) return { [selectedDeviceId]: target };
+        return { [selectedDeviceId]: normalizeHeading(current + delta * 0.2) };
+      });
+    }, 120);
+
+    return () => {
+      if (headingAnimRef.current) {
+        window.clearInterval(headingAnimRef.current);
+        headingAnimRef.current = null;
       }
+      const staleIds = Object.keys(headingTargetRef.current).filter((id) => !activeIds.has(id));
+      staleIds.forEach((id) => {
+        delete headingTargetRef.current[id];
+      });
     };
-  }, [devices]);
+  }, [devices, selectedDeviceId]);
 
   useEffect(() => {
     if (!selectedDevice) return;
@@ -311,7 +300,7 @@ const LiveMap = () => {
     if (device.moving) return { label: tr('En mouvement', 'في الحركة'), className: 'bg-cyan-600 text-white' };
     return { label: tr("À l'arrêt", 'متوقف'), className: 'bg-amber-500 text-white' };
   };
-  const markerIconsByDevice = useMemo(() => {
+  const markerIconsBaseByDevice = useMemo(() => {
     const next: Record<string, L.DivIcon> = {};
     filteredDevices.forEach((device) => {
       const color =
@@ -322,10 +311,24 @@ const LiveMap = () => {
             : device.moving
               ? '#f97316'
               : '#facc15';
-      next[device.id] = markerIcon(color, displayHeadingById[device.id] ?? device.heading, device.speed);
+      next[device.id] = markerIcon(color, device.heading, device.speed);
     });
     return next;
-  }, [filteredDevices, selectedDeviceId, displayHeadingById]);
+  }, [filteredDevices, selectedDeviceId]);
+
+  const selectedAnimatedIcon = useMemo(() => {
+    if (!selectedDeviceId) return null;
+    const device = filteredDevices.find((d) => d.id === selectedDeviceId);
+    if (!device) return null;
+    const heading = displayHeadingById[selectedDeviceId] ?? device.heading;
+    const color = '#0ea5e9';
+    return markerIcon(color, heading, device.speed);
+  }, [displayHeadingById, filteredDevices, selectedDeviceId]);
+
+  const markerIconsByDevice = useMemo(() => {
+    if (!selectedDeviceId || !selectedAnimatedIcon) return markerIconsBaseByDevice;
+    return { ...markerIconsBaseByDevice, [selectedDeviceId]: selectedAnimatedIcon };
+  }, [markerIconsBaseByDevice, selectedAnimatedIcon, selectedDeviceId]);
 
   return (
     <div className="h-[calc(100vh-88px)] p-4">

@@ -8,8 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Users, Plus, Pencil, Trash2, History, Download, Search, RotateCcw, Sparkles, LayoutGrid, Rows3, ArrowUpRight, Activity, Wallet, Clock3, Command, Flame, CircleDashed, Crosshair, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { loadPdfTools } from '@/lib/pdf';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,7 +117,7 @@ const Clients = () => {
     }
   };
 
-  const generateInvoicePDF = () => {
+  const generateInvoicePDF = async () => {
     try {
       if (selectedOrders.length === 0 || !selectedClient) {
         toast.error(tu('toast.selectAtLeastOneBs', 'Veuillez sélectionner au moins un bon de sortie'));
@@ -131,6 +130,7 @@ const Clients = () => {
         return;
       }
 
+      const { jsPDF, autoTable } = await loadPdfTools();
       const doc = new jsPDF();
       
       // Header

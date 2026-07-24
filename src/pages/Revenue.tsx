@@ -44,6 +44,8 @@ import { format } from 'date-fns';
 import type { BankTransfer, CashOperation, FinancialTransaction } from '@/types';
 import FinancialTxCard from '@/components/ui/FinancialTxCard';
 import { motion } from 'framer-motion';
+const RevenueCommandCenterSection = React.lazy(() => import('@/components/revenue/RevenueCommandCenterSection'));
+const RevenueHistoryTab = React.lazy(() => import('@/components/revenue/RevenueHistoryTab'));
 const MButton = motion(Button);
 
 const fmtMAD = (n: number, locale = 'fr-MA') =>
@@ -243,6 +245,7 @@ function Revenue() {
   const [whatIfDailyOut, setWhatIfDailyOut] = useState<string>('0');
   const [whatIfHorizon, setWhatIfHorizon] = useState<'15' | '30' | '60'>('30');
   const [anomalyMode, setAnomalyMode] = useState<'all' | 'positive' | 'negative'>('all');
+  const [activeTab, setActiveTab] = useState<'gestion' | 'historique'>('gestion');
   const normalizeAccountText = (value: string) => String(value || '').trim().toLowerCase();
   const supplierBankProfiles = useMemo(
     () =>
@@ -334,12 +337,20 @@ function Revenue() {
         .sort((a, b) => b.balance - a.balance),
     [supplierBankProfiles, cashOperations, bankTransfers, financialTransactions]
   );
+  const bankTransfersById = useMemo(
+    () => new Map(bankTransfers.map((transfer) => [String(transfer.id), transfer])),
+    [bankTransfers]
+  );
+  const cashOperationsById = useMemo(
+    () => new Map(cashOperations.map((operation) => [String(operation.id), operation])),
+    [cashOperations]
+  );
 
   // Normalize operations for "Gestion de Transfert"
   const opRows: OpRow[] = useMemo(() => {
     return financialTransactions.map((t) => {
       if (t.type === 'transfert') {
-        const bt = bankTransfers.find(b => b.id === t.id);
+        const bt = bankTransfersById.get(String(t.id));
         return {
           kind: 'transfert',
           id: t.id || Math.random().toString(),
@@ -354,7 +365,7 @@ function Revenue() {
         };
       }
       
-      const op = cashOperations.find(o => o.id === t.id);
+      const op = cashOperationsById.get(String(t.id));
       return {
           kind: 'operation',
           id: t.id || Math.random().toString(),
@@ -370,7 +381,7 @@ function Revenue() {
     }).sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-  }, [financialTransactions, cashOperations, bankTransfers]);
+  }, [financialTransactions, cashOperationsById, bankTransfersById]);
 
   const passesDate = (iso: string) => {
     const d = new Date(iso);
@@ -416,201 +427,12 @@ function Revenue() {
     [opRows, filterStartDate, filterEndDate, filterType, filterAccount, filterAmountMin, filterAmountMax]
   );
 
-  const commandWindowOps = useMemo(() => {
-    if (commandWindow === 'all') return opRows;
-    const now = Date.now();
-    const days = commandWindow === '7j' ? 7 : commandWindow === '30j' ? 30 : 90;
-    const maxMs = days * 24 * 60 * 60 * 1000;
-    return opRows.filter((row) => now - new Date(row.date).getTime() <= maxMs);
-  }, [opRows, commandWindow]);
-
   const getRowPriority = (row: OpRow): 'high' | 'medium' | 'low' => {
     if (row.status === 'pending') return 'high';
     if (row.amount >= 12000) return 'high';
     if (row.amount >= 4000) return 'medium';
     return 'low';
   };
-
-  const revenueIntelligence = useMemo(() => {
-    const totalIn = commandWindowOps.reduce((sum, row) => {
-      if (row.kind === 'operation' && row.typeLabel === 'versement') return sum + row.amount;
-      if (row.kind === 'transfert' && row.destinationAccount === 'banque') return sum + row.amount;
-      return sum;
-    }, 0);
-    const totalOut = commandWindowOps.reduce((sum, row) => {
-      if (row.kind === 'operation' && row.typeLabel === 'retrait') return sum + row.amount;
-      if (row.kind === 'transfert' && row.sourceAccount === 'banque') return sum + row.amount;
-      return sum;
-    }, 0);
-    const pendingOps = commandWindowOps.filter((row) => row.status === 'pending').length;
-    const netFlow = totalIn - totalOut;
-    const accountPressure = [
-      { account: tr('Espèce', 'نقد'), balance: soldeEspece },
-      { account: tr('Banque', 'بنك'), balance: soldeBanque },
-      { account: tr('Chèque', 'شيك'), balance: soldeCheque }
-    ].sort((a, b) => a.balance - b.balance);
-    const laneCounts = commandWindowOps.reduce(
-      (acc, row) => {
-        const level = getRowPriority(row);
-        acc[level] += 1;
-        return acc;
-      },
-      { high: 0, medium: 0, low: 0 }
-    );
-    return { totalIn, totalOut, pendingOps, netFlow, accountPressure, laneCounts };
-  }, [commandWindowOps, soldeEspece, soldeBanque, soldeCheque]);
-
-  const missionBoard = useMemo(() => {
-    const lanes = {
-      high: [] as OpRow[],
-      medium: [] as OpRow[],
-      low: [] as OpRow[]
-    };
-    commandWindowOps.forEach((row) => {
-      const lane = getRowPriority(row);
-      lanes[lane].push(row);
-    });
-    const sortByDate = (a: OpRow, b: OpRow) => new Date(b.date).getTime() - new Date(a.date).getTime();
-    return {
-      high: lanes.high.sort(sortByDate).slice(0, 4),
-      medium: lanes.medium.sort(sortByDate).slice(0, 4),
-      low: lanes.low.sort(sortByDate).slice(0, 4)
-    };
-  }, [commandWindowOps]);
-
-  const accountForecast = useMemo(() => {
-    const divisor = commandWindow === '7j' ? 7 : commandWindow === '30j' ? 30 : commandWindow === '90j' ? 90 : 30;
-    const accounts: Array<{ key: 'espece' | 'banque' | 'cheque'; label: string; balance: number }> = [
-      { key: 'espece', label: 'Espèce', balance: soldeEspece },
-      { key: 'banque', label: 'Banque', balance: soldeBanque },
-      { key: 'cheque', label: 'Chèque', balance: soldeCheque }
-    ];
-    return accounts
-      .map((account) => {
-        const outflow = commandWindowOps.reduce((sum, row) => {
-          if (row.kind === 'transfert') {
-            if (row.sourceAccount === account.key) return sum + row.amount;
-            return sum;
-          }
-          if (row.typeLabel === 'retrait' && row.accountAffected === account.key) return sum + row.amount;
-          return sum;
-        }, 0);
-        const dailyDrain = outflow > 0 ? outflow / divisor : 0;
-        const daysLeft = dailyDrain > 0 ? account.balance / dailyDrain : Infinity;
-        const risk = daysLeft <= 10 ? 'high' : daysLeft <= 25 ? 'medium' : 'low';
-        return { ...account, outflow, dailyDrain, daysLeft, risk };
-      })
-      .sort((a, b) => {
-        if (!Number.isFinite(a.daysLeft) && !Number.isFinite(b.daysLeft)) return a.balance - b.balance;
-        if (!Number.isFinite(a.daysLeft)) return 1;
-        if (!Number.isFinite(b.daysLeft)) return -1;
-        return a.daysLeft - b.daysLeft;
-      });
-  }, [commandWindowOps, commandWindow, soldeEspece, soldeBanque, soldeCheque]);
-
-  const weeklyFlowHeatmap = useMemo(() => {
-    const now = new Date();
-    const currentWeekStart = startOfWeekMonday(now);
-    const slices = Array.from({ length: 8 }, (_, index) => {
-      const diff = 7 - index;
-      const start = new Date(currentWeekStart);
-      start.setDate(start.getDate() - diff * 7);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 7);
-      const weeklyTx = financialTransactions.filter((tx) => {
-        const d = new Date(tx.date);
-        return d >= start && d < end;
-      });
-      const inbound = weeklyTx.reduce((sum, tx) => {
-        if (tx.type === 'encaissement' || tx.type === 'versement') return sum + Math.abs(Number(tx.amount) || 0);
-        return sum;
-      }, 0);
-      const outbound = weeklyTx.reduce((sum, tx) => {
-        if (tx.type === 'retrait' || tx.type === 'dépense' || tx.type === 'réparation') return sum + Math.abs(Number(tx.amount) || 0);
-        return sum;
-      }, 0);
-      const net = inbound - outbound;
-      return {
-        key: start.toISOString(),
-        start,
-        end,
-        label: start.toLocaleDateString(uiLocale, { day: '2-digit', month: 'short' }),
-        inbound,
-        outbound,
-        net
-      };
-    });
-    const maxAbs = Math.max(1, ...slices.map((slice) => Math.abs(slice.net)));
-    return slices.map((slice) => ({
-      ...slice,
-      intensity: Math.min(1, Math.abs(slice.net) / maxAbs),
-      trend: slice.net >= 0 ? 'up' : 'down'
-    }));
-  }, [financialTransactions, uiLocale]);
-
-  const whatIfScenario = useMemo(() => {
-    const baseDays = commandWindow === '7j' ? 7 : commandWindow === '30j' ? 30 : commandWindow === '90j' ? 90 : 30;
-    const baseIn = commandWindowOps.reduce((sum, row) => {
-      if (row.kind === 'operation' && row.typeLabel === 'versement') return sum + row.amount;
-      if (row.kind === 'transfert' && row.destinationAccount === 'banque') return sum + row.amount;
-      return sum;
-    }, 0);
-    const baseOut = commandWindowOps.reduce((sum, row) => {
-      if (row.kind === 'operation' && row.typeLabel === 'retrait') return sum + row.amount;
-      if (row.kind === 'transfert' && row.sourceAccount === 'banque') return sum + row.amount;
-      return sum;
-    }, 0);
-    const dailyBaseNet = (baseIn - baseOut) / baseDays;
-    const dailyIn = parseFloat(whatIfDailyIn) || 0;
-    const dailyOut = parseFloat(whatIfDailyOut) || 0;
-    const horizon = parseInt(whatIfHorizon, 10) || 30;
-    const dailyProjectedNet = dailyBaseNet + dailyIn - dailyOut;
-    const currentLiquidity = soldeEspece + soldeBanque + soldeCheque;
-    const projectedLiquidity = currentLiquidity + dailyProjectedNet * horizon;
-    const runwayDays = dailyProjectedNet < 0 ? currentLiquidity / Math.abs(dailyProjectedNet) : Infinity;
-    const risk = projectedLiquidity <= 0 || runwayDays <= 10 ? 'high' : runwayDays <= 25 ? 'medium' : 'low';
-    return {
-      dailyBaseNet,
-      dailyProjectedNet,
-      currentLiquidity,
-      projectedLiquidity,
-      runwayDays,
-      horizon,
-      risk
-    };
-  }, [commandWindow, commandWindowOps, whatIfDailyIn, whatIfDailyOut, whatIfHorizon, soldeEspece, soldeBanque, soldeCheque]);
-
-  const anomalyRows = useMemo(() => {
-    if (commandWindowOps.length < 3) return [] as RevenueAnomaly[];
-    const amounts = commandWindowOps.map((row) => Math.abs(row.amount));
-    const mean = amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;
-    const variance = amounts.reduce((sum, amount) => sum + (amount - mean) ** 2, 0) / amounts.length;
-    const std = Math.sqrt(variance) || 1;
-    return commandWindowOps
-      .map((row) => {
-        const isPositive = row.kind === 'operation' ? row.typeLabel === 'versement' : row.destinationAccount === 'banque';
-        const score = (Math.abs(row.amount) - mean) / std;
-        const label = row.kind === 'transfert'
-          ? `${formatAccountName(row.sourceAccount, tr)} → ${formatAccountName(row.destinationAccount, tr)}`
-          : `${formatOpType(row.typeLabel)} · ${formatAccountName(row.accountAffected, tr)}`;
-        return {
-          id: `${row.kind}-${row.id}`,
-          date: row.date,
-          amount: row.amount,
-          score,
-          direction: isPositive ? 'positive' : 'negative',
-          label
-        };
-      })
-      .filter((row) => Math.abs(row.score) >= 1.15)
-      .sort((a, b) => Math.abs(b.score) - Math.abs(a.score))
-      .slice(0, 6);
-  }, [commandWindowOps]);
-
-  const visibleAnomalies = useMemo(() => {
-    if (anomalyMode === 'all') return anomalyRows;
-    return anomalyRows.filter((row) => row.direction === anomalyMode);
-  }, [anomalyRows, anomalyMode]);
 
   const visibleOps = useMemo(() => {
     if (priorityFilter === 'all') return filteredOps;
@@ -1062,6 +884,14 @@ function Revenue() {
     w.print();
   };
 
+  const revenueSectionFallback = (
+    <Card className="border-none shadow-sm bg-white overflow-hidden">
+      <CardContent className="p-8 text-sm text-slate-500">
+        {t('revenue.loading.section', 'Chargement de la section...')}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="app-page-shell flex-1 space-y-6 p-4 md:p-8 pt-6 bg-slate-50/30">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1252,308 +1082,39 @@ function Revenue() {
           )}
         </CardContent>
       </Card>
+      <React.Suspense fallback={revenueSectionFallback}>
+        <RevenueCommandCenterSection
+          t={t}
+          tr={tr}
+          uiLocale={uiLocale}
+          opRows={opRows}
+          financialTransactions={financialTransactions}
+          soldeEspece={soldeEspece}
+          soldeBanque={soldeBanque}
+          soldeCheque={soldeCheque}
+          commandWindow={commandWindow}
+          setCommandWindow={setCommandWindow}
+          whatIfDailyIn={whatIfDailyIn}
+          setWhatIfDailyIn={setWhatIfDailyIn}
+          whatIfDailyOut={whatIfDailyOut}
+          setWhatIfDailyOut={setWhatIfDailyOut}
+          whatIfHorizon={whatIfHorizon}
+          setWhatIfHorizon={setWhatIfHorizon}
+          anomalyMode={anomalyMode}
+          setAnomalyMode={setAnomalyMode}
+          formatCurrency={formatCurrency}
+          formatDateLocalized={formatDateLocalized}
+          formatOpType={formatOpType}
+          formatAccountName={formatAccountName}
+          applyCommandFocus={applyCommandFocus}
+          applyForecastFocus={applyForecastFocus}
+          applyHeatmapFocus={applyHeatmapFocus}
+          applyAnomalyFocus={applyAnomalyFocus}
+          applyAutopilot={applyAutopilot}
+        />
+      </React.Suspense>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="border-none shadow-sm bg-white overflow-hidden xl:col-span-2">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-slate-900 rounded-xl">
-                  <Banknote className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">{tr('Tableau de Pilotage des Flux', 'لوحة قيادة الإيرادات')}</h3>
-                  <p className="text-xs text-slate-500">{tr('Vue tactique des flux et priorités de validation', 'رؤية تكتيكية للتدفقات وأولويات الاعتماد')}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant={commandWindow === '7j' ? 'default' : 'outline'} size="sm" className={commandWindow === '7j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('7j')}>{tr('7 jours', '7 أيام')}</Button>
-                <Button variant={commandWindow === '30j' ? 'default' : 'outline'} size="sm" className={commandWindow === '30j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('30j')}>{tr('30 jours', '30 يومًا')}</Button>
-                <Button variant={commandWindow === '90j' ? 'default' : 'outline'} size="sm" className={commandWindow === '90j' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('90j')}>{tr('90 jours', '90 يومًا')}</Button>
-                <Button variant={commandWindow === 'all' ? 'default' : 'outline'} size="sm" className={commandWindow === 'all' ? 'bg-blue-600 hover:bg-blue-700' : ''} onClick={() => setCommandWindow('all')}>{t('revenue.window.all', 'Tout')}</Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">{tr('Entrées', 'الداخل')}</p>
-                <p className="text-xl font-black text-emerald-700">{formatCurrency(revenueIntelligence.totalIn)}</p>
-                <p className="text-[11px] text-emerald-600">{tr('Flux positifs sur la fenêtre', 'تدفقات إيجابية ضمن النافذة')}</p>
-              </div>
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 space-y-2">
-                <p className="text-xs font-bold text-rose-700 uppercase tracking-wide">{tr('Sorties', 'الخارج')}</p>
-                <p className="text-xl font-black text-rose-700">{formatCurrency(revenueIntelligence.totalOut)}</p>
-                <p className="text-[11px] text-rose-600">{tr('Pression de trésorerie', 'ضغط السيولة')}</p>
-              </div>
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 space-y-2">
-                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">{tr('Balance de mission', 'رصيد المهمة')}</p>
-                <p className="text-xl font-black text-indigo-700">{formatCurrency(revenueIntelligence.netFlow)}</p>
-                <p className="text-[11px] text-indigo-600">{tr('En attente', 'في الانتظار')}: {revenueIntelligence.pendingOps}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                { key: 'high', title: tr('Critique', 'حرج'), items: missionBoard.high, count: revenueIntelligence.laneCounts.high, cls: 'border-rose-200', badge: 'bg-rose-100 text-rose-700' },
-                { key: 'medium', title: tr('Surveillance', 'مراقبة'), items: missionBoard.medium, count: revenueIntelligence.laneCounts.medium, cls: 'border-amber-200', badge: 'bg-amber-100 text-amber-700' },
-                { key: 'low', title: tr('Stable', 'مستقر'), items: missionBoard.low, count: revenueIntelligence.laneCounts.low, cls: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700' }
-              ].map((lane) => (
-                <div key={lane.key} className={`rounded-2xl border ${lane.cls} bg-slate-50 p-3 space-y-2`}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-black text-slate-700 uppercase tracking-wide">{lane.title}</p>
-                    <Badge className={`${lane.badge} border-none`}>{lane.count}</Badge>
-                  </div>
-                  {lane.items.length === 0 ? (
-                    <p className="text-xs text-slate-500">{tr('Aucun flux sur cette lane.', 'لا توجد تدفقات في هذا المسار.')}</p>
-                  ) : (
-                    lane.items.map((row) => (
-                      <button
-                        key={`${row.kind}-${row.id}`}
-                        type="button"
-                        onClick={() => setFilterType(row.kind === 'transfert' ? 'transfert' : row.typeLabel)}
-                        className="w-full text-left rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50 transition-colors"
-                      >
-                        <p className="text-xs font-bold text-slate-800">{row.kind === 'transfert' ? t('revenue.table.transfert', 'Transfert') : formatOpType(row.typeLabel)}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{formatDateLocalized(row.date)} · {formatCurrency(row.amount)}</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={() => applyCommandFocus('pending')} className="bg-rose-600 hover:bg-rose-700 text-white">
-                <ChevronDown className="h-4 w-4 mr-2" />
-                {tr('Priorité validations', 'تركيز على الاعتمادات')}
-              </Button>
-              <Button variant="outline" onClick={() => applyCommandFocus('inflow')}>
-                <TrendingUp className="h-4 w-4 mr-2 text-emerald-600" />
-                {tr('Priorité entrées', 'تركيز على الداخل')}
-              </Button>
-              <Button variant="outline" onClick={() => applyCommandFocus('outflow')}>
-                <TrendingDown className="h-4 w-4 mr-2 text-rose-600" />
-                {tr('Priorité sorties', 'تركيز على الخارج')}
-              </Button>
-              <Button variant="ghost" onClick={() => applyCommandFocus('reset')} className="text-slate-600">
-                <X className="h-4 w-4 mr-2" />
-                {t('revenue.intelligence.reset', 'Réinitialiser')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-50 rounded-xl">
-                <FileText className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Prévision de Trésorerie', 'توقع السيولة')}</h3>
-                <p className="text-xs text-slate-500">{tr('Signal par compte sur la fenêtre active', 'إشارة حسب الحساب ضمن النافذة النشطة')}</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {accountForecast.map((row) => (
-                <button
-                  key={row.key}
-                  type="button"
-                  onClick={() => applyForecastFocus(row.key, row.risk)}
-                  className="w-full text-left rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 hover:bg-white transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-800">{row.label}</p>
-                    <Badge className={row.risk === 'high' ? 'bg-rose-100 text-rose-700 border-none' : row.risk === 'medium' ? 'bg-amber-100 text-amber-700 border-none' : 'bg-emerald-100 text-emerald-700 border-none'}>
-                      {row.risk === 'high' ? tr('Alerte Rouge', 'إنذار أحمر') : row.risk === 'medium' ? tr('Alerte Orange', 'إنذار برتقالي') : tr('Stable', 'مستقر')}
-                    </Badge>
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>{formatCurrency(row.balance)}</span>
-                    <span>{Number.isFinite(row.daysLeft) ? `${Math.max(0, Math.floor(row.daysLeft))} ${tr('jours', 'يوم')}` : tr('Sans pression', 'دون ضغط')}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            {revenueIntelligence.accountPressure[0] && (
-              <div className="rounded-xl bg-slate-900 text-white p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-300">{tr('Compte le plus exposé', 'الحساب الأكثر تعرضًا')}</p>
-                <p className="font-black text-sm mt-1">{revenueIntelligence.accountPressure[0].account}</p>
-                <p className="text-xs text-slate-300 mt-0.5">{formatCurrency(revenueIntelligence.accountPressure[0].balance)}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="border-none shadow-sm bg-white overflow-hidden xl:col-span-2">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-indigo-50 rounded-xl">
-                <Calendar className="h-5 w-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Carte Hebdomadaire des Flux', 'خريطة حرارة التدفق الأسبوعي')}</h3>
-                <p className="text-xs text-slate-500">{tr('Lecture visuelle des semaines positives et sous tension', 'قراءة بصرية للأسابيع الإيجابية وتحت الضغط')}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
-              {weeklyFlowHeatmap.map((week) => (
-                <button
-                  key={week.key}
-                  type="button"
-                  onClick={() => applyHeatmapFocus(week.start, week.end, week.trend)}
-                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${
-                    week.trend === 'up'
-                      ? 'border-emerald-200 hover:border-emerald-300'
-                      : 'border-rose-200 hover:border-rose-300'
-                  }`}
-                  style={{
-                    backgroundColor: week.trend === 'up'
-                      ? `rgba(16, 185, 129, ${0.12 + week.intensity * 0.33})`
-                      : `rgba(244, 63, 94, ${0.12 + week.intensity * 0.33})`
-                  }}
-                >
-                  <p className="text-[11px] font-bold text-slate-700">{week.label}</p>
-                  <p className={`text-xs font-black mt-1 ${week.trend === 'up' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {formatCurrency(week.net)}
-                  </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{week.trend === 'up' ? tr('Élan +', 'زخم +') : tr('Élan -', 'زخم -')}</p>
-                </button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-violet-50 rounded-xl">
-                <Wallet className="h-5 w-5 text-violet-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Laboratoire de Scénarios de Liquidité', 'مختبر سيناريوهات السيولة')}</h3>
-                <p className="text-xs text-slate-500">{tr('Simulation proactive de la trésorerie', 'محاكاة استباقية للسيولة')}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-[11px] uppercase tracking-wide text-slate-500">{tr('+ Entrée / jour', '+ الداخل / يوم')}</Label>
-                <Input value={whatIfDailyIn} onChange={(e) => setWhatIfDailyIn(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] uppercase tracking-wide text-slate-500">{tr('- Sortie / jour', '- الخارج / يوم')}</Label>
-                <Input value={whatIfDailyOut} onChange={(e) => setWhatIfDailyOut(e.target.value)} className="h-9 text-sm" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] uppercase tracking-wide text-slate-500">{t('revenue.whatif.horizon', 'Horizon')}</Label>
-              <div className="flex items-center gap-2">
-                <Button variant={whatIfHorizon === '15' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '15' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('15')}>15j</Button>
-                <Button variant={whatIfHorizon === '30' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '30' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('30')}>30j</Button>
-                <Button variant={whatIfHorizon === '60' ? 'default' : 'outline'} size="sm" className={whatIfHorizon === '60' ? 'bg-violet-600 hover:bg-violet-700' : ''} onClick={() => setWhatIfHorizon('60')}>60j</Button>
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{t('revenue.whatif.currentLiquidity', 'Liquidité actuelle')}</p>
-                <p className="text-xs font-black text-slate-800">{formatCurrency(whatIfScenario.currentLiquidity)}</p>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{tr('Projection', 'التوقع')} ({whatIfScenario.horizon}j)</p>
-                <p className={`text-xs font-black ${whatIfScenario.projectedLiquidity >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {formatCurrency(whatIfScenario.projectedLiquidity)}
-                </p>
-              </div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500">{t('revenue.whatif.runway', 'Autonomie estimée')}</p>
-                <p className="text-xs font-black text-slate-800">
-                  {Number.isFinite(whatIfScenario.runwayDays) ? `${Math.max(0, Math.floor(whatIfScenario.runwayDays))} ${t('revenue.whatif.days', 'jours')}` : tr('Trajectoire positive', 'مسار إيجابي')}
-                </p>
-              </div>
-              <Badge className={whatIfScenario.risk === 'high' ? 'bg-rose-100 text-rose-700 border-none' : whatIfScenario.risk === 'medium' ? 'bg-amber-100 text-amber-700 border-none' : 'bg-emerald-100 text-emerald-700 border-none'}>
-                {whatIfScenario.risk === 'high' ? t('revenue.whatif.risk.high', 'Risque élevé') : whatIfScenario.risk === 'medium' ? t('revenue.whatif.risk.medium', 'Risque moyen') : tr('Risque maîtrisé', 'خطر متحكم به')}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="border-none shadow-sm bg-white overflow-hidden xl:col-span-2">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Radar des Anomalies', 'رادار الشذوذ')}</h3>
-                <p className="text-xs text-slate-500">{tr('Détection des flux atypiques pour audit rapide', 'اكتشاف التدفقات غير الاعتيادية للتدقيق السريع')}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant={anomalyMode === 'all' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'all' ? 'bg-slate-700 hover:bg-slate-800' : ''} onClick={() => setAnomalyMode('all')}>{t('revenue.anomalies.all', 'Toutes')}</Button>
-                <Button variant={anomalyMode === 'positive' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'positive' ? 'bg-emerald-600 hover:bg-emerald-700' : ''} onClick={() => setAnomalyMode('positive')}>{t('revenue.anomalies.positive', 'Positives')}</Button>
-                <Button variant={anomalyMode === 'negative' ? 'default' : 'outline'} size="sm" className={anomalyMode === 'negative' ? 'bg-rose-600 hover:bg-rose-700' : ''} onClick={() => setAnomalyMode('negative')}>{t('revenue.anomalies.negative', 'Négatives')}</Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {visibleAnomalies.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  {tr('Aucun signal atypique sur la fenêtre actuelle.', 'لا توجد إشارات غير اعتيادية في النافذة الحالية.')}
-                </div>
-              ) : (
-                visibleAnomalies.map((anomaly) => (
-                  <button
-                    key={anomaly.id}
-                    type="button"
-                    onClick={() => applyAnomalyFocus(anomaly)}
-                    className={`rounded-xl border px-3 py-2 text-left transition-colors ${
-                      anomaly.direction === 'positive'
-                        ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100/60'
-                        : 'border-rose-200 bg-rose-50 hover:bg-rose-100/60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-black text-slate-800">{anomaly.label}</p>
-                      <Badge className={anomaly.direction === 'positive' ? 'bg-emerald-100 text-emerald-700 border-none' : 'bg-rose-100 text-rose-700 border-none'}>
-                        x{Math.abs(anomaly.score).toFixed(1)}
-                      </Badge>
-                    </div>
-                  <p className="text-[11px] text-slate-600 mt-1">{formatDateLocalized(anomaly.date)} · {formatCurrency(anomaly.amount)}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
-          <CardContent className="p-5 space-y-3">
-            <div>
-                <h3 className="text-base font-black text-slate-900">{tr('Scénarios de Pilotage Automatique', 'سيناريوهات الطيار الآلي')}</h3>
-              <p className="text-xs text-slate-500">{tr('Scénarios prêts à appliquer en un clic', 'سيناريوهات جاهزة للتطبيق بنقرة واحدة')}</p>
-            </div>
-            <Button onClick={() => applyAutopilot('protect')} className="w-full justify-start bg-rose-600 hover:bg-rose-700">
-              <TrendingDown className="h-4 w-4 mr-2" />
-              {tr('Protection Liquidité', 'حماية السيولة')}
-            </Button>
-            <Button variant="outline" onClick={() => applyAutopilot('accelerate')} className="w-full justify-start">
-              <TrendingUp className="h-4 w-4 mr-2 text-emerald-600" />
-              {tr('Accélération Encaissements', 'تسريع التحصيلات')}
-            </Button>
-            <Button variant="ghost" onClick={() => applyAutopilot('balance')} className="w-full justify-start text-slate-600">
-              <X className="h-4 w-4 mr-2" />
-              {tr('Réinitialisation intelligente', 'إعادة ضبط ذكية')}
-            </Button>
-            <div className="rounded-xl bg-slate-900 text-white p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-300">{tr('Pilotage conseillé', 'توجيه موصى به')}</p>
-              <p className="text-sm font-black mt-1">
-                {whatIfScenario.risk === 'high' ? tr('Active Protection Liquidité', 'فعّل حماية السيولة') : whatIfScenario.risk === 'medium' ? tr('Surveille les sorties critiques', 'راقب المخرجات الحرجة') : tr('Maintiens la cadence actuelle', 'حافظ على الوتيرة الحالية')}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="gestion" className="w-full space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gestion' | 'historique')} className="w-full space-y-4">
         <TabsList className="bg-white border p-1 shadow-sm">
           <TabsTrigger value="gestion" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <ArrowRightLeft className="mr-2 h-4 w-4" />
@@ -1779,9 +1340,9 @@ function Revenue() {
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => {
                                       if (r.kind === 'transfert') {
-                                        openEditTransfer(bankTransfers.find((t) => t.id === r.id)!);
+                                        openEditTransfer(bankTransfersById.get(String(r.id))!);
                                       } else {
-                                        openEditCash(cashOperations.find((o) => o.id === r.id)!);
+                                        openEditCash(cashOperationsById.get(String(r.id))!);
                                       }
                                     }}
                                   >
@@ -1794,9 +1355,9 @@ function Revenue() {
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => {
                                       if (r.kind === 'transfert') {
-                                        handleValidateTransfer(bankTransfers.find((t) => t.id === r.id)!);
+                                        handleValidateTransfer(bankTransfersById.get(String(r.id))!);
                                       } else {
-                                        handleValidateCash(cashOperations.find((o) => o.id === r.id)!);
+                                        handleValidateCash(cashOperationsById.get(String(r.id))!);
                                       }
                                     }}
                                   >
@@ -1848,167 +1409,32 @@ function Revenue() {
         </TabsContent>
 
         <TabsContent value="historique" className="space-y-4">
-          <Card className="border-none shadow-sm overflow-hidden">
-            <CardHeader className="bg-white border-b py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.history.title', 'Historique Financier')}</CardTitle>
-                  <p className="text-sm text-slate-500">{t('revenue.history.subtitle', 'Consulter toutes les transactions')}</p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                  onClick={exportHistoryToPDF}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('revenue.history.export', 'Exporter PDF')}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {/* Filters for History */}
-              <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      type="date" 
-                      className="h-9 text-sm"
-                      value={filterStartDate} 
-                      onChange={(e) => setFilterStartDate(e.target.value)} 
-                    />
-                    <span className="text-slate-400 text-xs">{t('revenue.filters.to', 'à')}</span>
-                    <Input 
-                      type="date" 
-                      className="h-9 text-sm"
-                      value={filterEndDate} 
-                      onChange={(e) => setFilterEndDate(e.target.value)} 
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.type', 'Type')}</Label>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.history.allTransactions', 'Toutes les transactions')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('revenue.history.allTransactions', 'Toutes les transactions')}</SelectItem>
-                      <SelectItem value="versement">{t('revenue.history.versements', 'Versements')}</SelectItem>
-                      <SelectItem value="transfert">{t('revenue.history.transfers', 'Transferts')}</SelectItem>
-                      <SelectItem value="retrait">{t('revenue.history.withdrawals', 'Retraits')}</SelectItem>
-                      <SelectItem value="dépense">{t('revenue.history.expenses', 'Dépenses')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.history.affectedAccount', 'Compte affecté')}</Label>
-                  <Select value={filterAccount} onValueChange={setFilterAccount}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allAccounts', 'Tous les comptes')}</SelectItem>
-                      <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
-                      <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
-                      <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
-                      {supplierBankAccounts.map((account) => (
-                        <SelectItem key={`hist-${account}`} value={`supplier_bank:${account}`}>
-                          {tr('Banque fournisseur', 'بنك المورّد')}: {account}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5 lg:col-span-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.table.amount', 'Montant')}</Label>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      className="h-9 text-sm"
-                      placeholder={t('revenue.filters.min', 'Min')}
-                      value={filterAmountMin} 
-                      onChange={(e) => setFilterAmountMin(e.target.value)} 
-                    />
-                    <Input 
-                      className="h-9 text-sm"
-                      placeholder={t('revenue.filters.max', 'Max')}
-                      value={filterAmountMax} 
-                      onChange={(e) => setFilterAmountMax(e.target.value)} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.date', 'Date')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.type', 'Type')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.description', 'Description')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.table.amount', 'Montant')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700">{t('revenue.history.accounts', 'Comptes')}</TableHead>
-                      <TableHead className="font-semibold text-slate-700 text-right">{t('revenue.table.status', 'Statut')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredHistory.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-32 text-center text-slate-500">
-                          {t('revenue.history.none', 'Aucune transaction trouvée')}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredHistory.map((r: FinancialTransaction) => (
-                        <TableRow key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                          <TableCell className="text-slate-700 font-medium">{formatDateLocalized(r.date)}</TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant="outline" 
-                              className={`capitalize ${
-                                r.type === 'réparation' || r.type === 'dépense' 
-                                  ? 'border-rose-200 text-rose-700 bg-rose-50' 
-                                  : 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                              }`}
-                            >
-                              {formatOpType(r.type)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-slate-600 text-sm max-w-[250px] truncate">{r.description || '-'}</TableCell>
-                          <TableCell className={`font-bold ${r.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {formatCurrency(r.amount)}
-                          </TableCell>
-          <TableCell>
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                              <span>
-                                {r.sourceAccount === 'autre' && r.accountDetails ? `${tr('Autre', 'أخرى')} (${r.accountDetails})` : formatAccountName(r.sourceAccount || '', tr)}
-                              </span>
-                              {r.destinationAccount && (
-                                <>
-                                  <ArrowRightLeft className="h-3 w-3" />
-                                  <span>
-                                    {r.destinationAccount === 'autre' && r.accountDetails ? `${tr('Autre', 'أخرى')} (${r.accountDetails})` : formatAccountName(r.destinationAccount || '', tr)}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge className="bg-blue-100 text-blue-700 border-none">{formatStatus(r.status)}</Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <React.Suspense fallback={revenueSectionFallback}>
+            <RevenueHistoryTab
+              t={t}
+              tr={tr}
+              supplierBankAccounts={supplierBankAccounts}
+              filterStartDate={filterStartDate}
+              setFilterStartDate={setFilterStartDate}
+              filterEndDate={filterEndDate}
+              setFilterEndDate={setFilterEndDate}
+              filterType={filterType}
+              setFilterType={setFilterType}
+              filterAccount={filterAccount}
+              setFilterAccount={setFilterAccount}
+              filterAmountMin={filterAmountMin}
+              setFilterAmountMin={setFilterAmountMin}
+              filterAmountMax={filterAmountMax}
+              setFilterAmountMax={setFilterAmountMax}
+              filteredHistory={filteredHistory}
+              formatDateLocalized={formatDateLocalized}
+              formatOpType={formatOpType}
+              formatCurrency={formatCurrency}
+              formatAccountName={formatAccountName}
+              formatStatus={formatStatus}
+              exportHistoryToPDF={exportHistoryToPDF}
+            />
+          </React.Suspense>
         </TabsContent>
       </Tabs>
 

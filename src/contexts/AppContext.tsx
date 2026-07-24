@@ -534,27 +534,36 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Fetch initial data from Supabase
   useEffect(() => {
     let active = true;
+    const backgroundTimers: number[] = [];
+    const idleCallbacks: number[] = [];
+    const scheduleBackgroundLoad = (delay: number, task: () => Promise<void>, preferIdle = false) => {
+      const idleWindow = window as typeof window & {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+        cancelIdleCallback?: (handle: number) => void;
+      };
+      const timer = window.setTimeout(() => {
+        if (preferIdle && typeof idleWindow.requestIdleCallback === "function") {
+          const handle = idleWindow.requestIdleCallback(() => {
+            void task();
+          }, { timeout: 1200 });
+          idleCallbacks.push(handle);
+          return;
+        }
+        void task();
+      }, delay);
+      backgroundTimers.push(timer);
+    };
     const fetchData = async () => {
       try {
-        // Critical phase: load the data needed by main workflows first.
+        // Critical phase: load only the data needed to render the shell and
+        // primary operational screens quickly.
         const [
           clientsData,
           driversData,
           trucksData,
           suppliersData,
           brandsData,
-          suppliesData,
-          supplyReturnsData,
-          supplyOrdersData,
-          returnOrdersData,
           bottleTypesData,
-          foreignBottlesData,
-          truckAssignmentsData,
-          emptyBottlesStockData,
-          defectiveStockData,
-          inventoryData,
-          rolesData,
-          roleAssignmentsData,
           bottleTypeExtrasCloudData,
           deletedSupplyOrderIdsData,
           deletedReturnOrderIdsData,
@@ -564,18 +573,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           supabaseService.getAll<Truck>("trucks"),
           supabaseService.getAll<Supplier>("suppliers"),
           supabaseService.getAll<Brand>("brands"),
-          supabaseService.getAll<Supply>("supplies"),
-          supabaseService.getAll<SupplyReturn>("supply_returns"),
-          supabaseService.getAll<any>("supply_orders"),
-          supabaseService.getAll<any>("return_orders"),
           supabaseService.getAll<BottleType>("bottle_types"),
-          supabaseService.getAll<ForeignBottle>("foreign_bottles"),
-          supabaseService.getAll<any>("truck_assignments"),
-          supabaseService.getAll<EmptyBottlesStock>("empty_bottles_stock"),
-          supabaseService.getAll<DefectiveBottle>("defective_stock"),
-          supabaseService.getAll<Inventory>("inventory"),
-          supabaseService.getAll<Role>("roles"),
-          supabaseService.getAll<RoleAssignment>("role_assignments"),
           kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
           kvGetShared<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
           kvGetShared<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
@@ -588,8 +586,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setTrucks(trucksData);
         setSuppliers(suppliersData);
         setBrands(brandsData);
-        setSupplies(suppliesData);
-        setSupplyReturns(supplyReturnsData);
         const deletedSupplyIds = normalizeDeletedOrderIds(deletedSupplyOrderIdsData);
         const deletedReturnIds = normalizeDeletedOrderIds(deletedReturnOrderIdsData);
         const deletedSupplySet = new Set(deletedSupplyIds);
@@ -597,8 +593,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         setDeletedSupplyOrderIds(deletedSupplyIds);
         setDeletedReturnOrderIds(deletedReturnIds);
-        setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
-        setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
 
         const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
         const cloudExtras =
@@ -610,71 +604,142 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setBottleTypes(mergedBottleTypes);
         void persistBottleTypeExtrasSnapshot(mergedExtras);
 
-        setForeignBottles(foreignBottlesData);
-        setTruckAssignments(truckAssignmentsData);
-        setEmptyBottlesStock(emptyBottlesStockData);
-        setDefectiveStock(defectiveStockData);
-        setInventory(inventoryData);
-        if (rolesData.length > 0) setRoles(rolesData);
-        setRoleAssignments(roleAssignmentsData);
+        // Warm up shared stock and supply-return data immediately after the shell
+        // appears instead of blocking the first paint with these larger tables.
+        scheduleBackgroundLoad(0, async () => {
+          try {
+            const [
+              supplyOrdersData,
+              returnOrdersData,
+              emptyBottlesStockData,
+              defectiveStockData,
+              inventoryData,
+            ] = await Promise.all([
+              supabaseService.getAll<any>("supply_orders"),
+              supabaseService.getAll<any>("return_orders"),
+              supabaseService.getAll<EmptyBottlesStock>("empty_bottles_stock"),
+              supabaseService.getAll<DefectiveBottle>("defective_stock"),
+              supabaseService.getAll<Inventory>("inventory"),
+            ]);
 
-        // Secondary phase: load heavy/secondary modules in background.
-        const [
-          cashOperationsData,
-          expensesData,
-          repairsData,
-          exchangesData,
-          transactionsData,
-          fuelPurchasesData,
-          fuelConsumptionsData,
-          fuelDrainsData,
-          oilPurchasesData,
-          oilConsumptionsData,
-          oilDrainsData,
-          revenuesData,
-          bankTransfersData,
-          financialTransactionsData,
-          stockHistoryData,
-          expenseTypesData,
-        ] = await Promise.all([
-          supabaseService.getAll<CashOperation>("cash_operations"),
-          supabaseService.getAll<Expense>("expenses"),
-          supabaseService.getAll<Repair>("repairs"),
-          supabaseService.getAll<Exchange>("exchanges"),
-          supabaseService.getAll<any>("transactions"),
-          supabaseService.getAll<FuelPurchase>("fuel_purchases"),
-          supabaseService.getAll<FuelConsumption>("fuel_consumptions"),
-          supabaseService.getAll<FuelDrain>("fuel_drains"),
-          supabaseService.getAll<OilPurchase>("oil_purchases"),
-          supabaseService.getAll<OilConsumption>("oil_consumptions"),
-          supabaseService.getAll<OilDrain>("oil_drains"),
-          supabaseService.getAll<Revenue>("revenues"),
-          supabaseService.getAll<BankTransfer>("bank_transfers"),
-          supabaseService.getAll<FinancialTransaction>("financial_transactions"),
-          supabaseService.getAll<StockHistory>("stock_history"),
-          supabaseService.getAll<any>("expense_types"),
-        ]);
+            if (!active) return;
 
-        if (!active) return;
+            setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
+            setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
+            setEmptyBottlesStock(emptyBottlesStockData);
+            setDefectiveStock(defectiveStockData);
+            setInventory(inventoryData);
+          } catch (error) {
+            console.error("Failed to fetch shared stock background app data:", error);
+          }
+        });
 
-        setCashOperations(cashOperationsData);
-        setExpenses(expensesData);
-        setRepairs(repairsData);
-        setExchanges(exchangesData);
-        setTransactions(transactionsData);
-        setFuelPurchases(fuelPurchasesData);
-        setFuelConsumptions(fuelConsumptionsData);
-        setFuelDrains(fuelDrainsData);
-        setOilPurchases(oilPurchasesData);
-        setOilConsumptions(oilConsumptionsData);
-        setOilDrains(oilDrainsData);
-        setRevenues(revenuesData);
-        setBankTransfers(bankTransfersData);
-        setFinancialTransactions(financialTransactionsData);
-        setStockHistory(stockHistoryData);
-        if (expenseTypesData.length > 0) {
-          setExpenseTypes(expenseTypesData.map((t: any) => t.name || t));
-        }
+        // Secondary phase: defer heavy modules until after the first paint to
+        // keep the app responsive while sections warm up in background.
+        scheduleBackgroundLoad(100, async () => {
+          try {
+            const [
+              suppliesData,
+              supplyReturnsData,
+              foreignBottlesData,
+              truckAssignmentsData,
+              expensesData,
+              repairsData,
+              transactionsData,
+            ] = await Promise.all([
+              supabaseService.getAll<Supply>("supplies"),
+              supabaseService.getAll<SupplyReturn>("supply_returns"),
+              supabaseService.getAll<ForeignBottle>("foreign_bottles"),
+              supabaseService.getAll<any>("truck_assignments"),
+              supabaseService.getAll<Expense>("expenses"),
+              supabaseService.getAll<Repair>("repairs"),
+              supabaseService.getAll<any>("transactions"),
+            ]);
+
+            if (!active) return;
+
+            setSupplies(suppliesData);
+            setSupplyReturns(supplyReturnsData);
+            setForeignBottles(foreignBottlesData);
+            setTruckAssignments(truckAssignmentsData);
+            setExpenses(expensesData);
+            setRepairs(repairsData);
+            setTransactions(transactionsData);
+          } catch (error) {
+            console.error("Failed to fetch operational background app data:", error);
+          }
+        });
+        scheduleBackgroundLoad(260, async () => {
+          try {
+            const [
+              cashOperationsData,
+              exchangesData,
+              revenuesData,
+              bankTransfersData,
+              financialTransactionsData,
+              stockHistoryData,
+              expenseTypesData,
+            ] = await Promise.all([
+              supabaseService.getAll<CashOperation>("cash_operations"),
+              supabaseService.getAll<Exchange>("exchanges"),
+              supabaseService.getAll<Revenue>("revenues"),
+              supabaseService.getAll<BankTransfer>("bank_transfers"),
+              supabaseService.getAll<FinancialTransaction>("financial_transactions"),
+              supabaseService.getAll<StockHistory>("stock_history"),
+              supabaseService.getAll<any>("expense_types"),
+            ]);
+
+            if (!active) return;
+
+            setCashOperations(cashOperationsData);
+            setExchanges(exchangesData);
+            setRevenues(revenuesData);
+            setBankTransfers(bankTransfersData);
+            setFinancialTransactions(financialTransactionsData);
+            setStockHistory(stockHistoryData);
+            if (expenseTypesData.length > 0) {
+              setExpenseTypes(expenseTypesData.map((t: any) => t.name || t));
+            }
+          } catch (error) {
+            console.error("Failed to fetch financial background app data:", error);
+          }
+        });
+        scheduleBackgroundLoad(520, async () => {
+          try {
+            const [
+              rolesData,
+              roleAssignmentsData,
+              fuelPurchasesData,
+              fuelConsumptionsData,
+              fuelDrainsData,
+              oilPurchasesData,
+              oilConsumptionsData,
+              oilDrainsData,
+            ] = await Promise.all([
+              supabaseService.getAll<Role>("roles"),
+              supabaseService.getAll<RoleAssignment>("role_assignments"),
+              supabaseService.getAll<FuelPurchase>("fuel_purchases"),
+              supabaseService.getAll<FuelConsumption>("fuel_consumptions"),
+              supabaseService.getAll<FuelDrain>("fuel_drains"),
+              supabaseService.getAll<OilPurchase>("oil_purchases"),
+              supabaseService.getAll<OilConsumption>("oil_consumptions"),
+              supabaseService.getAll<OilDrain>("oil_drains"),
+            ]);
+
+            if (!active) return;
+
+            if (rolesData.length > 0) setRoles(rolesData);
+            setRoleAssignments(roleAssignmentsData);
+            setFuelPurchases(fuelPurchasesData);
+            setFuelConsumptions(fuelConsumptionsData);
+            setFuelDrains(fuelDrainsData);
+            setOilPurchases(oilPurchasesData);
+            setOilConsumptions(oilConsumptionsData);
+            setOilDrains(oilDrainsData);
+          } catch (error) {
+            console.error("Failed to fetch support background app data:", error);
+          }
+        }, true);
       } catch (error) {
         console.error("Failed to fetch app data:", error);
       }
@@ -683,6 +748,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     fetchData();
     return () => {
       active = false;
+      backgroundTimers.forEach((timer) => window.clearTimeout(timer));
+      const idleWindow = window as typeof window & {
+        cancelIdleCallback?: (handle: number) => void;
+      };
+      if (typeof idleWindow.cancelIdleCallback === "function") {
+        idleCallbacks.forEach((handle) => idleWindow.cancelIdleCallback?.(handle));
+      }
     };
   }, [currentUserId]);
 

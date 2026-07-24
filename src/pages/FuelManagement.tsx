@@ -72,8 +72,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { loadPdfTools } from "@/lib/pdf";
 
 interface FuelTankProps {
   level: number;
@@ -642,7 +641,7 @@ const FuelManagement = () => {
     return startOk && endOk;
   };
   const companyName = "SFT GAZ";
-  const exportCisternPdf = () => {
+  const exportCisternPdf = async () => {
     const rows = [
       ...fuelPurchases.filter(p => isInExportRange(p.date)).map(p => ({
         date: new Date(p.date).toLocaleDateString(uiLocale),
@@ -664,6 +663,7 @@ const FuelManagement = () => {
       const ad = a.date; const bd = b.date;
       return ad < bd ? -1 : ad > bd ? 1 : 0;
     });
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const periodFrom = exportStartDate ? new Date(exportStartDate).toLocaleDateString(uiLocale) : tr("Non défini", "غير محدد");
     const periodTo = exportEndDate ? new Date(exportEndDate).toLocaleDateString(uiLocale) : tr("Non défini", "غير محدد");
@@ -729,8 +729,9 @@ const FuelManagement = () => {
     doc.text(tr("Signature", "التوقيع"), 40, signY + 14);
     doc.save(`mouvement-citerne.pdf`);
   };
-  const exportTruckPdf = (scope: "single" | "all") => {
-    const buildTruckSection = (doc: jsPDF, matricule: string, appendPage: boolean) => {
+  const exportTruckPdf = async (scope: "single" | "all") => {
+    const { jsPDF, autoTable } = await loadPdfTools();
+    const buildTruckSection = (doc: any, matricule: string, appendPage: boolean) => {
       const items = fuelConsumptions
         .filter(c => c.truck === matricule && isInExportRange(c.date))
         .sort((a, b) => +toDate(a.date) - +toDate(b.date));
