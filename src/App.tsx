@@ -232,6 +232,9 @@ const AppContent = ({ supabaseConfigured }: { supabaseConfigured: boolean }) => 
 
 const App = () => {
   const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  React.useEffect(() => {
+    window.__SFT_BOOT_DONE__ = true;
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
