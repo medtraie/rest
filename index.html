@@ -68,6 +68,75 @@
         })();
       })();
     </script>
+    <script>
+      // #region debug-point boot-collector
+      (() => {
+        const enabled =
+          location.hostname === "localhost" ||
+          location.hostname === "127.0.0.1" ||
+          location.search.includes("debug=1");
+        if (!enabled) return;
+
+        const sessionId = "createcontext-undefined-chunk";
+        const runId = "pre-fix";
+        const ports = [7777, 7778, 7779, 7780, 7781, 7782, 7783, 7784, 7785, 7786];
+
+        const postJson = (url, payload) => {
+          try {
+            void fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "text/plain;charset=UTF-8" },
+              body: JSON.stringify(payload),
+              keepalive: true,
+            });
+          } catch {}
+        };
+
+        const send = (hypothesisId, msg, data) => {
+          const payload = {
+            sessionId,
+            runId,
+            hypothesisId,
+            msg,
+            ts: Date.now(),
+            data: data ?? null,
+          };
+          ports.forEach((port) => postJson(`http://127.0.0.1:${port}/event`, payload));
+        };
+
+        send("A", "boot:html-loaded", {
+          href: location.href,
+          userAgent: navigator.userAgent,
+        });
+
+        window.addEventListener(
+          "error",
+          (event) => {
+            send("A", "boot:error", {
+              message: event?.message,
+              filename: event?.filename,
+              lineno: event?.lineno,
+              colno: event?.colno,
+              stack: event?.error?.stack,
+            });
+          },
+          true,
+        );
+
+        window.addEventListener(
+          "unhandledrejection",
+          (event) => {
+            const reason = event?.reason;
+            send("A", "boot:unhandledrejection", {
+              reason: reason?.message ?? String(reason ?? ""),
+              stack: reason?.stack,
+            });
+          },
+          true,
+        );
+      })();
+      // #endregion debug-point boot-collector
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
