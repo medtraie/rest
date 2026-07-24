@@ -44,8 +44,9 @@ import { format } from 'date-fns';
 import type { BankTransfer, CashOperation, FinancialTransaction } from '@/types';
 import FinancialTxCard from '@/components/ui/FinancialTxCard';
 import { motion } from 'framer-motion';
-const RevenueCommandCenterSection = React.lazy(() => import('@/components/revenue/RevenueCommandCenterSection'));
-const RevenueHistoryTab = React.lazy(() => import('@/components/revenue/RevenueHistoryTab'));
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+const RevenueCommandCenterSection = lazyWithRetry(() => import('@/components/revenue/RevenueCommandCenterSection'), 'revenue-command-center-section');
+const RevenueHistoryTab = lazyWithRetry(() => import('@/components/revenue/RevenueHistoryTab'), 'revenue-history-tab');
 const MButton = motion(Button);
 
 const fmtMAD = (n: number, locale = 'fr-MA') =>

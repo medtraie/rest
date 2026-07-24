@@ -41,13 +41,14 @@ import { kvGet, kvSet } from '@/lib/kv';
 import { motion } from 'framer-motion';
 import { buildReportsStockKpis, type KpiComparisonPoint } from '@/lib/reportsKpi';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
-const ReportsTransactionsSection = React.lazy(() => import('@/components/reports/ReportsTransactionsSection'));
-const ReportsDailySection = React.lazy(() => import('@/components/reports/ReportsDailySection'));
-const ReportsStockSection = React.lazy(() => import('@/components/reports/ReportsStockSection'));
-const ReportsDriversSection = React.lazy(() => import('@/components/reports/ReportsDriversSection'));
-const ReportsAnalysisSection = React.lazy(() => import('@/components/reports/ReportsAnalysisSection'));
-const ReportsFleetSection = React.lazy(() => import('@/components/reports/ReportsFleetSection'));
+const ReportsTransactionsSection = lazyWithRetry(() => import('@/components/reports/ReportsTransactionsSection'), 'reports-transactions-section');
+const ReportsDailySection = lazyWithRetry(() => import('@/components/reports/ReportsDailySection'), 'reports-daily-section');
+const ReportsStockSection = lazyWithRetry(() => import('@/components/reports/ReportsStockSection'), 'reports-stock-section');
+const ReportsDriversSection = lazyWithRetry(() => import('@/components/reports/ReportsDriversSection'), 'reports-drivers-section');
+const ReportsAnalysisSection = lazyWithRetry(() => import('@/components/reports/ReportsAnalysisSection'), 'reports-analysis-section');
+const ReportsFleetSection = lazyWithRetry(() => import('@/components/reports/ReportsFleetSection'), 'reports-fleet-section');
 
 type ReportsUIPreferences = {
   startDate: string;

@@ -999,6 +999,11 @@ const Factory = () => {
 
   useEffect(() => {
     if (commandCenterMounted && historySectionMounted) return;
+    if (typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+      setCommandCenterMounted(true);
+      setHistorySectionMounted(true);
+      return;
+    }
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -2998,9 +3003,6 @@ const Factory = () => {
                     <div className="mb-6">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{tr('Derniers Bons de Livraison (BL)', 'آخر سندات التسليم (BL)')}</p>
                       <div className="flex flex-wrap gap-2">
-                        {factoryOperations
-                          .filter(() => false)
-                          }
                         {(supplierBlReferencesById.get(String(supplier.id)) || [])
                           .slice(-5)
                           .reverse()
