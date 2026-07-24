@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { kvGet, kvGetShared, kvSet, kvSetShared } from "@/lib/kv";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, supabaseConfigured } from "@/lib/supabaseClient";
 import { supabaseService } from "@/lib/supabaseService";
 import {
   Client,
@@ -45,6 +45,7 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
     }
   });
   React.useEffect(() => {
+    if (!supabaseConfigured) return;
     let active = true;
     (async () => {
       try {
@@ -62,6 +63,7 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
     };
   }, [key]);
   React.useEffect(() => {
+    if (!supabaseConfigured) return;
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) return;
       (async () => {
@@ -82,6 +84,7 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {}
+    if (!supabaseConfigured) return;
     (async () => {
       try {
         await kvSet(key, value as any);
@@ -523,6 +526,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   useEffect(() => {
+    if (!supabaseConfigured) return;
     let active = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
@@ -541,6 +545,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Fetch initial data from Supabase
   useEffect(() => {
+    if (!supabaseConfigured) return;
     let active = true;
     const backgroundTimers: number[] = [];
     const idleCallbacks: number[] = [];

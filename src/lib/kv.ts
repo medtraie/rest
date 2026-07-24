@@ -1,6 +1,7 @@
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseConfigured } from "./supabaseClient";
 
 async function currentUserId(): Promise<string | null> {
+  if (!supabaseConfigured) return null;
   try {
     const { data } = await supabase.auth.getSession();
     return data.session?.user?.id ?? null;
@@ -59,6 +60,7 @@ async function kvUpsertPerUser(key: string, user_id: string, value: unknown, upd
 }
 
 export async function kvGet<T = unknown>(key: string): Promise<T | null> {
+  if (!supabaseConfigured) return null;
   const uid = await currentUserId();
   if (uid) {
     const { data, error } = await supabase
@@ -86,6 +88,7 @@ export async function kvGet<T = unknown>(key: string): Promise<T | null> {
 }
 
 export async function kvSet(key: string, value: unknown): Promise<void> {
+  if (!supabaseConfigured) return;
   const uid = await currentUserId();
   const updated_at = new Date().toISOString();
 
@@ -98,6 +101,7 @@ export async function kvSet(key: string, value: unknown): Promise<void> {
 }
 
 export async function kvGetShared<T = unknown>(key: string): Promise<T | null> {
+  if (!supabaseConfigured) return null;
   const { data, error } = await supabase.from("app_state").select("value").eq("key", key).limit(1);
   if (error) {
     console.error("Supabase kvGetShared error:", error.message);
@@ -107,6 +111,7 @@ export async function kvGetShared<T = unknown>(key: string): Promise<T | null> {
 }
 
 export async function kvSetShared(key: string, value: unknown): Promise<void> {
+  if (!supabaseConfigured) return;
   const updated_at = new Date().toISOString();
   await kvUpsertShared(key, value, updated_at);
 }

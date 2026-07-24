@@ -9,7 +9,7 @@ import { Toaster } from "sonner";
 import { LanguageProvider, useT } from "./contexts/LanguageContext";
 import { PageTransitionProvider } from "./contexts/PageTransitionContext";
 import { Layout } from "./components/layout/Layout";
-import { supabase } from "./lib/supabaseClient";
+import { supabase, supabaseConfigured } from "./lib/supabaseClient";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import type { Session } from "@supabase/supabase-js";
 
@@ -230,8 +230,20 @@ const AppContent = ({ supabaseConfigured }: { supabaseConfigured: boolean }) => 
   return authReady ? <RoutesWithAuth session={session} /> : <Splash />;
 };
 
+const ConfigMissingScreen = () => {
+  const t = useT();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="max-w-lg w-full rounded-2xl bg-white shadow-xl border border-slate-100 p-8 space-y-3">
+        <div className="text-2xl font-bold text-slate-900">{t("app.configMissing")}</div>
+        <div className="text-sm text-slate-600">{t("app.configMissingDesc")}</div>
+        <div className="text-xs text-slate-500">{t("app.configMissingHint")}</div>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
-  const supabaseConfigured = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
   React.useEffect(() => {
     window.__SFT_BOOT_DONE__ = true;
   }, []);
@@ -240,15 +252,19 @@ const App = () => {
       <TooltipProvider>
         <ErrorBoundary>
           <LanguageProvider>
-            <PageTransitionProvider>
-              <AppProvider>
-              <UIToaster />
-              <Sonner />
-              <BrowserRouter>
-                <AppContent supabaseConfigured={supabaseConfigured} />
-              </BrowserRouter>
-              </AppProvider>
-            </PageTransitionProvider>
+            {supabaseConfigured ? (
+              <PageTransitionProvider>
+                <AppProvider>
+                <UIToaster />
+                <Sonner />
+                <BrowserRouter>
+                  <AppContent supabaseConfigured={supabaseConfigured} />
+                </BrowserRouter>
+                </AppProvider>
+              </PageTransitionProvider>
+            ) : (
+              <ConfigMissingScreen />
+            )}
           </LanguageProvider>
         </ErrorBoundary>
       </TooltipProvider>

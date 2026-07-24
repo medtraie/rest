@@ -1,7 +1,8 @@
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseConfigured } from "./supabaseClient";
 
 const toSnakeKey = (key: string) => key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 const currentUserId = async (): Promise<string | null> => {
+  if (!supabaseConfigured) return null;
   try {
     const { data } = await supabase.auth.getSession();
     return data.session?.user?.id ?? null;
