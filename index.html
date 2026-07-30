@@ -69,12 +69,8 @@
       })();
     </script>
     <script>
-      // #region debug-point boot-collector
       (() => {
-        const enabled =
-          location.hostname === "localhost" ||
-          location.hostname === "127.0.0.1" ||
-          location.search.includes("debug=1");
+        const enabled = location.search.includes("debug=1");
         if (!enabled) return;
 
         const sessionId = "createcontext-undefined-chunk";
@@ -88,7 +84,7 @@
               headers: { "Content-Type": "text/plain;charset=UTF-8" },
               body: JSON.stringify(payload),
               keepalive: true,
-            });
+            }).catch(() => {});
           } catch {}
         };
 
@@ -135,7 +131,6 @@
           true,
         );
       })();
-      // #endregion debug-point boot-collector
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
