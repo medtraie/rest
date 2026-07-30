@@ -2104,9 +2104,48 @@ const Factory = () => {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className={factoryCanvas === 'creative' ? 'app-page-shell p-4 md:p-8 space-y-8 bg-slate-50/30 min-h-screen' : 'app-page-shell p-4 md:p-6 space-y-5 bg-slate-100/40 min-h-screen'}
+      className={factoryCanvas === 'creative' ? 'app-page-shell p-4 md:p-8 flex flex-col gap-8 bg-slate-50/30 min-h-screen' : 'app-page-shell p-4 md:p-6 flex flex-col gap-5 bg-slate-100/40 min-h-screen'}
     >
-      <motion.div variants={itemVariants}>
+      <div id="factory-stats" className="order-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {[
+          { label: tr('Total Envoyé', 'إجمالي المرسل'), value: totalSent, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: tr('Total Reçu', 'إجمالي المستلم'), value: totalReceived, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: tr('Opérations en attente', 'عمليات قيد الانتظار'), value: pendingOperations.length, icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: tr('Dette Fournisseur (V)', 'دين المورد (فارغ)'), value: emptyDebtTotal, icon: Package, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: tr('Défectueux en attente', 'معيب قيد الانتظار'), value: defectiveDebtTotal, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' }
+        ].map((stat, idx) => (
+          <motion.div
+            key={idx}
+            variants={itemVariants}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="relative group"
+          >
+            <Card className="border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300 bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-4 ${stat.bg} rounded-2xl group-hover:scale-110 transition-transform duration-300`}>
+                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                  <h3 className={`text-2xl font-black ${stat.color}`}>{stat.value}</h3>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+      <div id="factory-debts" className="order-4 flex justify-end gap-2">
+        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => resetSupplierDebtAll('empty')}>
+          {tr('Remise à zéro Dette (V)', 'تصفير دين الفارغ')}
+        </Button>
+        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => resetSupplierDebtAll('defective')}>
+          {tr('Remise à zéro Défectueux', 'تصفير المعيب')}
+        </Button>
+      </div>
+
+      <motion.div variants={itemVariants} className="order-2">
         <Card id="factory-hero" className="overflow-hidden border-0 bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white shadow-2xl">
           <CardContent className="p-0">
             <div className="px-6 py-6 md:px-8 md:py-8 space-y-6">
@@ -2202,45 +2241,7 @@ const Factory = () => {
         </Card>
       </motion.div>
 
-      <div id="factory-stats" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        {[
-          { label: tr('Total Envoyé', 'إجمالي المرسل'), value: totalSent, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: tr('Total Reçu', 'إجمالي المستلم'), value: totalReceived, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: tr('Opérations en attente', 'عمليات قيد الانتظار'), value: pendingOperations.length, icon: Truck, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: tr('Dette Fournisseur (V)', 'دين المورد (فارغ)'), value: emptyDebtTotal, icon: Package, color: 'text-orange-600', bg: 'bg-orange-50' },
-          { label: tr('Défectueux en attente', 'معيب قيد الانتظار'), value: defectiveDebtTotal, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' }
-        ].map((stat, idx) => (
-          <motion.div 
-            key={idx} 
-            variants={itemVariants}
-            whileHover={{ y: -5, transition: { duration: 0.2 } }}
-            className="relative group"
-          >
-            <Card className="border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all duration-300 bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-4 ${stat.bg} rounded-2xl group-hover:scale-110 transition-transform duration-300`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                  <h3 className={`text-2xl font-black ${stat.color}`}>{stat.value}</h3>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-      <div id="factory-debts" className="flex justify-end gap-2 mt-2">
-        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => resetSupplierDebtAll('empty')}>
-          {tr('Remise à zéro Dette (V)', 'تصفير دين الفارغ')}
-        </Button>
-        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => resetSupplierDebtAll('defective')}>
-          {tr('Remise à zéro Défectueux', 'تصفير المعيب')}
-        </Button>
-      </div>
-
+      <div className="order-5 flex flex-col gap-8">
       <motion.div variants={itemVariants}>
         <div className="grid lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 border-slate-200/80 shadow-sm bg-gradient-to-b from-white to-slate-50/30">
@@ -3574,9 +3575,10 @@ const Factory = () => {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
 
       {/* History Section */}
-      <motion.div variants={itemVariants} layout id="factory-history" ref={historySectionRef}>
+      <motion.div variants={itemVariants} layout id="factory-history" ref={historySectionRef} className="order-3">
         {historySectionMounted ? (
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden text-left">
           <CardHeader className="border-b border-slate-100 p-8">

@@ -17,7 +17,6 @@
     "exchanges": "Échanges",
     "transfer": "Transfert",
     "defectiveStock": "Stock Défectueux",
-    "fuelManagement": "Gestion Carburant & Huile",
     "repairs": "Gestion des Réparations",
     "expenses": "Dépenses Diverses",
     "depensesCopt": "Dépenses Copt",
@@ -1581,7 +1580,6 @@
       "subtitle": "Accédez rapidement aux fonctions essentielles",
       "newSale": "Nouvelle Vente",
       "expense": "Dépense",
-      "fuel": "Carburant",
       "repair": "Réparation"
     },
     "stock": {

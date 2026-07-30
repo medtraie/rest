@@ -1058,7 +1058,11 @@ const SupplyReturn = () => {
         priority: adaptiveRisk.level === 'high' ? 90 : 30,
         disabled: false
       }
-    ].sort((a, b) => b.priority - a.priority);
+    ].sort((a, b) => {
+      if (a.id === 'open-history') return 1;
+      if (b.id === 'open-history') return -1;
+      return b.priority - a.priority;
+    });
   }, [adaptiveRisk.level, filteredOrders, pendingPaymentOrder, language]);
 
   const configInsight = useMemo(() => {
@@ -1090,7 +1094,9 @@ const SupplyReturn = () => {
   const [showQuickActions, setShowQuickActions] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
   const [showAnomaly, setShowAnomaly] = useState(true);
-  const displayedSectionsCount = (showQuickActions ? 1 : 0) + (showTimeline ? 1 : 0) + (showAnomaly ? 1 : 0);
+  const [showHistories, setShowHistories] = useState(true);
+  const displayedSectionsCount =
+    (showQuickActions ? 1 : 0) + (showTimeline ? 1 : 0) + (showAnomaly ? 1 : 0) + (showHistories ? 1 : 0);
   useEffect(() => {
     const saved = localStorage.getItem('sr_sections_vis_v1');
     if (saved) {
@@ -1099,12 +1105,13 @@ const SupplyReturn = () => {
         if (typeof o.showQuickActions === 'boolean') setShowQuickActions(o.showQuickActions);
         if (typeof o.showTimeline === 'boolean') setShowTimeline(o.showTimeline);
         if (typeof o.showAnomaly === 'boolean') setShowAnomaly(o.showAnomaly);
+        if (typeof o.showHistories === 'boolean') setShowHistories(o.showHistories);
       } catch {}
     }
   }, []);
   useEffect(() => {
-    localStorage.setItem('sr_sections_vis_v1', JSON.stringify({ showQuickActions, showTimeline, showAnomaly }));
-  }, [showQuickActions, showTimeline, showAnomaly]);
+    localStorage.setItem('sr_sections_vis_v1', JSON.stringify({ showQuickActions, showTimeline, showAnomaly, showHistories }));
+  }, [showQuickActions, showTimeline, showAnomaly, showHistories]);
   const productInsight = useMemo(() => {
     const selectedTypes = items.filter((item) => Number(item.fullQuantity || 0) > 0).length;
     const selectedVolume = items.reduce((sum, item) => sum + Number(item.fullQuantity || 0), 0);
@@ -1210,12 +1217,19 @@ const SupplyReturn = () => {
       return;
     }
     if (actionId === 'open-payment') {
+      setShowHistories(true);
       scrollToSection('command-return-history');
       if (!pendingPaymentOrder) return;
       setSelectedReturnOrderForPayment(pendingPaymentOrder);
       setPaymentDialogOpen(true);
       return;
     }
+    if (actionId === 'open-history') {
+      setShowHistories(true);
+      scrollToSection('command-history');
+      return;
+    }
+    setShowHistories(true);
     scrollToSection('command-history');
   };
 
@@ -1708,7 +1722,7 @@ const SupplyReturn = () => {
               {tr('Options d\'affichage', 'خيارات العرض')}
             </Button>
           </DropdownMenuTrigger>
-          <Badge className="ml-2 bg-slate-100 text-slate-700 border-slate-200">{displayedSectionsCount}/3</Badge>
+          <Badge className="ml-2 bg-slate-100 text-slate-700 border-slate-200">{displayedSectionsCount}/4</Badge>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>{tr('Sections', 'الأقسام')}</DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -1721,11 +1735,20 @@ const SupplyReturn = () => {
             <DropdownMenuCheckboxItem checked={showAnomaly} onCheckedChange={(v) => setShowAnomaly(Boolean(v))}>
               {tr('Anomaly Engine', 'محرك الشذوذ')}
             </DropdownMenuCheckboxItem>
+            {showHistories ? (
+              <DropdownMenuItem onClick={() => setShowHistories(false)}>
+                <EyeOff className="w-4 h-4 mr-2" /> {tr('Masquer', 'إخفاء')} · {tsu('history.title', 'Gestion des Historiques')}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => setShowHistories(true)}>
+                <Eye className="w-4 h-4 mr-2" /> {tr('Afficher', 'إظهار')} · {tsu('history.title', 'Gestion des Historiques')}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => { setShowQuickActions(true); setShowTimeline(true); setShowAnomaly(true); }}>
+            <DropdownMenuItem onClick={() => { setShowQuickActions(true); setShowTimeline(true); setShowAnomaly(true); setShowHistories(true); }}>
               <Eye className="w-4 h-4 mr-2" /> {tr('Tout afficher', 'إظهار الكل')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setShowQuickActions(false); setShowTimeline(false); setShowAnomaly(false); }}>
+            <DropdownMenuItem onClick={() => { setShowQuickActions(false); setShowTimeline(false); setShowAnomaly(false); setShowHistories(false); }}>
               <EyeOff className="w-4 h-4 mr-2" /> {tr('Tout masquer', 'إخفاء الكل')}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -2562,53 +2585,56 @@ const SupplyReturn = () => {
         </div>
       </div>
 
-      {/* History Sections */}
       <div id="command-history" className="space-y-8 pt-8 border-t border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-slate-800 rounded-lg text-white">
-            <FileText className="w-5 h-5" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900">{tsu('history.title', 'Gestion des Historiques')}</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{tsu('history.bsFlow', 'Flux B.S')}</p>
-            <p className="text-2xl font-black text-indigo-900 mt-1">{filteredOrders.length}</p>
-            <p className="text-xs text-indigo-600 mt-1">{tsu('history.bsVisible', 'bons visibles dans l’historique')}</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-            <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{tsu('history.bdFlow', 'Flux B.D')}</p>
-            <p className="text-2xl font-black text-emerald-900 mt-1">{filteredReturnOrders.length}</p>
-            <p className="text-xs text-emerald-600 mt-1">{tsu('history.bdVisible', 'retours visibles dans l’historique')}</p>
-          </div>
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">{tsu('history.pendingSettlement', 'En attente règlement')}</p>
-            <p className="text-2xl font-black text-amber-900 mt-1">{dashboardStats.pendingReturns}</p>
-            <p className="text-xs text-amber-600 mt-1">{tsu('history.unpaidBd', 'bons d’entrée non réglés')}</p>
-          </div>
-        </div>
-        <div className={cn(
-          "rounded-2xl border p-3",
-          historyInsight.status === 'balanced'
-            ? "border-emerald-100 bg-emerald-50/60"
-            : historyInsight.status === 'supply-dominant'
-            ? "border-indigo-100 bg-indigo-50/60"
-            : "border-amber-100 bg-amber-50/60"
-        )}>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs uppercase tracking-wider font-bold text-slate-700">{tsu('history.pulse48h', 'Pulse 48h')}</p>
-            <Badge className={historyInsight.status === 'balanced' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200' : historyInsight.status === 'supply-dominant' ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-100 border-indigo-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200'}>
-              {historyInsight.status === 'balanced'
-                ? tsu('history.balancedFlow', 'Flux équilibré')
+        {showHistories && (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-800 rounded-lg text-white">
+                <FileText className="w-5 h-5" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900">{tsu('history.title', 'Gestion des Historiques')}</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <p className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{tsu('history.bsFlow', 'Flux B.S')}</p>
+                <p className="text-2xl font-black text-indigo-900 mt-1">{filteredOrders.length}</p>
+                <p className="text-xs text-indigo-600 mt-1">{tsu('history.bsVisible', 'bons visibles dans l’historique')}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">{tsu('history.bdFlow', 'Flux B.D')}</p>
+                <p className="text-2xl font-black text-emerald-900 mt-1">{filteredReturnOrders.length}</p>
+                <p className="text-xs text-emerald-600 mt-1">{tsu('history.bdVisible', 'retours visibles dans l’historique')}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">{tsu('history.pendingSettlement', 'En attente règlement')}</p>
+                <p className="text-2xl font-black text-amber-900 mt-1">{dashboardStats.pendingReturns}</p>
+                <p className="text-xs text-amber-600 mt-1">{tsu('history.unpaidBd', 'bons d’entrée non réglés')}</p>
+              </div>
+            </div>
+            <div className={cn(
+              "rounded-2xl border p-3",
+              historyInsight.status === 'balanced'
+                ? "border-emerald-100 bg-emerald-50/60"
                 : historyInsight.status === 'supply-dominant'
-                  ? tsu('history.supplyDominant', 'Sorties dominantes')
-                  : tsu('history.returnDominant', 'Retours dominants')}
-            </Badge>
-          </div>
-          <p className="text-sm text-slate-700 mt-1.5">
-            {historyInsight.recentSupply} {tsu('history.bsRecent', 'B.S récents')} · {historyInsight.recentReturn} {tsu('history.bdRecent', 'B.D récents')}
-          </p>
-        </div>
+                ? "border-indigo-100 bg-indigo-50/60"
+                : "border-amber-100 bg-amber-50/60"
+            )}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-wider font-bold text-slate-700">{tsu('history.pulse48h', 'Pulse 48h')}</p>
+                <Badge className={historyInsight.status === 'balanced' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200' : historyInsight.status === 'supply-dominant' ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-100 border-indigo-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200'}>
+                  {historyInsight.status === 'balanced'
+                    ? tsu('history.balancedFlow', 'Flux équilibré')
+                    : historyInsight.status === 'supply-dominant'
+                      ? tsu('history.supplyDominant', 'Sorties dominantes')
+                      : tsu('history.returnDominant', 'Retours dominants')}
+                </Badge>
+              </div>
+              <p className="text-sm text-slate-700 mt-1.5">
+                {historyInsight.recentSupply} {tsu('history.bsRecent', 'B.S récents')} · {historyInsight.recentReturn} {tsu('history.bdRecent', 'B.D récents')}
+              </p>
+            </div>
+          </>
+        )}
 
         {/* Supply History */}
         <Card className="border border-slate-200/70 shadow-sm bg-white/95 overflow-hidden rounded-2xl">

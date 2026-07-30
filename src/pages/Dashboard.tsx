@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useApp } from '@/contexts/AppContext';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
-import OilBarrelsWidget from '@/components/dashboard/OilBarrelsWidget';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { safeDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +25,6 @@ import {
   History,
   Settings,
   Activity,
-  Fuel,
   Droplets,
   Wrench,
   CreditCard,
@@ -212,7 +210,6 @@ const Dashboard = () => {
   const quickActions = [
     { key: 'newSale', label: t('dashboard.quickActions.newSale'), icon: Plus, path: '/supply-return', color: 'bg-blue-500' },
     { key: 'expense', label: t('dashboard.quickActions.expense'), icon: CreditCard, path: '/expenses', color: 'bg-red-500' },
-    { key: 'fuel', label: t('dashboard.quickActions.fuel'), icon: Fuel, path: '/fuel', color: 'bg-orange-500' },
     { key: 'repair', label: t('dashboard.quickActions.repair'), icon: Wrench, path: '/repairs', color: 'bg-purple-500' },
   ];
 
@@ -436,16 +433,14 @@ const Dashboard = () => {
 
   const performanceSignals = useMemo(() => {
     const fleetRatio = trucks.length > 0 ? Math.round((activeTrucks / trucks.length) * 100) : 0;
-    const fuelOps = expenses.filter((e: any) => String(e.type || '').toLowerCase().includes('carb')).length;
     const distributionLabel = lowStockBottles.length === 0 ? t('dashboard.distributionStatus.optimum') : lowStockBottles.length <= 2 ? t('dashboard.distributionStatus.controlled') : t('dashboard.distributionStatus.tension');
     const distributionTone = lowStockBottles.length === 0 ? 'bg-emerald-500' : lowStockBottles.length <= 2 ? 'bg-amber-500' : 'bg-rose-500';
     return {
       fleetRatio,
-      fuelOps,
       distributionLabel,
       distributionTone,
     };
-  }, [trucks.length, activeTrucks, expenses, lowStockBottles, t]);
+  }, [trucks.length, activeTrucks, lowStockBottles, t]);
 
   const globalPulse = useMemo(() => {
     const displayedStocks = stockRows.length || 1;
@@ -634,7 +629,7 @@ const Dashboard = () => {
             <CardDescription>{t('dashboard.quickActions.subtitle')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {quickActions.map((action) => (
                 <Button
                   key={action.key}
@@ -736,9 +731,7 @@ const Dashboard = () => {
 
         {/* Widgets Column */}
         <div className="space-y-6">
-          <OilBarrelsWidget />
-          
-          <Card className="border-none shadow-lg ring-1 ring-slate-200/70 bg-gradient-to-b from-white to-slate-50/60 transition-all duration-300 ease-out hover:shadow-xl">
+          <Card className="border-none shadow-lg ring-1 ring-slate-200/70 bg-white transition-all duration-300 ease-out hover:shadow-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-green-600" />
@@ -765,15 +758,6 @@ const Dashboard = () => {
                  <Badge variant="outline" className="text-blue-600 border-blue-200">{activeTrucks} / {trucks.length} {t('dashboard.performance.active')}</Badge>
               </div>
               <Progress value={performanceSignals.fleetRatio} className="h-1.5" />
-              <div className="flex items-center justify-between p-3 rounded-lg bg-white ring-1 ring-slate-200/80 transition-all duration-300 ease-out hover:bg-slate-50 hover:ring-slate-300">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-full text-orange-600">
-                    <Fuel className="w-4 h-4" />
-                  </div>
-                   <span className="text-sm font-medium">{t('dashboard.performance.fuel')}</span>
-                 </div>
-                 <Badge variant="outline" className="text-orange-600 border-orange-200">{performanceSignals.fuelOps} {t('dashboard.performance.fuelOps')}</Badge>
-              </div>
             </CardContent>
           </Card>
 

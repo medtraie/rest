@@ -12,7 +12,6 @@ import {
   ShieldAlert,
   HandCoins,
   Wallet,
-  Fuel,
   Wrench,
   SlidersHorizontal,
   Route,
@@ -54,7 +53,7 @@ const menuItems: MenuItem[] = [
   { title: "exchanges", url: "/exchanges", icon: ArrowRightLeft, permission: "exchanges" },
   { title: "transfer", url: "/transfer", icon: Route, permission: "transfer" },
   { title: "defectiveStock", url: "/defective-stock", icon: ShieldAlert, permission: "defective-stock" },
-  { title: "fuelManagement", url: "/fuel-management", icon: Fuel, permission: "fuel-management" },
+
   { title: "repairs", url: "/repairs", icon: Wrench, permission: "repairs" },
   { title: "expenses", url: "/expenses", icon: Wallet, permission: "expenses" },
   { title: "depensesCopt", url: "/depenses-copt", icon: PackagePlus, permission: "depenses-copt" },
