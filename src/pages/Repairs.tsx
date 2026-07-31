@@ -131,6 +131,10 @@ const Repairs = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingRepair, setEditingRepair] = useState<Repair | null>(null);
+  const [debtDialogOpen, setDebtDialogOpen] = useState(false);
+  const [repairToSettle, setRepairToSettle] = useState<Repair | null>(null);
+  const [debtPaymentMethod, setDebtPaymentMethod] = useState<'especes' | 'cheque' | 'virement'>('especes');
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -285,7 +289,16 @@ const Repairs = () => {
         paymentMethod: formData.paymentMethod,
         remarks: formData.remarks
       };
-      updateRepair(updatedRepair);
+      updateRepair(editingRepair.id, {
+        date: formData.date,
+        truckId: formData.truckId,
+        type: formData.type,
+        totalCost,
+        paidAmount,
+        debtAmount: totalCost - paidAmount,
+        paymentMethod: formData.paymentMethod,
+        remarks: formData.remarks
+      });
     } else {
       const newRepair: Repair = {
         id: (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)),
@@ -312,6 +325,54 @@ const Repairs = () => {
     toast({
       title: ru('toast.success', 'Succès'),
       description: isEditing ? ru('toast.repairUpdated', 'Réparation mise à jour avec succès') : ru('toast.repairAdded', 'Réparation ajoutée avec succès')
+    });
+  };
+
+  const openDebtSettlementDialog = (repair: Repair) => {
+    setRepairToSettle(repair);
+    setDebtPaymentMethod(repair.paymentMethod || 'especes');
+    setDebtPaymentAmount('');
+    setDebtDialogOpen(true);
+  };
+
+  const closeDebtSettlementDialog = () => {
+    setDebtDialogOpen(false);
+    setRepairToSettle(null);
+    setDebtPaymentAmount('');
+  };
+
+  const handleDebtSettlement = () => {
+    if (!repairToSettle) return;
+
+    const amount = parseFloat(debtPaymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({
+        title: ru('toast.error', 'Erreur'),
+        description: tr('Veuillez saisir un montant valide.', 'يرجى إدخال مبلغ صحيح.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (amount > repairToSettle.debtAmount) {
+      toast({
+        title: ru('toast.error', 'Erreur'),
+        description: tr('Le montant à payer ne peut pas dépasser la dette restante.', 'مبلغ الدفع لا يمكن أن يتجاوز الدين المتبقي.'),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    updateRepair(repairToSettle.id, {
+      paidAmount: Number((repairToSettle.paidAmount + amount).toFixed(2)),
+      debtAmount: Number((repairToSettle.debtAmount - amount).toFixed(2)),
+      paymentMethod: debtPaymentMethod
+    });
+    closeDebtSettlementDialog();
+
+    toast({
+      title: tr('Dette réglée', 'تمت تسوية الدين'),
+      description: tr('Le paiement a été appliqué avec succès.', 'تم تطبيق الدفعة بنجاح.')
     });
   };
 
@@ -1576,6 +1637,17 @@ const Repairs = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {repair.debtAmount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openDebtSettlementDialog(repair)}
+                            className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                            title={tr('Régler la dette', 'تسوية الدين')}
+                          >
+                            <Banknote className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1666,6 +1738,11 @@ const Repairs = () => {
                     const MButton = motion(Button);
                     return (
                       <>
+                        {repair.debtAmount > 0 && (
+                          <MButton variant="ghost" size="sm" className="btn-haptic relative" whileTap={{ scale: 0.96 }} onClick={() => openDebtSettlementDialog(repair)}>
+                            {tr('Régler la dette', 'تسوية الدين')}
+                          </MButton>
+                        )}
                         <MButton variant="ghost" size="sm" className="btn-haptic relative" whileTap={{ scale: 0.96 }} onClick={() => handleDownloadPDF(repair)}>{ru('actions.export', 'Exporter')}</MButton>
                         <MButton variant="ghost" size="sm" className="btn-haptic relative" whileTap={{ scale: 0.96 }} onClick={() => { setEditingRepair(repair); setIsEditing(true); setFormData({ truckId: repair.truckId, type: repair.type, totalCost: repair.totalCost.toString(), paidAmount: repair.paidAmount.toString(), paymentMethod: repair.paymentMethod, date: repair.date.split('T')[0], remarks: repair.remarks }); setDialogOpen(true); }}>{ru('actions.edit', 'Modifier')}</MButton>
                         <MButton variant="ghost" size="sm" className="btn-haptic relative" whileTap={{ scale: 0.96 }} onClick={() => { if (confirm(ru('confirm.deleteRepair', 'Voulez-vous vraiment supprimer cette réparation ?'))) { deleteRepair(repair.id); toast({ title: ru('toast.repairDeleted', 'Réparation supprimée'), description: ru('toast.repairDeletedSuccess', 'La réparation a été supprimée avec succès.'), }); } }}>{ru('actions.delete', 'Supprimer')}</MButton>
@@ -1678,6 +1755,82 @@ const Repairs = () => {
           })}
         </div>
       </Card>
+
+      <Dialog
+        open={debtDialogOpen && !!repairToSettle}
+        onOpenChange={(open) => {
+          if (!open) closeDebtSettlementDialog();
+          else setDebtDialogOpen(true);
+        }}
+      >
+        {repairToSettle && (
+        <DialogContent className="max-w-md border-none shadow-2xl overflow-hidden p-0">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg">
+                  <Banknote className="h-5 w-5" />
+                </div>
+                {tr('Régler la dette', 'تسوية الدين')}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="p-5 space-y-5 bg-white">
+            <div className="space-y-2">
+              <Label className="text-slate-700 font-semibold">{tr('Mode de Paiement', 'طريقة الدفع')}</Label>
+              <Select value={debtPaymentMethod} onValueChange={(value) => setDebtPaymentMethod(value as 'especes' | 'cheque' | 'virement')}>
+                <SelectTrigger className="border-slate-200 focus:ring-emerald-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="especes">{tr('Espèces', 'نقدًا')}</SelectItem>
+                  <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
+                  <SelectItem value="virement">{tr('Virement', 'تحويل')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-500">{tr('Reste à payer (Dette) :', 'المتبقي للدفع (الدين):')}</p>
+              <p className="text-2xl font-black text-rose-600 mt-1">
+                {repairToSettle.debtAmount.toLocaleString(uiLocale)} MAD
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-slate-700 font-semibold">{tr('Montant à payer (Dette)', 'مبلغ الأداء (الدين)')}</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={debtPaymentAmount}
+                onChange={(e) => setDebtPaymentAmount(e.target.value)}
+                placeholder="0.00"
+                className="border-slate-200 focus:ring-emerald-500"
+              />
+              {debtPaymentAmount && Number.isFinite(parseFloat(debtPaymentAmount)) && (
+                <p className="text-xs text-slate-500">
+                  {tr('Nouveau reste après paiement :', 'المتبقي الجديد بعد الدفع:')}{' '}
+                  <span className="font-bold text-emerald-700">
+                    {Math.max(0, repairToSettle.debtAmount - parseFloat(debtPaymentAmount || '0')).toLocaleString(uiLocale)} MAD
+                  </span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={closeDebtSettlementDialog}>
+                {tr('Annuler', 'إلغاء')}
+              </Button>
+              <Button onClick={handleDebtSettlement} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {tr('Confirmer le règlement', 'تأكيد التسوية')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+        )}
+      </Dialog>
 
       {/* Modernized Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

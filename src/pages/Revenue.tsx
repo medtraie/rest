@@ -1148,30 +1148,30 @@ function Revenue() {
             </CardHeader>
             <CardContent className="p-0">
               {/* Filters Section */}
-              <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="space-y-1.5">
+              <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-end">
+                <div className="space-y-1.5 min-w-0 md:col-span-2 xl:col-span-4">
                   <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                     <Input 
                       type="date" 
-                      className="h-9 text-sm"
+                      className="h-9 text-sm min-w-0"
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
                     />
-                    <span className="text-slate-400">{t('revenue.filters.to', 'à')}</span>
+                    <span className="text-slate-400 text-center">{t('revenue.filters.to', 'à')}</span>
                     <Input 
                       type="date" 
-                      className="h-9 text-sm"
+                      className="h-9 text-sm min-w-0"
                       value={filterEndDate} 
                       onChange={(e) => setFilterEndDate(e.target.value)} 
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0 xl:col-span-2">
                   <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.type', 'Type')}</Label>
                   <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className="h-9 text-sm w-full min-w-0">
                       <SelectValue placeholder={t('revenue.filters.allTypes', 'Tous les types')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1184,10 +1184,10 @@ function Revenue() {
                   </Select>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 min-w-0 xl:col-span-3">
                   <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.account', 'Compte')}</Label>
                   <Select value={filterAccount} onValueChange={setFilterAccount}>
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className="h-9 text-sm w-full min-w-0">
                       <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1205,9 +1205,9 @@ function Revenue() {
                   </Select>
                 </div>
 
-                <div className="space-y-1.5 lg:col-span-2">
+                <div className="space-y-1.5 min-w-0 md:col-span-2 xl:col-span-3">
                   <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.amountRange', 'Montant')}</Label>
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.min', 'Min')}</span>
                       <Input 
@@ -1228,7 +1228,7 @@ function Revenue() {
                     </div>
                   </div>
                 </div>
-                <div className="lg:col-span-5 flex flex-wrap items-center gap-2">
+                <div className="md:col-span-2 xl:col-span-12 flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
                     {t('revenue.intelligence.priority', 'Priorité')}: {priorityFilter === 'all' ? tr('Toutes', 'الكل') : priorityFilter === 'high' ? tr('Critique', 'حرج') : priorityFilter === 'medium' ? tr('Surveillance', 'مراقبة') : tr('Stable', 'مستقر')}
                   </Badge>

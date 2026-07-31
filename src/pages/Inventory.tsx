@@ -156,6 +156,11 @@ const Inventory = () => {
   const [stockFilter, setStockFilter] = useState<'all' | 'critical' | 'low' | 'normal'>('all');
   const [sortMode, setSortMode] = useState<'name' | 'stock' | 'distribution'>('stock');
   const [showQuickStats, setShowQuickStats] = useState(true);
+  const [showMissionControl, setShowMissionControl] = useState(true);
+  const [showStockAutopilot, setShowStockAutopilot] = useState(true);
+  const [showFlowPulse, setShowFlowPulse] = useState(true);
+  const [showRuptureForecaster, setShowRuptureForecaster] = useState(true);
+  const [showReplenishmentPlanner, setShowReplenishmentPlanner] = useState(true);
   const [stockPilotMode, setStockPilotMode] = useState<'defense' | 'rotation' | 'equilibre' | 'custom'>('equilibre');
   const [replenishmentHorizon, setReplenishmentHorizon] = useState<'14' | '30' | '60'>('30');
   const [emptySortMode, setEmptySortMode] = useState<'qty' | 'date' | 'name'>('qty');
@@ -1051,6 +1056,11 @@ const Inventory = () => {
           if (['all', 'critical', 'low', 'normal'].includes(localPrefs.stockFilter)) setStockFilter(localPrefs.stockFilter);
           if (['name', 'stock', 'distribution'].includes(localPrefs.sortMode)) setSortMode(localPrefs.sortMode);
           if (typeof localPrefs.showQuickStats === 'boolean') setShowQuickStats(localPrefs.showQuickStats);
+          if (typeof localPrefs.showMissionControl === 'boolean') setShowMissionControl(localPrefs.showMissionControl);
+          if (typeof localPrefs.showStockAutopilot === 'boolean') setShowStockAutopilot(localPrefs.showStockAutopilot);
+          if (typeof localPrefs.showFlowPulse === 'boolean') setShowFlowPulse(localPrefs.showFlowPulse);
+          if (typeof localPrefs.showRuptureForecaster === 'boolean') setShowRuptureForecaster(localPrefs.showRuptureForecaster);
+          if (typeof localPrefs.showReplenishmentPlanner === 'boolean') setShowReplenishmentPlanner(localPrefs.showReplenishmentPlanner);
         } catch {
         }
       }
@@ -1061,6 +1071,11 @@ const Inventory = () => {
           if (['all', 'critical', 'low', 'normal'].includes(cloudPrefs.stockFilter)) setStockFilter(cloudPrefs.stockFilter);
           if (['name', 'stock', 'distribution'].includes(cloudPrefs.sortMode)) setSortMode(cloudPrefs.sortMode);
           if (typeof cloudPrefs.showQuickStats === 'boolean') setShowQuickStats(cloudPrefs.showQuickStats);
+          if (typeof cloudPrefs.showMissionControl === 'boolean') setShowMissionControl(cloudPrefs.showMissionControl);
+          if (typeof cloudPrefs.showStockAutopilot === 'boolean') setShowStockAutopilot(cloudPrefs.showStockAutopilot);
+          if (typeof cloudPrefs.showFlowPulse === 'boolean') setShowFlowPulse(cloudPrefs.showFlowPulse);
+          if (typeof cloudPrefs.showRuptureForecaster === 'boolean') setShowRuptureForecaster(cloudPrefs.showRuptureForecaster);
+          if (typeof cloudPrefs.showReplenishmentPlanner === 'boolean') setShowReplenishmentPlanner(cloudPrefs.showReplenishmentPlanner);
         }
       } catch {
       }
@@ -1092,10 +1107,30 @@ const Inventory = () => {
   }, []);
 
   useEffect(() => {
-    const prefs = { searchTerm, stockFilter, sortMode, showQuickStats };
+    const prefs = {
+      searchTerm,
+      stockFilter,
+      sortMode,
+      showQuickStats,
+      showMissionControl,
+      showStockAutopilot,
+      showFlowPulse,
+      showRuptureForecaster,
+      showReplenishmentPlanner
+    };
     localStorage.setItem('inventory.ui.preferences', JSON.stringify(prefs));
     kvSet('inventory.ui.preferences', prefs);
-  }, [searchTerm, stockFilter, sortMode, showQuickStats]);
+  }, [
+    searchTerm,
+    stockFilter,
+    sortMode,
+    showQuickStats,
+    showMissionControl,
+    showStockAutopilot,
+    showFlowPulse,
+    showRuptureForecaster,
+    showReplenishmentPlanner
+  ]);
 
   useEffect(() => {
     localStorage.setItem('inventory.thresholds.byBottle', JSON.stringify(thresholdsByBottle));
@@ -1320,15 +1355,22 @@ const Inventory = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <Card className="border-none shadow-sm bg-white overflow-hidden xl:col-span-2">
           <CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-indigo-50 rounded-xl">
-                <Archive className="w-5 h-5 text-indigo-600" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 rounded-xl">
+                  <Archive className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">{t('inventory.mission.title', 'Mission Control Inventory')}</h3>
+                  <p className="text-xs text-slate-500">{t('inventory.mission.subtitle', 'Tri tactique des références selon risque de rupture')}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-black text-slate-900">{t('inventory.mission.title', 'Mission Control Inventory')}</h3>
-                <p className="text-xs text-slate-500">{t('inventory.mission.subtitle', 'Tri tactique des références selon risque de rupture')}</p>
-              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowMissionControl((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
+                {showMissionControl ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showMissionControl ? t('inventory.common.hide', 'Masquer') : t('inventory.common.show', 'Afficher')}
+              </Button>
             </div>
+            {showMissionControl && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { key: 'urgent', title: t('inventory.mission.intervention', 'Intervention'), style: 'border-rose-200 bg-rose-50', text: 'text-rose-700' },
@@ -1364,15 +1406,24 @@ const Inventory = () => {
                 );
               })}
             </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardContent className="p-5 space-y-3">
-            <div>
-              <h3 className="text-base font-black text-slate-900">{t('inventory.autopilot.title', 'Stock Autopilot')}</h3>
-              <p className="text-xs text-slate-500">{t('inventory.autopilot.subtitle', 'Presets rapides pour piloter les priorités')}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">{t('inventory.autopilot.title', 'Stock Autopilot')}</h3>
+                <p className="text-xs text-slate-500">{t('inventory.autopilot.subtitle', 'Presets rapides pour piloter les priorités')}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowStockAutopilot((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
+                {showStockAutopilot ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showStockAutopilot ? t('inventory.common.hide', 'Masquer') : t('inventory.common.show', 'Afficher')}
+              </Button>
             </div>
+            {showStockAutopilot && (
+            <>
             <Button onClick={() => applyStockPilot('defense')} className={`w-full justify-start ${stockPilotMode === 'defense' ? 'bg-rose-600 hover:bg-rose-700' : ''}`} variant={stockPilotMode === 'defense' ? 'default' : 'outline'}>
               <AlertTriangle className="w-4 h-4 mr-2" />
               {t('inventory.autopilot.defenseMode', 'Mode Défense')}
@@ -1391,21 +1442,30 @@ const Inventory = () => {
                 {stockPilotMode === 'defense' ? t('inventory.autopilot.defenseHint', 'Renforcer les références critiques') : stockPilotMode === 'rotation' ? t('inventory.autopilot.rotationHint', 'Accélérer la récupération terrain') : stockPilotMode === 'equilibre' ? t('inventory.autopilot.balanceHint', 'Vision globale stabilisée') : t('inventory.autopilot.manualHint', 'Ajustement manuel en cours')}
               </p>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <Card className="border-none shadow-sm bg-white overflow-hidden">
         <CardContent className="p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-50 rounded-xl">
-              <TrendingUp className="w-5 h-5 text-cyan-600" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-cyan-50 rounded-xl">
+                <TrendingUp className="w-5 h-5 text-cyan-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">{t('inventory.flowPulse.title', 'Flow Pulse 8 jours')}</h3>
+                <p className="text-xs text-slate-500">{t('inventory.flowPulse.subtitle', 'Intensité journalière des mouvements et focus rapide')}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">{t('inventory.flowPulse.title', 'Flow Pulse 8 jours')}</h3>
-              <p className="text-xs text-slate-500">{t('inventory.flowPulse.subtitle', 'Intensité journalière des mouvements et focus rapide')}</p>
-            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowFlowPulse((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
+              {showFlowPulse ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+              {showFlowPulse ? t('inventory.common.hide', 'Masquer') : t('inventory.common.show', 'Afficher')}
+            </Button>
           </div>
+          {showFlowPulse && (
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
             {stockPulse.map((cell) => (
               <button
@@ -1425,6 +1485,7 @@ const Inventory = () => {
               </button>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1437,11 +1498,16 @@ const Inventory = () => {
                 <p className="text-xs text-slate-500">{t('inventory.forecast.subtitle', 'Projection par référence et priorité de réapprovisionnement')}</p>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowRuptureForecaster((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
+                  {showRuptureForecaster ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                  {showRuptureForecaster ? t('inventory.common.hide', 'Masquer') : t('inventory.common.show', 'Afficher')}
+                </Button>
                 <Button size="sm" variant={replenishmentHorizon === '14' ? 'default' : 'outline'} className={replenishmentHorizon === '14' ? 'bg-indigo-600 hover:bg-indigo-700' : ''} onClick={() => setReplenishmentHorizon('14')}>{`14${dayUnit}`}</Button>
                 <Button size="sm" variant={replenishmentHorizon === '30' ? 'default' : 'outline'} className={replenishmentHorizon === '30' ? 'bg-indigo-600 hover:bg-indigo-700' : ''} onClick={() => setReplenishmentHorizon('30')}>{`30${dayUnit}`}</Button>
                 <Button size="sm" variant={replenishmentHorizon === '60' ? 'default' : 'outline'} className={replenishmentHorizon === '60' ? 'bg-indigo-600 hover:bg-indigo-700' : ''} onClick={() => setReplenishmentHorizon('60')}>{`60${dayUnit}`}</Button>
               </div>
             </div>
+            {showRuptureForecaster && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {forecastRows.slice(0, 6).map((row) => (
                 <button
@@ -1479,15 +1545,24 @@ const Inventory = () => {
                 </button>
               ))}
             </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardContent className="p-5 space-y-3">
-            <div>
-              <h3 className="text-base font-black text-slate-900">{t('inventory.planner.title', 'Replenishment Planner')}</h3>
-              <p className="text-xs text-slate-500">{t('inventory.planner.objective', 'Objectif global de recharge sur')} {replenishmentHorizon} {t('inventory.common.days', 'jours')}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">{t('inventory.planner.title', 'Replenishment Planner')}</h3>
+                <p className="text-xs text-slate-500">{t('inventory.planner.objective', 'Objectif global de recharge sur')} {replenishmentHorizon} {t('inventory.common.days', 'jours')}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowReplenishmentPlanner((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
+                {showReplenishmentPlanner ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showReplenishmentPlanner ? t('inventory.common.hide', 'Masquer') : t('inventory.common.show', 'Afficher')}
+              </Button>
             </div>
+            {showReplenishmentPlanner && (
+            <>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">{t('inventory.planner.refillRecommended', 'Refill recommandé')}</p>
               <p className="text-2xl font-black text-indigo-700 mt-1">{totalRefillRecommended} {t('inventory.common.units', 'unités')}</p>
@@ -1503,6 +1578,8 @@ const Inventory = () => {
             <Button variant="outline" className="w-full" onClick={() => { setSearchTerm(''); setSortMode('stock'); setStockFilter('all'); setStockPilotMode('custom'); }}>
               {t('inventory.planner.focusGlobalPlan', 'Focus plan global')}
             </Button>
+            </>
+            )}
           </CardContent>
         </Card>
       </div>
