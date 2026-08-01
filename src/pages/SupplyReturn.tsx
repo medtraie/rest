@@ -55,7 +55,7 @@ import {
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const SupplyReturn = () => {
-  const { bottleTypes = [], drivers = [], clients = [], trucks = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt, refreshSupplyReturnData } = useApp();
+  const { bottleTypes = [], drivers = [], clients = [], trucks = [], emptyBottlesStock = [], defectiveStock = [], foreignBottles = [], addClient, addSupplyOrder, updateBottleType, supplyOrders = [], returnOrders = [], deleteSupplyOrder, deleteReturnOrder, addRevenue, updateDriver, updateDriverDebt, refreshSupplyReturnData } = useApp();
   const availableDrivers = useMemo(() => drivers.filter((driver: any) => !driver.isUnavailable), [drivers]);
   const driversById = useMemo(
     () => new Map(drivers.map((driver: any) => [String(driver.id), driver])),
@@ -358,6 +358,573 @@ const SupplyReturn = () => {
       return aIdx - bIdx;
     });
   }, [bottleTypes]);
+
+  const stockRecapRows = useMemo(() => {
+    const normalizeBottleKey = (value: string) =>
+      String(value || '')
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
+    const emptyByBottleId = (emptyBottlesStock || []).reduce((acc, stock: any) => {
+      acc[String(stock.bottleTypeId)] = Number(stock.quantity || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const defectiveByBottleId = (defectiveStock || []).reduce((acc, stock: any) => {
+      const key = String(stock.bottleTypeId);
+      acc[key] = (acc[key] || 0) + Number(stock.quantity || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const bottleKeysByName = new Map(
+      sortedBottleTypes.map((bottle) => [normalizeBottleKey(bottle.name), String(bottle.id)])
+    );
+
+    const foreignByBottleId = (foreignBottles || []).reduce((acc, bottle: any) => {
+      const bottleId = bottleKeysByName.get(normalizeBottleKey(String(bottle.bottleType || '')));
+      if (!bottleId) return acc;
+      const quantity = Number(bottle.quantity || 0);
+      if (quantity <= 0) return acc;
+      const brand = String(bottle.companyName || tr('Sans marque', 'بدون علامة')).trim() || tr('Sans marque', 'بدون علامة');
+      if (!acc[bottleId]) {
+        acc[bottleId] = { total: 0, brands: {} as Record<string, number> };
+      }
+      acc[bottleId].total += quantity;
+      acc[bottleId].brands[brand] = (acc[bottleId].brands[brand] || 0) + quantity;
+      return acc;
+    }, {} as Record<string, { total: number; brands: Record<string, number> }>);
+
+    return sortedBottleTypes.map((bottle) => {
+      const bottleId = String(bottle.id);
+      const bp = getWarehouseFull(bottle);
+      const dev = defectiveByBottleId[bottleId] || 0;
+      const bv = emptyByBottleId[bottleId] || 0;
+      const foreign = foreignByBottleId[bottleId];
+      const brandDetails = foreign
+        ? Object.entries(foreign.brands)
+            .sort((a, b) => b[1] - a[1])
+            .map(([brand, qty]) => `${brand}: ${qty}`)
+            .join(' | ')
+        : '';
+      return {
+        id: bottleId,
+        product: bottle.name,
+        bp,
+        dev,
+        bv,
+        etr: foreign?.total || 0,
+        etrLabel: foreign ? `${foreign.total}${brandDetails ? ` (${brandDetails})` : ''}` : '0',
+      };
+    });
+  }, [sortedBottleTypes, emptyBottlesStock, defectiveStock, foreignBottles, tr]);
+
+  const dailySalesDriverReports = useMemo(() => {
+    const isSameCalendarDay = (value: Date | string, reference: Date) => {
+      const date = safeDate(value);
+      return (
+        date.getFullYear() === reference.getFullYear() &&
+        date.getMonth() === reference.getMonth() &&
+        date.getDate() === reference.getDate()
+      );
+    };
+
+    const normalizeDriverName = (value: string) =>
+      String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+
+    const today = new Date();
+    const todaySupplyOrders = (supplyOrders || []).filter((order) => isSameCalendarDay(order.date, today));
+    const todayReturnOrders = (returnOrders || []).filter((order: any) => isSameCalendarDay(order.date, today));
+
+    const driverNames = Array.from(
+      new Set(
+        [
+          ...drivers.map((driver: any) => String(driver.name || '').trim()),
+          ...todaySupplyOrders.map((order) => String(order.driverName || '').trim()),
+          ...todayReturnOrders.map((order: any) => String(order.driverName || '').trim()),
+        ].filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
+    const productSeed = () =>
+      sortedBottleTypes.reduce((acc, bottle) => {
+        acc[String(bottle.id)] = {
+          productId: String(bottle.id),
+          product: bottle.name,
+          sortie: 0,
+          bp: 0,
+          dev: 0,
+          bv: 0,
+          etr: 0,
+          cons: 0,
+        };
+        return acc;
+      }, {} as Record<string, {
+        productId: string;
+        product: string;
+        sortie: number;
+        bp: number;
+        dev: number;
+        bv: number;
+        etr: number;
+        cons: number;
+      }>);
+
+    const reports = driverNames.map((driverName) => {
+      const driverKey = normalizeDriverName(driverName);
+      const metricsByProduct = productSeed();
+
+      todaySupplyOrders
+        .filter((order) => normalizeDriverName(String(order.driverName || '')) === driverKey)
+        .forEach((order) => {
+          (order.items || []).forEach((item: any) => {
+            const metrics = metricsByProduct[String(item.bottleTypeId)];
+            if (!metrics) return;
+            metrics.sortie += Number(item.fullQuantity || 0);
+          });
+        });
+
+      todayReturnOrders
+        .filter((order: any) => normalizeDriverName(String(order.driverName || '')) === driverKey)
+        .forEach((order: any) => {
+          (order.items || []).forEach((item: any) => {
+            const metrics = metricsByProduct[String(item.bottleTypeId)];
+            if (!metrics) return;
+            metrics.bp += Number(item.returnedFullQuantity || 0);
+            metrics.dev += Number(item.defectiveQuantity || 0);
+            metrics.bv += Number(item.returnedEmptyQuantity || 0);
+            metrics.etr += Number(item.foreignQuantity || 0);
+            metrics.cons += Number(item.consigneQuantity || 0);
+          });
+        });
+
+      const totals = Object.values(metricsByProduct).reduce(
+        (acc, metric) => {
+          acc.sortie += metric.sortie;
+          acc.bp += metric.bp;
+          acc.dev += metric.dev;
+          acc.bv += metric.bv;
+          acc.etr += metric.etr;
+          acc.cons += metric.cons;
+          return acc;
+        },
+        { sortie: 0, bp: 0, dev: 0, bv: 0, etr: 0, cons: 0 }
+      );
+
+      return { driverName, metricsByProduct, totals };
+    });
+
+    const activeProductIds = new Set<string>();
+    reports.forEach((report) => {
+      Object.values(report.metricsByProduct).forEach((metric) => {
+        if (metric.sortie > 0 || metric.bp > 0 || metric.dev > 0 || metric.bv > 0 || metric.etr > 0 || metric.cons > 0) {
+          activeProductIds.add(metric.productId);
+        }
+      });
+    });
+
+    const visibleProducts = sortedBottleTypes.filter((bottle) => activeProductIds.has(String(bottle.id)));
+    const productsForReport = visibleProducts.length > 0 ? visibleProducts : sortedBottleTypes;
+    const productChunks: BottleType[][] = [];
+    for (let index = 0; index < productsForReport.length; index += 3) {
+      productChunks.push(productsForReport.slice(index, index + 3));
+    }
+
+    return {
+      date: today,
+      reports,
+      todaySupplyOrders,
+      todayReturnOrders,
+      productsForReport,
+      productChunks,
+      activeDrivers: reports.filter((report) => report.totals.sortie > 0 || report.totals.bp > 0 || report.totals.dev > 0 || report.totals.bv > 0 || report.totals.etr > 0 || report.totals.cons > 0).length,
+    };
+  }, [drivers, supplyOrders, returnOrders, sortedBottleTypes]);
+
+  const handleDownloadDailyStockRecap = async () => {
+    try {
+      const { jsPDF, autoTable } = await loadPdfTools();
+      const doc = new jsPDF();
+      const now = new Date();
+
+      const primaryColor: [number, number, number] = [79, 70, 229];
+      const secondaryColor: [number, number, number] = [71, 85, 105];
+      const accentColor: [number, number, number] = [16, 185, 129];
+      const lightGray: [number, number, number] = [248, 250, 252];
+
+      const totals = stockRecapRows.reduce(
+        (acc, row) => {
+          acc.bp += row.bp;
+          acc.dev += row.dev;
+          acc.bv += row.bv;
+          acc.etr += row.etr;
+          return acc;
+        },
+        { bp: 0, dev: 0, bv: 0, etr: 0 }
+      );
+
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(0, 0, 210, 45, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(28);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t('brand', 'SFT GAZ'), 14, 24);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(tsr('systemTitle', 'SYSTÈME DE GESTION DE DISTRIBUTION'), 14, 31);
+      doc.text(`${tsr('generatedAt', 'Généré le')} ${format(now, 'dd/MM/yyyy HH:mm')}`, 14, 37);
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(tsr('dailyStockRecapTitle', 'RÉCAP JOURNALIER DE STOCK'), 196, 24, { align: 'right' });
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(tsr('dailyStockRecapSubtitle', 'Situation actuelle du stock dépôt par produit'), 196, 31, { align: 'right' });
+      doc.text(`${stockRecapRows.length} ${tsr('productsCount', 'produits inventaire')}`, 196, 37, { align: 'right' });
+
+      const drawMetricCard = (x: number, title: string, value: string, textColor: [number, number, number]) => {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(x, 55, 42, 25, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(title.toUpperCase(), x + 4, 64);
+        doc.setFontSize(14);
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        doc.text(value, x + 4, 74);
+      };
+
+      drawMetricCard(14, tsr('stockMetricBp', 'BP Pleins'), String(totals.bp), primaryColor);
+      drawMetricCard(58, tsr('stockMetricDev', 'DEV Défectueux'), String(totals.dev), [220, 38, 38]);
+      drawMetricCard(102, tsr('stockMetricBv', 'BV Vides'), String(totals.bv), secondaryColor);
+      drawMetricCard(146, tsr('stockMetricEtr', 'ETR Étrangères'), String(totals.etr), accentColor);
+
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text(tsr('dailyStockTableTitle', 'Détail du stock par produit'), 14, 94);
+
+      autoTable(doc, {
+        startY: 100,
+        head: [[
+          tsr('product', 'Produit'),
+          tsr('stockBpShort', 'BP'),
+          tsr('stockDevShort', 'DEV'),
+          tsr('stockBvShort', 'BV'),
+          tsr('stockEtrShort', 'ETR (Marques)')
+        ]],
+        body: stockRecapRows.map((row) => [
+          row.product,
+          String(row.bp),
+          String(row.dev),
+          String(row.bv),
+          row.etrLabel
+        ]),
+        theme: 'grid',
+        headStyles: {
+          fillColor: primaryColor,
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'center',
+          cellPadding: 3
+        },
+        bodyStyles: {
+          textColor: [30, 41, 59],
+          fontSize: 9,
+          cellPadding: 3,
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 48, fontStyle: 'bold' },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 18, halign: 'center' },
+          3: { cellWidth: 18, halign: 'center' },
+          4: { cellWidth: 84 }
+        },
+        styles: {
+          lineColor: [226, 232, 240],
+          lineWidth: 0.1
+        },
+        alternateRowStyles: {
+          fillColor: lightGray
+        },
+        margin: { left: 14, right: 10 },
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 100;
+      const legendY = Math.min(finalY + 12, 238);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.text(tsr('dailyStockLegendTitle', 'Lecture des colonnes'), 14, legendY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      const legends = [
+        tsr('dailyStockLegendBp', 'BP: quantité de bouteilles pleines restantes au dépôt'),
+        tsr('dailyStockLegendDev', 'DEV: quantité actuellement en stock défectueux'),
+        tsr('dailyStockLegendBv', 'BV: quantité de bouteilles vides disponibles'),
+        tsr('dailyStockLegendEtr', 'ETR: quantité de bouteilles étrangères avec répartition par marque')
+      ];
+      legends.forEach((text, index) => {
+        doc.text(`- ${text}`, 14, legendY + 6 + (index * 4));
+      });
+
+      const footerY = 282;
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 275, 196, 275);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `${tsr('autoGeneratedBy', 'Document généré automatiquement par SFT GAZ le')} ${format(now, 'dd/MM/yyyy à HH:mm')}`,
+          14,
+          footerY
+        );
+        doc.text(`${tsr('page', 'Page')} ${i} / ${pageCount}`, 196, footerY, { align: 'right' });
+      }
+
+      doc.save(`recap_stock_journalier_${format(now, 'yyyyMMdd_HHmm')}.pdf`);
+    } catch (error) {
+      console.error("Erreur PDF stock:", error);
+      toast({
+        title: tr("Erreur", "خطأ"),
+        description: tr("Erreur lors de la génération du récap journalier de stock", "حدث خطأ أثناء إنشاء ملخص المخزون اليومي"),
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownloadDailySalesReport = async () => {
+    try {
+      const { jsPDF, autoTable } = await loadPdfTools();
+      const doc = new jsPDF({ orientation: 'landscape' });
+      const now = new Date();
+      const reportDate = dailySalesDriverReports.date;
+
+      const primaryColor: [number, number, number] = [79, 70, 229];
+      const secondaryColor: [number, number, number] = [71, 85, 105];
+      const accentColor: [number, number, number] = [16, 185, 129];
+      const lightGray: [number, number, number] = [248, 250, 252];
+
+      const reportTotals = dailySalesDriverReports.reports.reduce(
+        (acc, report) => {
+          acc.sortie += report.totals.sortie;
+          acc.bp += report.totals.bp;
+          acc.dev += report.totals.dev;
+          acc.bv += report.totals.bv;
+          acc.etr += report.totals.etr;
+          acc.cons += report.totals.cons;
+          return acc;
+        },
+        { sortie: 0, bp: 0, dev: 0, bv: 0, etr: 0, cons: 0 }
+      );
+
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(0, 0, 297, 40, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t('brand', 'SFT GAZ'), 14, 22);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(tsr('systemTitle', 'SYSTÈME DE GESTION DE DISTRIBUTION'), 14, 28);
+      doc.text(`${tsr('reportDate', 'Date rapport')} ${format(reportDate, 'dd/MM/yyyy')}`, 14, 34);
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(tsr('dailySalesReportTitle', 'RAPPORT JOURNALIER DE VENTE'), 283, 20, { align: 'right' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(tsr('dailySalesReportSubtitle', 'Tableau journalier des sorties B.S et entrées B.D par chauffeur'), 283, 27, { align: 'right' });
+      doc.text(`${dailySalesDriverReports.reports.length} ${tsr('driversLabel', 'chauffeurs')} · ${dailySalesDriverReports.activeDrivers} ${tsr('activeDriversLabel', 'actifs')}`, 283, 33, { align: 'right' });
+
+      const drawMetricCard = (x: number, title: string, value: string, textColor: [number, number, number]) => {
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(x, 48, 52, 22, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(title.toUpperCase(), x + 4, 56);
+        doc.setFontSize(12);
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        doc.text(value, x + 4, 65);
+      };
+
+      drawMetricCard(14, tsr('salesMetricSortie', 'Sortie'), String(reportTotals.sortie), primaryColor);
+      drawMetricCard(70, tsr('salesMetricBp', 'Entrée BP'), String(reportTotals.bp), accentColor);
+      drawMetricCard(126, tsr('salesMetricBv', 'Entrée BV'), String(reportTotals.bv), secondaryColor);
+      drawMetricCard(182, tsr('salesMetricCons', 'Entrée CONS'), String(reportTotals.cons), [217, 119, 6]);
+      drawMetricCard(238, tsr('salesMetricDrivers', 'Chauffeurs'), String(dailySalesDriverReports.reports.length), primaryColor);
+
+      if (dailySalesDriverReports.productChunks.length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(11);
+        doc.setTextColor(100, 116, 139);
+        doc.text(tsr('noDriverMovement', "Aucune opération enregistrée aujourd'hui"), 14, 90);
+      }
+
+      dailySalesDriverReports.productChunks.forEach((productChunk, chunkIndex) => {
+        if (chunkIndex > 0) {
+          doc.addPage('a4', 'landscape');
+        }
+
+        const startY = chunkIndex === 0 ? 80 : 20;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(
+          `${tsr('dailySalesTableChunk', 'Tableau chauffeur / produits')} ${chunkIndex + 1}${dailySalesDriverReports.productChunks.length > 1 ? ` / ${dailySalesDriverReports.productChunks.length}` : ''}`,
+          14,
+          startY
+        );
+
+        const bodyRows = dailySalesDriverReports.reports.map((report) => {
+          const row: string[] = [report.driverName];
+          productChunk.forEach((product) => {
+            const metrics = report.metricsByProduct[String(product.id)];
+            row.push(String(metrics?.sortie || 0));
+          });
+          productChunk.forEach((product) => {
+            const metrics = report.metricsByProduct[String(product.id)];
+            row.push(
+              String(metrics?.bp || 0),
+              String(metrics?.dev || 0),
+              String(metrics?.bv || 0),
+              String(metrics?.etr || 0),
+              String(metrics?.cons || 0)
+            );
+          });
+          return row;
+        });
+
+        const totalRow = ['TOTAL'];
+        productChunk.forEach((product) => {
+          const total = dailySalesDriverReports.reports.reduce((sum, report) => sum + (report.metricsByProduct[String(product.id)]?.sortie || 0), 0);
+          totalRow.push(String(total));
+        });
+        productChunk.forEach((product) => {
+          const totals = dailySalesDriverReports.reports.reduce(
+            (acc, report) => {
+              const metrics = report.metricsByProduct[String(product.id)];
+              acc.bp += metrics?.bp || 0;
+              acc.dev += metrics?.dev || 0;
+              acc.bv += metrics?.bv || 0;
+              acc.etr += metrics?.etr || 0;
+              acc.cons += metrics?.cons || 0;
+              return acc;
+            },
+            { bp: 0, dev: 0, bv: 0, etr: 0, cons: 0 }
+          );
+          totalRow.push(String(totals.bp), String(totals.dev), String(totals.bv), String(totals.etr), String(totals.cons));
+        });
+        bodyRows.push(totalRow);
+
+        autoTable(doc, {
+          startY: startY + 4,
+          head: [
+            [
+              { content: tsr('driver', 'Chauffeur'), rowSpan: 3, styles: { halign: 'center', valign: 'middle' } },
+              { content: tsr('salesSortie', 'Sortie'), colSpan: productChunk.length, styles: { halign: 'center' } },
+              { content: tsr('salesEntry', 'Entrée'), colSpan: productChunk.length * 5, styles: { halign: 'center' } }
+            ],
+            [
+              ...productChunk.map((product) => ({ content: product.name, rowSpan: 2, styles: { halign: 'center', valign: 'middle' } })),
+              ...productChunk.map((product) => ({ content: product.name, colSpan: 5, styles: { halign: 'center' } }))
+            ],
+            [
+              ...productChunk.flatMap(() => ([
+                { content: 'BP', styles: { halign: 'center' } },
+                { content: 'DEV', styles: { halign: 'center' } },
+                { content: 'BV', styles: { halign: 'center' } },
+                { content: 'ETR', styles: { halign: 'center' } },
+                { content: 'CONS', styles: { halign: 'center' } }
+              ]))
+            ]
+          ],
+          body: bodyRows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: primaryColor,
+            textColor: [255, 255, 255],
+            fontSize: 7,
+            fontStyle: 'bold',
+            cellPadding: 1.8,
+            lineColor: [255, 255, 255],
+            lineWidth: 0.1
+          },
+          bodyStyles: {
+            textColor: [30, 41, 59],
+            fontSize: 7,
+            cellPadding: 1.6,
+            halign: 'center'
+          },
+          columnStyles: {
+            0: { cellWidth: 28, halign: 'left', fontStyle: 'bold' }
+          },
+          styles: {
+            lineColor: [180, 186, 199],
+            lineWidth: 0.1
+          },
+          alternateRowStyles: {
+            fillColor: lightGray
+          },
+          margin: { left: 8, right: 8 },
+          didParseCell: (data: any) => {
+            if (data.section === 'body' && data.row.index === bodyRows.length - 1) {
+              data.cell.styles.fillColor = [230, 236, 254];
+              data.cell.styles.textColor = [55, 65, 81];
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+        });
+      });
+
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(8, 195, 289, 195);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `${tsr('autoGeneratedBy', 'Document généré automatiquement par SFT GAZ le')} ${format(now, 'dd/MM/yyyy à HH:mm')}`,
+          8,
+          202
+        );
+        doc.text(`${tsr('page', 'Page')} ${i} / ${pageCount}`, 289, 202, { align: 'right' });
+      }
+
+      doc.save(`rapport_vente_journalier_${format(reportDate, 'yyyyMMdd')}.pdf`);
+    } catch (error) {
+      console.error("Erreur PDF vente:", error);
+      toast({
+        title: tr("Erreur", "خطأ"),
+        description: tr("Erreur lors de la génération du rapport journalier de vente", "حدث خطأ أثناء إنشاء التقرير اليومي للمبيعات"),
+        variant: "destructive"
+      });
+    }
+  };
   
   const handleQuantityChange = (bottleTypeId: string, field: 'empty' | 'full', value: string) => {
     const raw = parseInt(value) || 0;
@@ -1658,6 +2225,24 @@ const SupplyReturn = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              onClick={handleDownloadDailyStockRecap}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {tr('Récap stock PDF', 'ملخص المخزون PDF')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              onClick={handleDownloadDailySalesReport}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              {tr('Rapport vente PDF', 'تقرير المبيعات PDF')}
+            </Button>
             <Badge variant="outline" className="px-3 py-1 border-indigo-200 text-indigo-700 bg-indigo-50">
               {tr('N° Suivant', 'الرقم التالي')}: {orderNumber}
             </Badge>
