@@ -425,10 +425,9 @@ const Inventory = () => {
   const impactEvents = React.useMemo<InventoryImpactEvent[]>(() => {
     const events: InventoryImpactEvent[] = [];
 
-    // Alimentation camion — Réduit les Pleins
-    transactions
-      .filter(t => t.type === 'supply')
-      .forEach(tx => {
+    // Transactions (Alimentation camion et Réception usine)
+    (transactions || []).forEach(tx => {
+      if (tx.type === 'supply') {
         (tx.bottleTypes || []).forEach((bt: any) => {
           const bottleName = bottleTypesById.get(String(bt.bottleTypeId))?.name || 'Inconnu';
           events.push({
@@ -444,7 +443,24 @@ const Inventory = () => {
             foreignDelta: 0,
           });
         });
-      });
+      } else if (tx.type === 'factory_reception') {
+        (tx.bottleTypes || []).forEach((bt: any) => {
+          const bottleName = bottleTypesById.get(String(bt.bottleTypeId))?.name || 'Inconnu';
+          events.push({
+            id: `factory-reception-${tx.id || `${tx.date}-${bt.bottleTypeId}`}`,
+            date: tx.date,
+            source: 'factory_reception',
+            label: t('inventory.impact.event.factoryReception', 'Réception usine'),
+            driverName: getDriverNameByTruckId(tx.truckId),
+            bottleTypeName: bottleName,
+            emptyDelta: 0,
+            fullDelta: Number(bt.quantity || 0),
+            defectiveDelta: 0,
+            foreignDelta: 0,
+          });
+        });
+      }
+    });
 
     // B.D Retour — Impact détaillé
     (returnOrders || []).forEach((ro: any) => {
@@ -463,7 +479,7 @@ const Inventory = () => {
           driverName: getDriverNameForReturn(ro),
           bottleTypeName: item.bottleTypeName,
           emptyDelta,
-          // Correction: Returned Full bottles add to Pleins stock, they do NOT add to Vides
+          // Returned Full bottles add to Pleins stock
           fullDelta: Number(item.returnedFullQuantity || 0),
           defectiveDelta: Number(item.defectiveQuantity || 0),
           foreignDelta: Number(item.foreignQuantity || 0),
@@ -486,27 +502,6 @@ const Inventory = () => {
           fullDelta: 0,
           defectiveDelta: 0,
           foreignDelta: Number(fb.quantity || 0),
-        });
-      });
-
-    // Réception usine — Ajoute les pleins au stock dépôt
-    transactions
-      .filter((tx: any) => tx.type === 'factory_reception')
-      .forEach((tx: any) => {
-        (tx.bottleTypes || []).forEach((bt: any) => {
-          const bottleName = bottleTypesById.get(String(bt.bottleTypeId))?.name || 'Inconnu';
-          events.push({
-            id: `factory-reception-${tx.id || `${tx.date}-${bt.bottleTypeId}`}`,
-            date: tx.date,
-            source: 'factory_reception',
-            label: t('inventory.impact.event.factoryReception', 'Réception usine'),
-            driverName: getDriverNameByTruckId(tx.truckId),
-            bottleTypeName: bottleName,
-            emptyDelta: 0,
-            fullDelta: Number(bt.quantity || 0),
-            defectiveDelta: 0,
-            foreignDelta: 0,
-          });
         });
       });
 

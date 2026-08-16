@@ -2357,7 +2357,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [drivers, driverDebtThresholds, driverForeignThresholds, returnOrders, transactionsByDriverId]);
   
-  const value = {
+  const value = React.useMemo(() => ({
     clients,
     addClient,
     updateClient,
@@ -2569,7 +2569,43 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         window.location.reload();
       }
     },
-  };
+  }), [
+    clients,
+    brands,
+    driversWithTransactions,
+    trucks,
+    truckAssignments,
+    supplies,
+    supplyReturns,
+    supplyOrders,
+    returnOrders,
+    cashOperations,
+    expenses,
+    repairs,
+    exchanges,
+    emptyBottlesStock,
+    defectiveStock,
+    inventory,
+    fuelPurchases,
+    fuelConsumptions,
+    fuelDrains,
+    oilPurchases,
+    oilConsumptions,
+    oilDrains,
+    revenues,
+    bankTransfers,
+    financialTransactions,
+    bottleTypes,
+    transactions,
+    foreignBottles,
+    stockHistory,
+    suppliersWithCounts,
+    expenseTypes,
+    roles,
+    roleAssignments,
+    currentUserEmail,
+    currentRole
+  ]);
   
   return (
     <AppContext.Provider value={value}>

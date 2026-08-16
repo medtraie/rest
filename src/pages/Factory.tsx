@@ -1153,17 +1153,31 @@ const Factory = () => {
     }
   }, [showSendForm, factoryOperations]);
  
+  const defaultPricesCheckedRef = React.useRef(false);
   useEffect(() => {
-    bottleTypes.forEach((bt) => {
+    if (defaultPricesCheckedRef.current || !bottleTypes.length) return;
+    const missingPrices = bottleTypes.filter(bt => {
       let price = 0;
       if (bt.capacity === '12KG') price = 41.76;
       else if (bt.capacity === '6KG') price = 20.88;
       else if (bt.capacity === '3KG') price = 10.15;
-      if (price > 0 && (!bt.purchasePrice || bt.purchasePrice === 0)) {
+      return price > 0 && (!bt.purchasePrice || bt.purchasePrice === 0);
+    });
+    if (!missingPrices.length) {
+      defaultPricesCheckedRef.current = true;
+      return;
+    }
+    defaultPricesCheckedRef.current = true;
+    missingPrices.forEach((bt) => {
+      let price = 0;
+      if (bt.capacity === '12KG') price = 41.76;
+      else if (bt.capacity === '6KG') price = 20.88;
+      else if (bt.capacity === '3KG') price = 10.15;
+      if (price > 0) {
         updateBottleType(bt.id, { purchasePrice: price });
       }
     });
-  }, [bottleTypes]);
+  }, [bottleTypes, updateBottleType]);
 
   useEffect(() => {
     const handleQuickFactoryShortcuts = (event: KeyboardEvent) => {
