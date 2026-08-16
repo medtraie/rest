@@ -1142,8 +1142,13 @@ const Inventory = () => {
       showRuptureForecaster,
       showReplenishmentPlanner
     };
-    localStorage.setItem('inventory.ui.preferences', JSON.stringify(prefs));
-    kvSet('inventory.ui.preferences', prefs);
+    try {
+      localStorage.setItem('inventory.ui.preferences', JSON.stringify(prefs));
+    } catch {}
+    const timer = window.setTimeout(() => {
+      void kvSet('inventory.ui.preferences', prefs);
+    }, 1200);
+    return () => window.clearTimeout(timer);
   }, [
     searchTerm,
     stockFilter,
@@ -1157,8 +1162,13 @@ const Inventory = () => {
   ]);
 
   useEffect(() => {
-    localStorage.setItem('inventory.thresholds.byBottle', JSON.stringify(thresholdsByBottle));
-    kvSet('inventory.thresholds.byBottle', thresholdsByBottle);
+    try {
+      localStorage.setItem('inventory.thresholds.byBottle', JSON.stringify(thresholdsByBottle));
+    } catch {}
+    const timer = window.setTimeout(() => {
+      void kvSet('inventory.thresholds.byBottle', thresholdsByBottle);
+    }, 1200);
+    return () => window.clearTimeout(timer);
   }, [thresholdsByBottle]);
 
   const applyMissionFocus = (bottleName: string, lane: 'urgent' | 'watch' | 'stable') => {

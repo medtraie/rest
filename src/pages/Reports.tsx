@@ -297,11 +297,10 @@ const Reports = () => {
     try {
       window.localStorage.setItem(REPORTS_UI_PREFS_KEY, JSON.stringify(prefs));
     } catch {}
-    (async () => {
-      try {
-        await kvSet(REPORTS_UI_PREFS_KEY, prefs);
-      } catch {}
-    })();
+    const timer = window.setTimeout(() => {
+      void kvSet(REPORTS_UI_PREFS_KEY, prefs).catch(() => {});
+    }, 1200);
+    return () => window.clearTimeout(timer);
   }, [
     prefsLoaded,
     dateFilter.startDate,
