@@ -51,21 +51,15 @@ const Dashboard = () => {
     stockHistory = []
   } = useApp();
 
-  // Debug logging
-  console.log('Dashboard Data:', { 
-    bottleTypesCount: bottleTypes.length,
-    emptyBottlesStockCount: emptyBottlesStock.length,
-    financialTransactionsCount: financialTransactions.length,
-    revenuesCount: revenues.length
-  });
-
   const getStockMetrics = (bt: any) => {
-    const totalStored = Number(bt?.totalQuantity || 0);
-    const distributed = Number(bt?.distributedQuantity || 0);
-    const emptyStockEntry = emptyBottlesStock.find(s => s.bottleTypeId === bt.id);
-    const warehouseEmpty = Number(emptyStockEntry?.quantity || 0);
-    const warehouseFull = Math.max(totalStored - distributed, 0);
-    const totalAssets = totalStored > 0 ? totalStored : (warehouseFull + warehouseEmpty + distributed);
+    const totalStored = Number(bt?.totalQuantity ?? bt?.totalquantity ?? 0);
+    const distributed = Number(bt?.distributedQuantity ?? bt?.distributedquantity ?? 0);
+    const emptyStockQty = emptyBottlesStock
+      .filter((s) => String(s.bottleTypeId) === String(bt.id))
+      .reduce((stockSum, entry) => stockSum + Number(entry.quantity || 0), 0);
+    const warehouseEmpty = emptyStockQty;
+    const warehouseFull = Math.max(Number(bt?.remainingQuantity ?? bt?.remainingquantity ?? (totalStored - distributed)), 0);
+    const totalAssets = Math.max(totalStored, warehouseFull + warehouseEmpty + distributed);
     const fullAssets = warehouseFull + distributed;
     return { warehouseFull, warehouseEmpty, distributed, fullAssets, totalAssets };
   };

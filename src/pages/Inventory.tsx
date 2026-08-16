@@ -180,7 +180,8 @@ const Inventory = () => {
   const emptyQuantityByBottleTypeId = useMemo(
     () =>
       emptyBottlesStock.reduce((acc, stock) => {
-        acc[String(stock.bottleTypeId)] = Number(stock.quantity || 0);
+        const key = String(stock.bottleTypeId);
+        acc[key] = (acc[key] || 0) + Number(stock.quantity || 0);
         return acc;
       }, {} as Record<string, number>),
     [emptyBottlesStock]
@@ -322,19 +323,25 @@ const Inventory = () => {
     const qty = Math.floor(Number(rawQty));
     if (!Number.isFinite(qty) || qty <= 0) return;
     const mode = adjustModeByBottle[bottle.id] ?? 'add';
-    const currentTotal = Number((bottle as any).totalQuantity ?? (bottle as any).totalquantity ?? 0);
+    const currentRemaining = Number((bottle as any).remainingQuantity ?? (bottle as any).remainingquantity ?? stockPlein ?? 0);
+    const currentDistributed = Number((bottle as any).distributedQuantity ?? (bottle as any).distributedquantity ?? distributed ?? 0);
+    const currentTotal = Math.max(
+      Number((bottle as any).totalQuantity ?? (bottle as any).totalquantity ?? 0),
+      currentRemaining + currentDistributed
+    );
 
-    if (mode === 'remove' && qty > stockPlein) return;
+    if (mode === 'remove' && qty > currentRemaining) return;
 
     const delta = mode === 'add' ? qty : -qty;
-    const nextTotal = Math.max(distributed, currentTotal + delta);
-    const nextRemaining = Math.max(0, nextTotal - distributed);
+    const nextRemaining = Math.max(0, currentRemaining + delta);
+    const nextTotal = Math.max(currentDistributed, nextRemaining + currentDistributed);
 
     setAdjustingBottleId(bottle.id);
     try {
       await updateBottleType(bottle.id, {
         totalQuantity: nextTotal,
         remainingQuantity: nextRemaining,
+        distributedQuantity: currentDistributed,
       });
       await addStockHistory({
         date: new Date().toISOString(),
@@ -343,8 +350,8 @@ const Inventory = () => {
         stockType: 'full',
         changeType: mode === 'add' ? 'add' : 'remove',
         quantity: qty,
-        previousQuantity: stockPlein,
-        newQuantity: Math.max(0, stockPlein + delta),
+        previousQuantity: currentRemaining,
+        newQuantity: nextRemaining,
         note: `Ajustement manuel plein (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
       });
       setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: '' }));
@@ -591,8 +598,13 @@ const Inventory = () => {
       const distributed = Math.max(distributedField, pendingCirculation);
       const warehouseEmpty = Number(emptyQuantityByBottleTypeId[String(bottle.id)] || 0);
       const totalStored = Number(bottle.totalQuantity ?? (bottle as any).totalquantity ?? 0);
-      const stockPlein = Math.max(totalStored - distributed, 0);
-      const computedTotal = totalStored > 0 ? totalStored : (stockPlein + distributed);
+      const storedRemaining = Number(
+        bottle.remainingQuantity ??
+        (bottle as any).remainingquantity ??
+        (totalStored - distributed)
+      );
+      const stockPlein = Math.max(storedRemaining, 0);
+      const computedTotal = Math.max(totalStored, stockPlein + distributed);
       const criticalThreshold = Number(thresholdsByBottle[bottle.id] ?? getDefaultCriticalThreshold(computedTotal || 0));
       const stockInfo = getStockStatus(stockPlein, computedTotal || 0, criticalThreshold);
       const distributionRate = computedTotal > 0 ? (distributed / computedTotal) * 100 : 0;
@@ -838,10 +850,25 @@ const Inventory = () => {
 
   const emptyRows = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
-    return emptyBottlesStock
-      .filter(s => s.quantity > 0 && s.bottleTypeName)
-      .filter(s => !normalized || s.bottleTypeName.toLowerCase().includes(normalized))
-      ;
+    const grouped = emptyBottlesStock.reduce((acc, stock) => {
+      const key = String(stock.bottleTypeId || stock.id || '');
+      if (!key || !stock.bottleTypeName) return acc;
+      if (!acc[key]) {
+        acc[key] = {
+          ...stock,
+          quantity: 0,
+        };
+      }
+      acc[key].quantity += Number(stock.quantity || 0);
+      if (safeDate(stock.lastUpdated).getTime() > safeDate(acc[key].lastUpdated).getTime()) {
+        acc[key].lastUpdated = stock.lastUpdated;
+      }
+      return acc;
+    }, {} as Record<string, typeof emptyBottlesStock[number]>);
+
+    return Object.values(grouped)
+      .filter((stock) => Number(stock.quantity || 0) > 0 && stock.bottleTypeName)
+      .filter((stock) => !normalized || stock.bottleTypeName.toLowerCase().includes(normalized));
   }, [emptyBottlesStock, searchTerm]);
 
   const defectiveRows = useMemo(() => {

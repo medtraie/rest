@@ -622,6 +622,7 @@ export const supabaseService = {
       const match = error.message.match(missingColumnRegex);
       if (!match) {
         console.error(`Error inserting into ${table}:`, error.message);
+        fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify({ event: 'create-error', table, error: error.message, payload }) }).catch(() => {});
         return null;
       }
       const missingCol = match[1];
@@ -675,12 +676,15 @@ export const supabaseService = {
         if (!response.error) {
           const camel = toCamelShallow(response.data as Record<string, any>);
           return normalizeRow(table, camel) as T;
+        } else {
+          fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify({ event: 'no-rows-retry-failed', table, error: response.error.message, payload }) }).catch(() => {});
         }
       }
       console.warn(`Update error in ${table}:`, response.error.message);
       const match = response.error.message.match(missingColumnRegex);
       if (!match) {
         console.error(`Error updating ${table}:`, response.error.message);
+        fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify({ table, error: response.error.message, payload }) }).catch(() => {});
         return null;
       }
       const missingCol = match[1];
@@ -703,6 +707,7 @@ export const supabaseService = {
       if (!Object.keys(payload).length) return null;
     }
     console.error(`Error updating ${table}:`, "Too many missing columns");
+    fetch('http://localhost:9999', { method: 'POST', body: JSON.stringify({ table, error: "Too many missing columns" }) }).catch(() => {});
     return null;
   },
 

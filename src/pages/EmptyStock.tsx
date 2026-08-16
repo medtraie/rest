@@ -34,7 +34,9 @@ const EmptyStock = () => {
   );
 
   const getEmptyStockForBottleType = (bottleTypeId: string) => {
-    return emptyBottlesStock.find(stock => stock.bottleTypeId === bottleTypeId)?.quantity || 0;
+    return emptyBottlesStock
+      .filter((stock) => String(stock.bottleTypeId) === String(bottleTypeId))
+      .reduce((sum, stock) => sum + Number(stock.quantity || 0), 0);
   };
 
   const getStockStatus = (quantity: number) => {

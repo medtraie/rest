@@ -75,8 +75,8 @@ export default function RevenueHistoryTab(props: Props) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="space-y-1.5">
+        <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="space-y-1.5 lg:col-span-2">
             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
             <div className="flex items-center gap-2">
               <Input type="date" className="h-9 text-sm" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} />

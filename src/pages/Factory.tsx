@@ -903,7 +903,14 @@ const Factory = () => {
     [trucks, drivers]
   );
   const emptyStockByBottleTypeId = useMemo(
-    () => (needsStockData ? new Map(emptyBottlesStock.map((stock) => [String(stock.bottleTypeId), Number(stock.quantity || 0)])) : new Map<string, number>()),
+    () =>
+      needsStockData
+        ? emptyBottlesStock.reduce((map, stock) => {
+            const key = String(stock.bottleTypeId);
+            map.set(key, (map.get(key) || 0) + Number(stock.quantity || 0));
+            return map;
+          }, new Map<string, number>())
+        : new Map<string, number>(),
     [needsStockData, emptyBottlesStock]
   );
   const defectiveStockByBottleTypeId = useMemo(() => {

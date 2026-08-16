@@ -1636,15 +1636,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   ) => {
     if (!delta) return;
-    const idx = emptyBottlesStock.findIndex(s => s.bottleTypeId === bottleTypeId);
-    const bottleTypeName = bottleTypes.find(bt => bt.id === bottleTypeId)?.name || '';
+    const matchingEntries = emptyBottlesStock.filter((s) => String(s.bottleTypeId) === String(bottleTypeId));
+    const bottleTypeName = bottleTypes.find(bt => String(bt.id) === String(bottleTypeId))?.name || '';
     const now = new Date().toISOString();
 
-    let previousQuantity = 0;
-    let nextQuantity = 0;
+    const previousQuantity = matchingEntries.reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
+    const nextQuantity = Math.max(0, previousQuantity + delta);
 
-    if (idx === -1) {
-      nextQuantity = delta;
+    if (matchingEntries.length === 0) {
       const id = window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
       const newStock = { id, bottleTypeId, bottleTypeName, quantity: nextQuantity, lastUpdated: now };
       const created = await supabaseService.create<EmptyBottlesStock>("empty_bottles_stock", newStock);
@@ -1652,13 +1651,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setEmptyBottlesStock(prev => [...prev, created]);
       }
     } else {
-      const current = emptyBottlesStock[idx];
-      previousQuantity = current.quantity || 0;
-      nextQuantity = previousQuantity + delta;
-      const updated = await supabaseService.update<EmptyBottlesStock>("empty_bottles_stock", current.id, { quantity: nextQuantity, lastUpdated: now });
-      if (updated) {
-        setEmptyBottlesStock(prev => prev.map(s => s.id === current.id ? updated : s));
-      }
+      const [primaryEntry, ...duplicateEntries] = matchingEntries;
+      const updatedPrimary =
+        await supabaseService.update<EmptyBottlesStock>("empty_bottles_stock", primaryEntry.id, { quantity: nextQuantity, lastUpdated: now })
+        || { ...primaryEntry, quantity: nextQuantity, lastUpdated: now };
+
+      const duplicateUpdates = await Promise.all(
+        duplicateEntries.map(async (entry) => {
+          const updatedDuplicate =
+            await supabaseService.update<EmptyBottlesStock>("empty_bottles_stock", entry.id, { quantity: 0, lastUpdated: now });
+          return updatedDuplicate || { ...entry, quantity: 0, lastUpdated: now };
+        })
+      );
+
+      const updatesById = new Map<string, EmptyBottlesStock>([
+        [String(updatedPrimary.id), updatedPrimary],
+        ...duplicateUpdates.map((entry) => [String(entry.id), entry] as const),
+      ]);
+
+      setEmptyBottlesStock(prev =>
+        prev.map((entry) => updatesById.get(String(entry.id)) || entry)
+      );
     }
 
     const type = customChangeType || (delta > 0 ? 'add' : 'remove');
@@ -2024,25 +2037,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       delete fallbackPatch.color;
       updated = await supabaseService.update<BottleType>("bottle_types", id, fallbackPatch);
     }
-    const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
-    const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
-    const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
     if (updated) {
       const merged = { id, ...updated, ...patch };
+      setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
+      const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+      const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+      const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
       const cleanedExtras = clearBottleTypeExtraFields(mergedExtras, id, Object.keys(patch));
       await persistBottleTypeExtrasSnapshot(cleanedExtras);
-
-      setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
       return merged;
     }
 
+    setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
+    const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+    const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+    const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
     const nextExtras = {
       ...mergedExtras,
       [id]: { ...(mergedExtras[id] || {}), ...patch }
     };
     await persistBottleTypeExtrasSnapshot(nextExtras);
-
-    setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
     return { id, ...(patch as any) } as BottleType;
   };
   const deleteBottleType = async (id: string) => {

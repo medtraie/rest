@@ -185,8 +185,16 @@ const AppContent = ({ supabaseConfigured }: { supabaseConfigured: boolean }) => 
       return;
     }
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
+      if (error && /refresh token/i.test(error.message || "")) {
+        try {
+          window.localStorage.removeItem("sft-gaz-auth");
+        } catch {}
+        setSession(null);
+        setAuthReady(true);
+        return;
+      }
       setSession(data.session ?? null);
       setAuthReady(true);
     });

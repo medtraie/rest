@@ -135,13 +135,23 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
     }, 0);
   }, [supplyOrders, returnOrders]);
 
-  const totalStored = Number(bottle.totalQuantity ?? (bottle as any).totalquantity ?? 0);
+  const remainingDb = Number(
+    bottle.remainingQuantity ??
+    (bottle as any).remainingquantity ??
+    0
+  );
   const distributedDb = Number(bottle.distributedQuantity ?? (bottle as any).distributedquantity ?? 0);
   const circulation = getPendingCirculation(String(bottle.id));
   const distributedEffective = Math.max(distributedDb, circulation);
-  const stockPlein = Math.max(totalStored - distributedEffective, 0);
+  const stockPlein = Math.max(remainingDb, 0);
+  const totalStored = Math.max(
+    Number(bottle.totalQuantity ?? (bottle as any).totalquantity ?? 0),
+    stockPlein + distributedDb
+  );
   const emptyQty = React.useMemo(() => {
-    return Number(emptyBottlesStock.find(s => String(s.bottleTypeId) === String(bottle.id))?.quantity || 0);
+    return emptyBottlesStock
+      .filter((stock) => String(stock.bottleTypeId) === String(bottle.id))
+      .reduce((sum, stock) => sum + Number(stock.quantity || 0), 0);
   }, [emptyBottlesStock, bottle.id]);
   const defectiveQty = React.useMemo(() => {
     return defectiveBottles

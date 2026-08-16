@@ -369,7 +369,8 @@ const SupplyReturn = () => {
         .replace(/[^a-z0-9]/g, '');
 
     const emptyByBottleId = (emptyBottlesStock || []).reduce((acc, stock: any) => {
-      acc[String(stock.bottleTypeId)] = Number(stock.quantity || 0);
+      const key = String(stock.bottleTypeId);
+      acc[key] = (acc[key] || 0) + Number(stock.quantity || 0);
       return acc;
     }, {} as Record<string, number>);
 
