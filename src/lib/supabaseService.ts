@@ -24,17 +24,28 @@ const fetchSharedTableRows = async (table: string) => {
 
   while (true) {
     const to = from + SHARED_TABLES_PAGE_SIZE - 1;
-    let query = supabase.from(table).select("*").order("date", { ascending: false });
+    let query = supabase.from(table).select("*");
     
-    // Only order by created_at if not factory_invoices to avoid missing column errors if schema differs
-    if (table !== 'factory_invoices') {
+    if (table === 'supply_orders' || table === 'return_orders' || table === 'stock_history' || table === 'transactions' || table === 'factory_operations') {
+      query = query.order("date", { ascending: false });
+    }
+    
+    if (table === 'supply_orders' || table === 'return_orders') {
       query = query.order("created_at", { ascending: false });
     }
 
     const { data, error } = await query.range(from, to);
 
     if (error) {
-      return { data: null, error };
+      const { data: fallbackData, error: fallbackError } = await supabase.from(table).select("*").range(from, to);
+      if (fallbackError) {
+        return { data: null, error: fallbackError };
+      }
+      const batch = (fallbackData ?? []) as Record<string, any>[];
+      rows.push(...batch);
+      if (batch.length < SHARED_TABLES_PAGE_SIZE) break;
+      from += SHARED_TABLES_PAGE_SIZE;
+      continue;
     }
 
     const batch = (data ?? []) as Record<string, any>[];
@@ -100,8 +111,17 @@ const toCamelKey = (key: string) => {
 };
 const toSnakeShallow = (value: Record<string, any>) =>
   Object.fromEntries(Object.entries(value).map(([key, val]) => [toSnakeKey(key), val]));
-const toCamelShallow = (value: Record<string, any>) =>
-  Object.fromEntries(Object.entries(value).map(([key, val]) => [toCamelKey(key), val]));
+const toCamelShallow = (value: Record<string, any>) => {
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(value)) {
+    const camelKey = toCamelKey(key);
+    if (result[camelKey] !== undefined && result[camelKey] !== null && result[camelKey] !== 0 && (val === 0 || val === null || val === undefined || val === '')) {
+      continue;
+    }
+    result[camelKey] = val;
+  }
+  return result;
+};
 const columnMap: Record<string, Record<string, string>> = {
   cash_operations: {
     accountAffected: 'account_affected',
@@ -192,10 +212,7 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
   const columns = tableColumnHints[table] || [];
   for (const [key, val] of Object.entries(value)) {
     if (val === undefined || (typeof val === 'number' && isNaN(val))) continue;
-    if (table === 'factory_invoices' && !columns.length) {
-      // Some existing Supabase projects ended up with camelCase or flat lowercase
-      // columns for this table. Emit a few candidates; create()/update() already
-      // strips missing columns on retry until the real schema remains.
+    if ((table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') && !columns.length) {
       payload[key] = val;
       const snake = toSnakeKey(key);
       payload[snake] = val;
@@ -207,9 +224,16 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
     const resolved = resolveColumnName(table, key);
     if (resolved) {
       payload[resolved] = val;
+      // If table is bottle_types, also emit flat and snake variants to keep columns synced
+      if (table === 'bottle_types') {
+        const snake = toSnakeKey(key);
+        const flat = key.toLowerCase();
+        payload[snake] = val;
+        payload[flat] = val;
+      }
       continue;
     }
-    if (!columns.length) {
+    if (!columns.length || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') {
       const snake = toSnakeKey(key);
       payload[snake] = val;
       const flat = key.toLowerCase();
@@ -225,7 +249,7 @@ const stripMissingColumn = (payload: Record<string, any>, column: string, table?
   const next = { ...payload };
   // Remove the exact column reported by Supabase
   delete next[column];
-  if (table === 'factory_invoices') {
+  if (table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') {
     // Keep alternative candidates for this table so retries can converge
     // on the real schema instead of deleting sibling variants too early.
     return next;
@@ -474,7 +498,113 @@ const normalizeFactoryInvoiceRow = (row: Record<string, any>) => {
   };
 };
 
+const normalizeBottleTypesRow = (row: Record<string, any>) => {
+  const rawTotal =
+    row.totalQuantity ??
+    row.totalquantity ??
+    row.total_quantity ??
+    row.totalQuantite ??
+    row.totalquantite ??
+    row.total_quantite ??
+    0;
+  const rawRemaining =
+    row.remainingQuantity ??
+    row.remainingquantity ??
+    row.remaining_quantity ??
+    row.remainingQuantite ??
+    row.remainingquantite ??
+    row.remaining_quantite;
+  const rawDistributed =
+    row.distributedQuantity ??
+    row.distributedquantity ??
+    row.distributed_quantity ??
+    row.distributedQuantite ??
+    row.distributedquantite ??
+    row.distributed_quantite ??
+    0;
+  const rawPurchasePrice =
+    row.purchasePrice ??
+    row.purchaseprice ??
+    row.purchase_price ??
+    0;
+  const rawUnitPrice =
+    row.unitPrice ??
+    row.unitprice ??
+    row.unit_price ??
+    0;
+  const rawTaxRate =
+    row.taxRate ??
+    row.taxrate ??
+    row.tax_rate ??
+    0;
+
+  const totalQuantity = Number(rawTotal) || 0;
+  const distributedQuantity = Number(rawDistributed) || 0;
+  const remainingQuantity =
+    rawRemaining !== undefined && rawRemaining !== null && rawRemaining !== ''
+      ? Number(rawRemaining)
+      : Math.max(0, totalQuantity - distributedQuantity);
+
+  return {
+    ...row,
+    totalQuantity,
+    remainingQuantity: Number.isFinite(remainingQuantity) ? remainingQuantity : 0,
+    distributedQuantity,
+    purchasePrice: Number(rawPurchasePrice) || 0,
+    unitPrice: Number(rawUnitPrice) || 0,
+    taxRate: Number(rawTaxRate) || 0,
+  };
+};
+
+const normalizeEmptyStockRow = (row: Record<string, any>) => {
+  return {
+    ...row,
+    bottleTypeId: String(row.bottleTypeId ?? row.bottletypeid ?? row.bottle_type_id ?? ''),
+    bottleTypeName: String(row.bottleTypeName ?? row.bottletypename ?? row.bottle_type_name ?? ''),
+    quantity: Number(row.quantity ?? row.quantite ?? row.qty ?? 0) || 0,
+    lastUpdated: String(row.lastUpdated ?? row.lastupdated ?? row.last_updated ?? new Date().toISOString()),
+  };
+};
+
+const normalizeDefectiveStockRow = (row: Record<string, any>) => {
+  return {
+    ...row,
+    bottleTypeId: String(row.bottleTypeId ?? row.bottletypeid ?? row.bottle_type_id ?? ''),
+    bottleTypeName: String(row.bottleTypeName ?? row.bottletypename ?? row.bottle_type_name ?? ''),
+    quantity: Number(row.quantity ?? row.quantite ?? row.qty ?? 0) || 0,
+    returnOrderId: String(row.returnOrderId ?? row.returnorderid ?? row.return_order_id ?? ''),
+    lastUpdated: String(row.lastUpdated ?? row.lastupdated ?? row.last_updated ?? row.date ?? new Date().toISOString()),
+  };
+};
+
+const normalizeStockHistoryRow = (row: Record<string, any>) => {
+  return {
+    ...row,
+    bottleTypeId: String(row.bottleTypeId ?? row.bottletypeid ?? row.bottle_type_id ?? ''),
+    bottleTypeName: String(row.bottleTypeName ?? row.bottletypename ?? row.bottle_type_name ?? ''),
+    stockType: String(row.stockType ?? row.stocktype ?? row.stock_type ?? 'empty'),
+    changeType: String(row.changeType ?? row.changetype ?? row.change_type ?? 'add'),
+    quantity: Number(row.quantity ?? row.quantite ?? row.qty ?? 0) || 0,
+    previousQuantity: Number(row.previousQuantity ?? row.previousquantity ?? row.previous_quantity ?? 0) || 0,
+    newQuantity: Number(row.newQuantity ?? row.newquantity ?? row.new_quantity ?? row.next_quantity ?? 0) || 0,
+    date: String(row.date ?? row.created_at ?? new Date().toISOString()),
+    note: String(row.note ?? ''),
+  };
+};
+
 const normalizeRow = (table: string, row: Record<string, any>) => {
+  if (table === 'bottle_types') {
+    return normalizeBottleTypesRow(row);
+  }
+  if (table === 'empty_bottles_stock') {
+    return normalizeEmptyStockRow(row);
+  }
+  if (table === 'defective_stock') {
+    return normalizeDefectiveStockRow(row);
+  }
+  if (table === 'stock_history') {
+    return normalizeStockHistoryRow(row);
+  }
   if (table === 'factory_invoices') {
     return normalizeFactoryInvoiceRow(row);
   }

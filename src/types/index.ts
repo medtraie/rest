@@ -340,7 +340,7 @@ export interface StockHistory {
   date: string;
   bottleTypeId: string;
   bottleTypeName: string;
-  stockType: 'empty' | 'defective' | 'all';
+  stockType: 'empty' | 'defective' | 'all' | 'full';
   changeType: 'add' | 'remove' | 'adjustment' | 'return' | 'factory';
   quantity: number;
   previousQuantity: number;

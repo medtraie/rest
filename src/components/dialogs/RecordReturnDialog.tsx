@@ -499,31 +499,81 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
       }
       const newReturnOrderId = returnResult.id;
 
-      items.forEach(item => {
+      for (const item of items) {
         const bottleType = bottleTypes.find(bt => bt.id === item.bottleTypeId);
-        if (!bottleType) return;
-        updateEmptyBottlesStockByBottleType(item.bottleTypeId, item.returnedEmptyQuantity || 0);
-        if ((item.consigneQuantity || 0) > 0) updateEmptyBottlesStockByBottleType(item.bottleTypeId, -(item.consigneQuantity || 0));
-        if ((item.lostQuantity || 0) > 0) updateEmptyBottlesStockByBottleType(item.bottleTypeId, -(item.lostQuantity || 0));
-        if ((item.foreignQuantity || 0) > 0) updateEmptyBottlesStockByBottleType(item.bottleTypeId, -(item.foreignQuantity || 0));
-        const currentDistributed = Number(bottleType.distributedQuantity || 0);
-        const prevTotal = Number((bottleType as any).totalQuantity ?? (bottleType as any).totalquantity ?? bottleType.totalQuantity ?? 0);
-        const fullQty = Number(item.fullQuantity || 0);
-        const newDistributed = Math.max(0, currentDistributed - fullQty);
-        // On return, full bottles should go back to depot full stock.
-        // Keep total asset quantity unchanged and recompute remaining from distributed.
-        const newTotal = Math.max(0, prevTotal);
-        const newRemaining = Math.max(0, newTotal - newDistributed);
-        updateBottleType(item.bottleTypeId, {
+        if (!bottleType) continue;
+
+        // 1. Vides: add returned empty quantity, subtract foreign bottles, consigne and lost
+        const emptyReturned = Number(item.returnedEmptyQuantity || 0);
+        const foreignQty = Number(item.foreignQuantity || 0);
+        const consigneQty = Number(item.consigneQuantity || 0);
+        const lostQty = Number(item.lostQuantity || 0);
+        const netEmptyDelta = emptyReturned - foreignQty - consigneQty - lostQty;
+
+        if (netEmptyDelta !== 0) {
+          await updateEmptyBottlesStockByBottleType(
+            item.bottleTypeId,
+            netEmptyDelta,
+            netEmptyDelta > 0 ? 'add' : 'remove',
+            `Retour Chauffeur (${supplyOrder.orderNumber || orderNumber})`
+          );
+        }
+
+        // 2. Pleins: add returned full quantity (minus defective bottles) to remaining plein stock
+        const currentRemaining = Number((bottleType as any).remainingQuantity ?? (bottleType as any).remainingquantity ?? 0);
+        const currentDistributed = Number((bottleType as any).distributedQuantity ?? (bottleType as any).distributedquantity ?? 0);
+        const prevTotal = Number((bottleType as any).totalQuantity ?? (bottleType as any).totalquantity ?? (currentRemaining + currentDistributed));
+
+        const returnedFull = Number(item.returnedFullQuantity || 0);
+        const defQty = Number(item.defectiveQuantity || 0);
+        const netFullAddition = Math.max(0, returnedFull - defQty);
+
+        const sentQty = Number(supplyOrder.items?.find((it: any) => it.bottleTypeId === item.bottleTypeId)?.fullQuantity || item.fullQuantity || 0);
+        const newDistributed = Math.max(0, currentDistributed - sentQty);
+        const newRemaining = Math.max(0, currentRemaining + netFullAddition);
+        const newTotal = Math.max(prevTotal, newRemaining + newDistributed);
+
+        await updateBottleType(item.bottleTypeId, {
           totalQuantity: newTotal,
           remainingQuantity: newRemaining,
           distributedQuantity: newDistributed,
         });
+
+        // 3. Save foreign bottles
         const foreignEntries = foreignDetailsByItem[item.bottleTypeId] || [];
-        foreignEntries.forEach(fb => addForeignBottle({ returnOrderId: newReturnOrderId, companyName: fb.companyName, bottleType: fb.bottleType, quantity: fb.quantity, type: 'normal', date: new Date().toISOString() }));
-        if (foreignEntries.length === 0 && (item.foreignQuantity || 0) > 0) addForeignBottle({ returnOrderId: newReturnOrderId, companyName: 'Autre', bottleType: item.bottleTypeName, quantity: item.foreignQuantity || 0, type: 'normal', date: new Date().toISOString() });
-        if ((item.defectiveQuantity || 0) > 0) addDefectiveBottle({ returnOrderId: newReturnOrderId, bottleTypeId: item.bottleTypeId, bottleTypeName: item.bottleTypeName, quantity: item.defectiveQuantity || 0, date: new Date().toISOString() });
-      });
+        if (foreignEntries.length > 0) {
+          for (const fb of foreignEntries) {
+            await addForeignBottle({
+              returnOrderId: newReturnOrderId,
+              companyName: fb.companyName,
+              bottleType: fb.bottleType,
+              quantity: fb.quantity,
+              type: 'normal',
+              date: new Date().toISOString()
+            });
+          }
+        } else if (foreignQty > 0) {
+          await addForeignBottle({
+            returnOrderId: newReturnOrderId,
+            companyName: 'Autre',
+            bottleType: item.bottleTypeName,
+            quantity: foreignQty,
+            type: 'normal',
+            date: new Date().toISOString()
+          });
+        }
+
+        // 4. Save defective bottles
+        if (defQty > 0) {
+          await addDefectiveBottle({
+            returnOrderId: newReturnOrderId,
+            bottleTypeId: item.bottleTypeId,
+            bottleTypeName: item.bottleTypeName,
+            quantity: defQty,
+            date: new Date().toISOString()
+          });
+        }
+      }
 
       expenses.concat(newExpense.description && newExpense.amount > 0 ? [newExpense as ExpenseReport] : []).forEach(exp => {
         addExpense({ id: `exp-${Date.now()}-${Math.random()}`, type: 'note de frais', amount: exp.amount, paymentMethod: 'dette', date: new Date().toISOString(), note: exp.description, returnOrderId: newReturnOrderId });

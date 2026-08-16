@@ -171,6 +171,7 @@ const Inventory = () => {
   const [stockAdjustByBottle, setStockAdjustByBottle] = useState<Record<string, string>>({});
   const [adjustModeByBottle, setAdjustModeByBottle] = useState<Record<string, 'add' | 'remove'>>({});
   const [adjustingBottleId, setAdjustingBottleId] = useState<string | null>(null);
+  const [cardAdjustTargetByBottle, setCardAdjustTargetByBottle] = useState<Record<string, 'full' | 'empty'>>({});
   const [emptyAdjustByBottle, setEmptyAdjustByBottle] = useState<Record<string, string>>({});
   const [emptyAdjustModeByBottle, setEmptyAdjustModeByBottle] = useState<Record<string, 'add' | 'remove'>>({});
   const [adjustingEmptyBottleId, setAdjustingEmptyBottleId] = useState<string | null>(null);
@@ -360,14 +361,14 @@ const Inventory = () => {
     }
   };
 
-  const handleAdjustVidesStock = async (stock: any) => {
+  const handleAdjustVidesStock = async (stock: any, overrideQty?: number, overrideMode?: 'add' | 'remove') => {
     const bottleTypeId = String(stock?.bottleTypeId || '');
     const bottleTypeName = String(stock?.bottleTypeName || '');
     if (!bottleTypeId) return;
-    const rawQty = emptyAdjustByBottle[bottleTypeId] ?? '';
+    const rawQty = overrideQty !== undefined ? String(overrideQty) : (emptyAdjustByBottle[bottleTypeId] ?? stockAdjustByBottle[bottleTypeId] ?? '');
     const qty = Math.floor(Number(rawQty));
     if (!Number.isFinite(qty) || qty <= 0) return;
-    const mode = emptyAdjustModeByBottle[bottleTypeId] ?? 'add';
+    const mode = overrideMode || emptyAdjustModeByBottle[bottleTypeId] || adjustModeByBottle[bottleTypeId] || 'add';
     const currentQty = Number(stock?.quantity || 0);
     if (mode === 'remove' && qty > currentQty) return;
     const delta = mode === 'add' ? qty : -qty;
@@ -381,6 +382,7 @@ const Inventory = () => {
         `Ajustement manuel vides (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
       );
       setEmptyAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
+      setStockAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
     } finally {
       setAdjustingEmptyBottleId(null);
     }
@@ -1792,8 +1794,26 @@ const Inventory = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-2.5">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('inventory.card.adjustStock', 'Ajuster le stock')}</span>
+                <div className="flex flex-col gap-2 rounded-lg bg-slate-50 p-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('inventory.card.adjustStock', 'Ajuster')}</span>
+                    <ToggleGroup
+                      type="single"
+                      value={cardAdjustTargetByBottle[bottle.id] ?? 'full'}
+                      onValueChange={(val) => {
+                        if (!val) return;
+                        setCardAdjustTargetByBottle((prev) => ({ ...prev, [bottle.id]: val as 'full' | 'empty' }));
+                      }}
+                      className="bg-slate-200/60 p-0.5 rounded-lg"
+                    >
+                      <ToggleGroupItem value="full" className="h-6 px-2 text-[11px] font-semibold data-[state=on]:bg-white data-[state=on]:shadow-sm">
+                        {t('inventory.card.full', 'Plein')}
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="empty" className="h-6 px-2 text-[11px] font-semibold data-[state=on]:bg-white data-[state=on]:shadow-sm">
+                        {t('inventory.card.empty', 'Vides')}
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
                   <div className="flex items-center gap-2">
                     <ToggleGroup
                       type="single"
@@ -1816,15 +1836,22 @@ const Inventory = () => {
                       step={1}
                       value={stockAdjustByBottle[bottle.id] ?? ''}
                       onChange={(e) => setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: e.target.value }))}
-                      className="h-8 w-20 bg-white"
+                      className="h-8 flex-1 bg-white"
                       placeholder="0"
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-8"
-                      disabled={adjustingBottleId === bottle.id}
-                      onClick={() => handleAdjustPleinStock(bottle, stockPlein, distributed)}
+                      disabled={adjustingBottleId === bottle.id || adjustingEmptyBottleId === bottle.id}
+                      onClick={() => {
+                        const target = cardAdjustTargetByBottle[bottle.id] ?? 'full';
+                        if (target === 'empty') {
+                          handleAdjustVidesStock({ bottleTypeId: bottle.id, bottleTypeName: bottle.name, quantity: warehouseEmpty });
+                        } else {
+                          handleAdjustPleinStock(bottle, stockPlein, distributed);
+                        }
+                      }}
                     >
                       {t('inventory.card.apply', 'Appliquer')}
                     </Button>

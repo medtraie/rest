@@ -613,7 +613,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             ? bottleTypeExtrasCloudData
             : {};
         const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
-        const mergedBottleTypes = bottleTypesData.map((b: any) => ({ ...b, ...(mergedExtras[b.id] || {}) }));
+        const mergedBottleTypes = bottleTypesData.map((b: any) => {
+          const extra = { ...(mergedExtras[b.id] || {}) };
+          delete extra.totalQuantity;
+          delete extra.remainingQuantity;
+          delete extra.distributedQuantity;
+          delete extra.totalquantity;
+          delete extra.remainingquantity;
+          delete extra.distributedquantity;
+          return { ...extra, ...b };
+        });
         setBottleTypes(mergedBottleTypes);
         void persistBottleTypeExtrasSnapshot(mergedExtras);
 
@@ -1647,9 +1656,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const id = window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
       const newStock = { id, bottleTypeId, bottleTypeName, quantity: nextQuantity, lastUpdated: now };
       const created = await supabaseService.create<EmptyBottlesStock>("empty_bottles_stock", newStock);
-      if (created) {
-        setEmptyBottlesStock(prev => [...prev, created]);
-      }
+      const resolved = created || newStock;
+      setEmptyBottlesStock(prev => [...prev, resolved]);
     } else {
       const [primaryEntry, ...duplicateEntries] = matchingEntries;
       const updatedPrimary =
