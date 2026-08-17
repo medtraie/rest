@@ -358,6 +358,7 @@ interface AppContextType {
   roleAssignments: RoleAssignment[];
   availablePermissions: Array<{ key: PermissionKey; label: string }>;
   currentUserEmail: string | null;
+  currentUserId: string | null;
   currentRole: Role | null;
   addRole: (name: string) => Promise<void>;
   updateRolePermissions: (roleId: string, permissions: PermissionKey[]) => Promise<void>;
@@ -2465,6 +2466,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     roleAssignments,
     availablePermissions: permissionCatalog,
     currentUserEmail,
+    currentUserId,
     currentRole,
     addRole,
     updateRolePermissions,
@@ -2604,6 +2606,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     roles,
     roleAssignments,
     currentUserEmail,
+    currentUserId,
     currentRole
   ]);
   
