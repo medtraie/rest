@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { kvGet, kvSet } from '@/lib/kv';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -129,6 +130,7 @@ const Inventory = () => {
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
   const dayUnit = language === 'ar' ? 'ي' : 'j';
   const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, updateEmptyBottlesStockByBottleType, addStockHistory, currentUserEmail } = useApp();
+  const { toast } = useToast();
   const bottleTypesById = useMemo(
     () => new Map(bottleTypes.map((bottle) => [String(bottle.id), bottle])),
     [bottleTypes]
