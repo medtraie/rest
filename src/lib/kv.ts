@@ -70,15 +70,26 @@ export async function kvGet<T = unknown>(key: string): Promise<T | null> {
       .eq("user_id", uid)
       .limit(1);
 
-    if (!error && data && data.length > 0) return (data[0]?.value as T) ?? null;
-
     const msg = (error as any)?.message?.toLowerCase?.() ?? "";
-    if (error && !msg.includes("user_id")) {
+    if (error && msg.includes("user_id")) {
+      // Table has no user_id column — fall back to shared read
+      const { data: shared, error: sharedErr } = await supabase
+        .from("app_state")
+        .select("value")
+        .eq("key", key)
+        .limit(1);
+      if (sharedErr) return null;
+      return (shared?.[0]?.value as T) ?? null;
+    }
+    if (error) {
       console.error("Supabase kvGet error:", error.message);
       return null;
     }
+    // Strict: only return the user's own data (null if no row)
+    return (data?.[0]?.value as T) ?? null;
   }
 
+  // Not authenticated — read shared row
   const { data, error } = await supabase.from("app_state").select("value").eq("key", key).limit(1);
   if (error) {
     console.error("Supabase kvGet error:", error.message);

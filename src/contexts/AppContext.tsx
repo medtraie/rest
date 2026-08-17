@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { kvGet, kvGetShared, kvSet, kvSetShared } from "@/lib/kv";
+import { kvGet, kvSet } from "@/lib/kv";
 import { supabase, supabaseConfigured } from "@/lib/supabaseClient";
 import { supabaseService } from "@/lib/supabaseService";
 import {
@@ -423,7 +423,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY, JSON.stringify(extras));
     } catch {}
     try {
-      await kvSetShared(BOTTLE_TYPES_EXTRAS_CLOUD_KEY, extras);
+      await kvSet(BOTTLE_TYPES_EXTRAS_CLOUD_KEY, extras);
     } catch (error) {
       console.error("Error syncing bottle type extras to Supabase cloud store:", error);
     }
@@ -434,7 +434,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const normalized = normalizeDeletedOrderIds(ids).slice(-5000);
     setDeletedSupplyOrderIds(normalized);
     try {
-      await kvSetShared(DELETED_SUPPLY_ORDERS_CLOUD_KEY, normalized);
+      await kvSet(DELETED_SUPPLY_ORDERS_CLOUD_KEY, normalized);
     } catch (error) {
       console.error("Error syncing deleted supply orders to cloud store:", error);
     }
@@ -445,7 +445,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const normalized = normalizeDeletedOrderIds(ids).slice(-5000);
     setDeletedReturnOrderIds(normalized);
     try {
-      await kvSetShared(DELETED_RETURN_ORDERS_CLOUD_KEY, normalized);
+      await kvSet(DELETED_RETURN_ORDERS_CLOUD_KEY, normalized);
     } catch (error) {
       console.error("Error syncing deleted return orders to cloud store:", error);
     }
@@ -456,8 +456,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const [supplyOrdersData, returnOrdersData, deletedSupplyIdsData, deletedReturnIdsData] = await Promise.all([
       supabaseService.getAll<any>("supply_orders"),
       supabaseService.getAll<any>("return_orders"),
-      kvGetShared<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
-      kvGetShared<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
+      kvGet<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
+      kvGet<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
     ]);
 
     const deletedSupplyIds = normalizeDeletedOrderIds(deletedSupplyIdsData);
@@ -587,9 +587,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           supabaseService.getAll<Supplier>("suppliers"),
           supabaseService.getAll<Brand>("brands"),
           supabaseService.getAll<BottleType>("bottle_types"),
-          kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
-          kvGetShared<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
-          kvGetShared<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
+          kvGet<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
+          kvGet<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
+          kvGet<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
         ]);
 
         if (!active) return;
@@ -2042,7 +2042,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
       void (async () => {
         try {
-          const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+          const cloudExtras = await kvGet<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
           const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
           const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
           const cleanedExtras = clearBottleTypeExtraFields(mergedExtras, id, Object.keys(patch));
@@ -2055,7 +2055,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
     void (async () => {
       try {
-        const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+        const cloudExtras = await kvGet<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
         const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
         const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
         const nextExtras = {
