@@ -179,7 +179,9 @@ const Factory = () => {
     addSupplier,
     updateSupplier,
     deleteSupplier,
-    addCashOperation
+    addCashOperation,
+    currentUserId,
+    currentUserEmail,
   } = useApp();
   const t = useT();
   const { language } = useLanguage();
@@ -988,10 +990,14 @@ const Factory = () => {
   const [supplierFilterFromDate, setSupplierFilterFromDate] = useState('');
   const [supplierFilterToDate, setSupplierFilterToDate] = useState('');
 
+  const getFactoryLocalKey = React.useCallback((uid?: string | null) => {
+    return uid ? `local_factory_operations_${uid}` : 'local_factory_operations_anon';
+  }, []);
+
   const persistFactoryOperationsSnapshot = React.useCallback(async (operations: FactoryOperation[]) => {
     const snapshot = mergeFactoryOperations(operations);
     try {
-      localStorage.setItem(FACTORY_OPERATIONS_LOCAL_KEY, JSON.stringify(snapshot));
+      localStorage.setItem(getFactoryLocalKey(currentUserId), JSON.stringify(snapshot));
     } catch {}
     try {
       await kvSet(FACTORY_OPERATIONS_CLOUD_KEY, snapshot);
@@ -999,7 +1005,7 @@ const Factory = () => {
       console.error('Error syncing factory operations to Supabase cloud store:', error);
     }
     return snapshot;
-  }, []);
+  }, [currentUserId, getFactoryLocalKey]);
 
   const historyLoadedRef = React.useRef({ settlements: false, invoices: false });
   const historyLoadingRef = React.useRef({ settlements: false, invoices: false });
@@ -1081,6 +1087,12 @@ const Factory = () => {
   useEffect(() => {
     let active = true;
 
+    // Reset factory state on user change
+    setFactoryOperations([]);
+    setInvoices([]);
+    setDebtSettlements([]);
+    historyLoadedRef.current = { settlements: false, invoices: false };
+
     (async () => {
       const [ops, cloudOps] = await Promise.all([
         supabaseService.getAll<FactoryOperation>('factory_operations'),
@@ -1088,7 +1100,8 @@ const Factory = () => {
       ]);
       if (!active) return;
 
-      const localOps = safeParseFactoryOperations(localStorage.getItem(FACTORY_OPERATIONS_LOCAL_KEY));
+      const localKey = getFactoryLocalKey(currentUserId);
+      const localOps = safeParseFactoryOperations(localStorage.getItem(localKey));
       const mergedOps = mergeFactoryOperations(
         ops,
         Array.isArray(cloudOps) ? cloudOps : [],
@@ -1101,7 +1114,7 @@ const Factory = () => {
     return () => {
       active = false;
     };
-  }, [persistFactoryOperationsSnapshot]);
+  }, [currentUserId, getFactoryLocalKey, persistFactoryOperationsSnapshot]);
 
   useEffect(() => {
     if (historyTab === 'settlements') {
