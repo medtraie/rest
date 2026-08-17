@@ -331,7 +331,14 @@ const Inventory = () => {
       currentRemaining + currentDistributed
     );
 
-    if (mode === 'remove' && qty > currentRemaining) return;
+    if (mode === 'remove' && qty > currentRemaining) {
+      toast({
+        title: t('inventory.toast.error', 'Erreur'),
+        description: t('inventory.toast.insufficientStock', 'Stock insuffisant'),
+        variant: 'destructive'
+      });
+      return;
+    }
 
     const delta = mode === 'add' ? qty : -qty;
     const nextRemaining = Math.max(0, currentRemaining + delta);
@@ -354,8 +361,19 @@ const Inventory = () => {
         previousQuantity: currentRemaining,
         newQuantity: nextRemaining,
         note: `Ajustement manuel plein (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
-      });
+      }).catch((e) => console.error("Error logging stock history:", e));
       setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: '' }));
+      toast({
+        title: t('inventory.toast.success', 'Succès'),
+        description: `${bottle.name}: ${mode === 'add' ? '+' : '-'}${qty} pleins (${nextRemaining})`,
+      });
+    } catch (err) {
+      console.error("Error adjusting full stock:", err);
+      toast({
+        title: t('inventory.toast.error', 'Erreur'),
+        description: t('inventory.toast.adjustError', 'Échec de l\'ajustement'),
+        variant: 'destructive'
+      });
     } finally {
       setAdjustingBottleId(null);
     }
@@ -369,9 +387,17 @@ const Inventory = () => {
     const qty = Math.floor(Number(rawQty));
     if (!Number.isFinite(qty) || qty <= 0) return;
     const mode = overrideMode || emptyAdjustModeByBottle[bottleTypeId] || adjustModeByBottle[bottleTypeId] || 'add';
-    const currentQty = Number(stock?.quantity || 0);
-    if (mode === 'remove' && qty > currentQty) return;
+    const currentQty = Number(stock?.quantity ?? emptyQuantityByBottleTypeId[bottleTypeId] ?? 0);
+    if (mode === 'remove' && qty > currentQty) {
+      toast({
+        title: t('inventory.toast.error', 'Erreur'),
+        description: t('inventory.toast.insufficientStock', 'Stock insuffisant'),
+        variant: 'destructive'
+      });
+      return;
+    }
     const delta = mode === 'add' ? qty : -qty;
+    const nextQty = Math.max(0, currentQty + delta);
 
     setAdjustingEmptyBottleId(bottleTypeId);
     try {
@@ -383,6 +409,17 @@ const Inventory = () => {
       );
       setEmptyAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
       setStockAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
+      toast({
+        title: t('inventory.toast.success', 'Succès'),
+        description: `${bottleTypeName || 'Bouteille'}: ${mode === 'add' ? '+' : '-'}${qty} vides (${nextQty})`,
+      });
+    } catch (err) {
+      console.error("Error adjusting empty stock:", err);
+      toast({
+        title: t('inventory.toast.error', 'Erreur'),
+        description: t('inventory.toast.adjustError', 'Échec de l\'ajustement'),
+        variant: 'destructive'
+      });
     } finally {
       setAdjustingEmptyBottleId(null);
     }

@@ -1664,22 +1664,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         await supabaseService.update<EmptyBottlesStock>("empty_bottles_stock", primaryEntry.id, { quantity: nextQuantity, lastUpdated: now })
         || { ...primaryEntry, quantity: nextQuantity, lastUpdated: now };
 
-      const duplicateUpdates = await Promise.all(
-        duplicateEntries.map(async (entry) => {
-          const updatedDuplicate =
-            await supabaseService.update<EmptyBottlesStock>("empty_bottles_stock", entry.id, { quantity: 0, lastUpdated: now });
-          return updatedDuplicate || { ...entry, quantity: 0, lastUpdated: now };
-        })
-      );
+      if (duplicateEntries.length > 0) {
+        void Promise.all(duplicateEntries.map(e => supabaseService.delete("empty_bottles_stock", e.id))).catch(() => {});
+      }
 
-      const updatesById = new Map<string, EmptyBottlesStock>([
-        [String(updatedPrimary.id), updatedPrimary],
-        ...duplicateUpdates.map((entry) => [String(entry.id), entry] as const),
+      setEmptyBottlesStock(prev => [
+        ...prev.filter(entry => !matchingEntries.some(m => String(m.id) === String(entry.id))),
+        updatedPrimary
       ]);
-
-      setEmptyBottlesStock(prev =>
-        prev.map((entry) => updatesById.get(String(entry.id)) || entry)
-      );
     }
 
     const type = customChangeType || (delta > 0 ? 'add' : 'remove');
