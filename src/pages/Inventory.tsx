@@ -324,7 +324,14 @@ const Inventory = () => {
   const handleAdjustPleinStock = async (bottle: BottleType, stockPlein: number, distributed: number) => {
     const rawQty = stockAdjustByBottle[bottle.id] ?? '';
     const qty = Math.floor(Number(rawQty));
-    if (!Number.isFinite(qty) || qty <= 0) return;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast({
+        title: t('inventory.toast.warning', 'Attention'),
+        description: t('inventory.toast.enterQuantity', 'Veuillez saisir une quantité supérieure à 0'),
+        variant: 'destructive'
+      });
+      return;
+    }
     const mode = adjustModeByBottle[bottle.id] ?? 'add';
     const currentRemaining = Number((bottle as any).remainingQuantity ?? (bottle as any).remainingquantity ?? stockPlein ?? 0);
     const currentDistributed = Number((bottle as any).distributedQuantity ?? (bottle as any).distributedquantity ?? distributed ?? 0);
@@ -364,7 +371,6 @@ const Inventory = () => {
         newQuantity: nextRemaining,
         note: `Ajustement manuel plein (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
       }).catch((e) => console.error("Error logging stock history:", e));
-      setStockAdjustByBottle((prev) => ({ ...prev, [bottle.id]: '' }));
       toast({
         title: t('inventory.toast.success', 'Succès'),
         description: `${bottle.name}: ${mode === 'add' ? '+' : '-'}${qty} pleins (${nextRemaining})`,
@@ -387,7 +393,14 @@ const Inventory = () => {
     if (!bottleTypeId) return;
     const rawQty = overrideQty !== undefined ? String(overrideQty) : (emptyAdjustByBottle[bottleTypeId] ?? stockAdjustByBottle[bottleTypeId] ?? '');
     const qty = Math.floor(Number(rawQty));
-    if (!Number.isFinite(qty) || qty <= 0) return;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast({
+        title: t('inventory.toast.warning', 'Attention'),
+        description: t('inventory.toast.enterQuantity', 'Veuillez saisir une quantité supérieure à 0'),
+        variant: 'destructive'
+      });
+      return;
+    }
     const mode = overrideMode || emptyAdjustModeByBottle[bottleTypeId] || adjustModeByBottle[bottleTypeId] || 'add';
     const currentQty = Number(stock?.quantity ?? emptyQuantityByBottleTypeId[bottleTypeId] ?? 0);
     if (mode === 'remove' && qty > currentQty) {
@@ -409,8 +422,6 @@ const Inventory = () => {
         mode,
         `Ajustement manuel vides (${mode === 'add' ? '+' : '-'}${qty}) | Utilisateur: ${currentUserEmail || 'inconnu'}`
       );
-      setEmptyAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
-      setStockAdjustByBottle((prev) => ({ ...prev, [bottleTypeId]: '' }));
       toast({
         title: t('inventory.toast.success', 'Succès'),
         description: `${bottleTypeName || 'Bouteille'}: ${mode === 'add' ? '+' : '-'}${qty} vides (${nextQty})`,

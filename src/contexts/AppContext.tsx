@@ -2040,23 +2040,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (updated) {
       const merged = { id, ...updated, ...patch };
       setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...merged } : b)));
-      const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
-      const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
-      const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
-      const cleanedExtras = clearBottleTypeExtraFields(mergedExtras, id, Object.keys(patch));
-      await persistBottleTypeExtrasSnapshot(cleanedExtras);
+      void (async () => {
+        try {
+          const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+          const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+          const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
+          const cleanedExtras = clearBottleTypeExtraFields(mergedExtras, id, Object.keys(patch));
+          await persistBottleTypeExtrasSnapshot(cleanedExtras);
+        } catch {}
+      })();
       return merged;
     }
 
     setBottleTypes(prev => prev.map(b => (String(b.id) === String(id) ? { ...b, ...patch } : b)));
-    const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
-    const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
-    const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
-    const nextExtras = {
-      ...mergedExtras,
-      [id]: { ...(mergedExtras[id] || {}), ...patch }
-    };
-    await persistBottleTypeExtrasSnapshot(nextExtras);
+    void (async () => {
+      try {
+        const cloudExtras = await kvGetShared<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY).catch(() => null);
+        const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+        const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
+        const nextExtras = {
+          ...mergedExtras,
+          [id]: { ...(mergedExtras[id] || {}), ...patch }
+        };
+        await persistBottleTypeExtrasSnapshot(nextExtras);
+      } catch {}
+    })();
     return { id, ...(patch as any) } as BottleType;
   };
   const deleteBottleType = async (id: string) => {
