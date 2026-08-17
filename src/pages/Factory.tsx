@@ -46,7 +46,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { supabaseService } from '@/lib/supabaseService';
-import { kvGetShared, kvSetShared } from '@/lib/kv';
+import { kvGet, kvSet } from '@/lib/kv';
 import { useLanguage, useT } from '@/contexts/LanguageContext';
 import { loadPdfTools } from '@/lib/pdf';
 
@@ -994,7 +994,7 @@ const Factory = () => {
       localStorage.setItem(FACTORY_OPERATIONS_LOCAL_KEY, JSON.stringify(snapshot));
     } catch {}
     try {
-      await kvSetShared(FACTORY_OPERATIONS_CLOUD_KEY, snapshot);
+      await kvSet(FACTORY_OPERATIONS_CLOUD_KEY, snapshot);
     } catch (error) {
       console.error('Error syncing factory operations to Supabase cloud store:', error);
     }
@@ -1084,7 +1084,7 @@ const Factory = () => {
     (async () => {
       const [ops, cloudOps] = await Promise.all([
         supabaseService.getAll<FactoryOperation>('factory_operations'),
-        kvGetShared<FactoryOperation[]>(FACTORY_OPERATIONS_CLOUD_KEY),
+        kvGet<FactoryOperation[]>(FACTORY_OPERATIONS_CLOUD_KEY),
       ]);
       if (!active) return;
 

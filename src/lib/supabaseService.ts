@@ -16,7 +16,7 @@ const hasNoRowsSingleError = (message?: string) => {
   const text = (message || '').toLowerCase();
   return text.includes('json object requested') && text.includes('no rows');
 };
-const sharedTables = new Set(["supply_orders", "return_orders", "factory_invoices"]);
+const sharedTables = new Set(["supply_orders", "return_orders"]);
 const SHARED_TABLES_PAGE_SIZE = 1000;
 const fetchSharedTableRows = async (table: string) => {
   const rows: Record<string, any>[] = [];
