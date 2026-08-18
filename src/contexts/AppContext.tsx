@@ -290,6 +290,7 @@ interface AppContextType {
   updateSupplyOrder: (order: any) => Promise<void>;
   deleteSupplyOrder: (id: string) => Promise<boolean>;
   refreshSupplyReturnData: () => Promise<void>;
+  refreshInventoryData: () => Promise<void>;
   returnOrders: any[];
   addReturnOrder: (...args: any[]) => Promise<{ id: string | null; savedToSupabase: boolean }>;
   deleteReturnOrder: (id: string) => Promise<boolean>;
@@ -470,6 +471,72 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setDeletedReturnOrderIds(deletedReturnIds);
     setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
     setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
+  }, []);
+
+  const refreshInventoryData = React.useCallback(async () => {
+    try {
+      const [
+        bottleTypesData,
+        bottleTypeExtrasCloudData,
+        deletedSupplyOrderIdsData,
+        deletedReturnOrderIdsData,
+        emptyBottlesStockData,
+        defectiveStockData,
+        supplyOrdersData,
+        returnOrdersData,
+        foreignBottlesData,
+        transactionsData,
+        stockHistoryData
+      ] = await Promise.all([
+        supabaseService.getAll<BottleType>("bottle_types"),
+        kvGet<Record<string, any>>(BOTTLE_TYPES_EXTRAS_CLOUD_KEY),
+        kvGet<string[]>(DELETED_SUPPLY_ORDERS_CLOUD_KEY),
+        kvGet<string[]>(DELETED_RETURN_ORDERS_CLOUD_KEY),
+        supabaseService.getAll<EmptyBottlesStock>("empty_bottles_stock"),
+        supabaseService.getAll<DefectiveBottle>("defective_stock"),
+        supabaseService.getAll<any>("supply_orders"),
+        supabaseService.getAll<any>("return_orders"),
+        supabaseService.getAll<ForeignBottle>("foreign_bottles"),
+        supabaseService.getAll<any>("transactions"),
+        supabaseService.getAll<StockHistory>("stock_history"),
+      ]);
+
+      const deletedSupplyIds = normalizeDeletedOrderIds(deletedSupplyOrderIdsData);
+      const deletedReturnIds = normalizeDeletedOrderIds(deletedReturnOrderIdsData);
+      const deletedSupplySet = new Set(deletedSupplyIds);
+      const deletedReturnSet = new Set(deletedReturnIds);
+
+      setDeletedSupplyOrderIds(deletedSupplyIds);
+      setDeletedReturnOrderIds(deletedReturnIds);
+
+      const localExtras = safeParseRecord(localStorage.getItem(BOTTLE_TYPES_EXTRAS_LOCAL_KEY));
+      const cloudExtras =
+        bottleTypeExtrasCloudData && typeof bottleTypeExtrasCloudData === "object" && !Array.isArray(bottleTypeExtrasCloudData)
+          ? bottleTypeExtrasCloudData
+          : {};
+      const mergedExtras = mergeBottleTypeExtras(cloudExtras, localExtras);
+      const mergedBottleTypes = bottleTypesData.map((b: any) => {
+        const extra = { ...(mergedExtras[b.id] || {}) };
+        delete extra.totalQuantity;
+        delete extra.remainingQuantity;
+        delete extra.distributedQuantity;
+        delete extra.totalquantity;
+        delete extra.remainingquantity;
+        delete extra.distributedquantity;
+        return { ...extra, ...b };
+      });
+
+      setBottleTypes(mergedBottleTypes);
+      setEmptyBottlesStock(emptyBottlesStockData);
+      setDefectiveStock(defectiveStockData);
+      setSupplyOrders(supplyOrdersData.filter((order) => !deletedSupplySet.has(String(order?.id ?? ""))));
+      setReturnOrders(returnOrdersData.filter((order) => !deletedReturnSet.has(String(order?.id ?? ""))));
+      setForeignBottles(foreignBottlesData);
+      setTransactions(transactionsData);
+      setStockHistory(stockHistoryData);
+    } catch (error) {
+      console.error("Error refreshing inventory data:", error);
+    }
   }, []);
 
   const normalizeAccount = (value?: string) => {
@@ -2393,6 +2460,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     updateSupplyOrder,
     deleteSupplyOrder,
     refreshSupplyReturnData,
+    refreshInventoryData,
     returnOrders,
     addReturnOrder,
     deleteReturnOrder,

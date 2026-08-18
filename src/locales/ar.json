@@ -655,6 +655,8 @@
       "cancel": "إلغاء",
       "confirm": "تأكيد",
       "delete": "حذف",
+      "refresh": "تحديث",
+      "refreshing": "جارٍ التحديث...",
       "irreversible": "هذا الإجراء غير قابل للتراجع."
     },
     "flowPulse": {
@@ -734,6 +736,11 @@
       "noSearchResults": "لا توجد حركة مطابقة لبحثك",
       "noTransactions": "لا توجد حركات مسجلة",
       "noTransactionsHint": "ستظهر حركات المخزون المتعلقة بهذا النوع هنا."
+    },
+    "toast": {
+      "refreshedTitle": "تم تحديث المخزون",
+      "refreshedDesc": "جميع بيانات المخزون محدثة بالكامل.",
+      "refreshError": "فشل تحديث البيانات"
     },
     "trend": {
       "upRecovery": "↑ تعافٍ",

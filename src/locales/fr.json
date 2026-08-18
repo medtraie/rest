@@ -655,6 +655,8 @@
       "cancel": "Annuler",
       "confirm": "Confirmer",
       "delete": "Supprimer",
+      "refresh": "Actualiser",
+      "refreshing": "Actualisation...",
       "irreversible": "Cette action est irréversible."
     },
     "flowPulse": {
@@ -734,6 +736,11 @@
       "noSearchResults": "Aucun mouvement correspondant à votre recherche",
       "noTransactions": "Aucune transaction enregistrée",
       "noTransactionsHint": "Les mouvements de stock liés à ce type de bouteille apparaîtront ici."
+    },
+    "toast": {
+      "refreshedTitle": "Inventaire actualisé",
+      "refreshedDesc": "Toutes les données de stock sont à jour.",
+      "refreshError": "Échec de l'actualisation"
     },
     "trend": {
       "upRecovery": "↑ Reprise",

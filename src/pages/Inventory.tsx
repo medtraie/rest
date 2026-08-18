@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
-import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Minus, Package2, ChevronDown, ChevronUp, History, Trash2 } from 'lucide-react';
+import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Minus, Package2, ChevronDown, ChevronUp, History, Trash2, RefreshCw } from 'lucide-react';
 import { AddBottleTypeDialog } from '@/components/dialogs/AddBottleTypeDialog';
 import { EditBottleTypeDialog } from '@/components/dialogs/EditBottleTypeDialog';
 import { BottleHistoryDialog } from '@/components/dialogs/BottleHistoryDialog';
@@ -129,8 +129,31 @@ const Inventory = () => {
   const { language } = useLanguage();
   const uiLocale = language === 'ar' ? 'ar-MA' : 'fr-MA';
   const dayUnit = language === 'ar' ? 'ي' : 'j';
-  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, updateEmptyBottlesStockByBottleType, addStockHistory, currentUserEmail } = useApp();
+  const { bottleTypes, emptyBottlesStock = [], defectiveBottles = [], transactions = [], returnOrders = [], foreignBottles = [], trucks = [], drivers = [], supplyOrders = [], stockHistory = [], clearAllInventory, updateBottleType, updateEmptyBottlesStockByBottleType, addStockHistory, currentUserEmail, refreshInventoryData } = useApp();
   const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (refreshInventoryData) {
+        await refreshInventoryData();
+      }
+      toast({
+        title: t('inventory.toast.refreshedTitle', 'Inventaire actualisé'),
+        description: t('inventory.toast.refreshedDesc', 'Toutes les données de stock sont à jour.'),
+      });
+    } catch (err) {
+      toast({
+        title: t('common.error', 'Erreur'),
+        description: t('inventory.toast.refreshError', "Échec de l'actualisation"),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const bottleTypesById = useMemo(
     () => new Map(bottleTypes.map((bottle) => [String(bottle.id), bottle])),
     [bottleTypes]
@@ -1310,6 +1333,16 @@ const Inventory = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="flex items-center gap-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold shadow-xs"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4 h-4 text-indigo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? t('common.refreshing', 'Actualisation...') : t('common.refresh', 'Actualiser')}</span>
+          </Button>
           <Button 
             variant="destructive" 
             size="sm"

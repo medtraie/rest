@@ -446,7 +446,7 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 border border-slate-200 shadow-2xl rounded-2xl bg-slate-50/50">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 border border-slate-200 shadow-2xl rounded-2xl bg-white">
         {/* Header */}
         <DialogHeader className="p-5 pb-4 bg-white border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -472,7 +472,7 @@ export const BottleHistoryDialog = ({ bottle, open, onOpenChange }: BottleHistor
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50">
           {/* Main 4 Visual KPI Cards - Current Stock State */}
           <div>
             <div className="flex items-center justify-between mb-2.5 px-0.5">
