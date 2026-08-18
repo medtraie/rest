@@ -6,15 +6,12 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage, useT } from "@/contexts/LanguageContext";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
-import { AnimatePresence, motion } from "framer-motion";
-import { usePageTransition } from "@/contexts/PageTransitionContext";
 
 type NavTheme = 'indigo' | 'emerald' | 'sunset' | 'violet';
 
 export const Layout: React.FC = () => {
   const { language } = useLanguage();
   const t = useT();
-  const pageTransition = usePageTransition();
   const location = useLocation();
   const [cardMode, setCardMode] = useState<'classic' | 'cinematic'>(() => {
     if (typeof window === 'undefined') return 'cinematic';
@@ -112,17 +109,7 @@ export const Layout: React.FC = () => {
           </header>
 
           <main className="flex-1 overflow-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: pageTransition.duration, ease: pageTransition.ease }}
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <Outlet />
           </main>
         </div>
       </div>

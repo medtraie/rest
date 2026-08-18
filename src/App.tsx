@@ -37,6 +37,35 @@ const Accounting = lazyWithRetry(() => import("./pages/Accounting"), "accounting
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"), "not-found-page");
 const Login = lazyWithRetry(() => import("./pages/Login"), "login-page");
 
+export const pagePreloaders: Record<string, () => void> = {
+  "/": () => void Dashboard.preload(),
+  "/inventory": () => void Inventory.preload(),
+  "/trucks": () => void Trucks.preload(),
+  "/drivers": () => void Drivers.preload(),
+  "/exchanges": () => void Exchanges.preload(),
+  "/transfer": () => void Transfer.preload(),
+  "/factory": () => void Factory.preload(),
+  "/supply-return": () => void SupplyReturn.preload(),
+  "/clients": () => void Clients.preload(),
+  "/defective-stock": () => void DefectiveStock.preload(),
+  "/expenses": () => void Expenses.preload(),
+  "/depenses-copt": () => void DepensesCopt.preload(),
+  "/revenue": () => void Revenue.preload(),
+  "/reports": () => void Reports.preload(),
+  "/fuel-management": () => void FuelManagement.preload(),
+  "/petit-camion": () => void PetitCamion.preload(),
+  "/repairs": () => void Repairs.preload(),
+  "/settings": () => void Settings.preload(),
+  "/live-map": () => void LiveMap.preload(),
+  "/accounting": () => void Accounting.preload(),
+};
+
+export const preloadRoute = (path: string) => {
+  if (!path) return;
+  const normalized = path.split("?")[0].split("#")[0];
+  pagePreloaders[normalized]?.();
+};
+
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: any }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -206,6 +235,36 @@ const AppContent = ({ supabaseConfigured }: { supabaseConfigured: boolean }) => 
       data.subscription.unsubscribe();
     };
   }, [supabaseConfigured]);
+
+  React.useEffect(() => {
+    if (!session) return;
+    const timer = window.setTimeout(() => {
+      const idleWindow = window as typeof window & {
+        requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
+      };
+      const warmPrimaryRoutes = () => {
+        try {
+          Dashboard.preload();
+          Inventory.preload();
+          Factory.preload();
+          SupplyReturn.preload();
+          Trucks.preload();
+          Drivers.preload();
+          Clients.preload();
+          DefectiveStock.preload();
+          Expenses.preload();
+          Revenue.preload();
+          Reports.preload();
+        } catch {}
+      };
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleWindow.requestIdleCallback(warmPrimaryRoutes, { timeout: 2000 });
+      } else {
+        warmPrimaryRoutes();
+      }
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [session]);
 
   if (!supabaseConfigured) {
     return (

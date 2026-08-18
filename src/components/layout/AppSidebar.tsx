@@ -33,6 +33,7 @@ import {
 import { useApp } from "@/contexts/AppContext";
 import type { PermissionKey } from "@/contexts/AppContext";
 import { useLanguage, useT } from "@/contexts/LanguageContext";
+import { preloadRoute } from "@/App";
 
 type MenuItem = {
   title: string;
@@ -113,7 +114,13 @@ export function AppSidebar() {
               {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={t(`nav.${item.title}`, item.title)}>
-                    <NavLink to={item.url} end className={getNavCls}>
+                    <NavLink 
+                      to={item.url} 
+                      end 
+                      className={getNavCls}
+                      onMouseEnter={() => preloadRoute(item.url)}
+                      onTouchStart={() => preloadRoute(item.url)}
+                    >
                       {({ isActive }) => (
                         <>
                           {!collapsed && (
