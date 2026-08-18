@@ -50,7 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { kvGet, kvSet } from '@/lib/kv';
 
 type FilterMode = 'all' | 'moving' | 'stopped' | 'offline';
-type MapLayerType = 'dark' | 'google_roads' | 'google_hybrid' | 'osm';
+type MapLayerType = 'google_roads' | 'google_hybrid' | 'osm' | 'dark';
 
 export interface LiveVehicle {
   id: string;
@@ -77,14 +77,8 @@ const MOROCCO_CENTER: [number, number] = [32.0, -6.5];
 
 // Map Tile Layers
 const MAP_LAYERS: Record<MapLayerType, { name: string; url: string; attribution: string; subdomains?: string[] }> = {
-  dark: {
-    name: 'Cyber Dark (2026)',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; CartoDB &copy; OpenStreetMap',
-    subdomains: ['a', 'b', 'c', 'd'],
-  },
   google_roads: {
-    name: 'Google Roads',
+    name: 'Google Roads (Clair)',
     url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     attribution: '&copy; Google Maps',
   },
@@ -97,6 +91,12 @@ const MAP_LAYERS: Record<MapLayerType, { name: string; url: string; attribution:
     name: 'OpenStreetMap',
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap contributors',
+  },
+  dark: {
+    name: 'Cyber Dark',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CartoDB &copy; OpenStreetMap',
+    subdomains: ['a', 'b', 'c', 'd'],
   },
 };
 
@@ -118,20 +118,20 @@ const createVehicleIcon = (vehicle: LiveVehicle, isSelected: boolean) => {
   const isOffline = !vehicle.online;
 
   const color = isSelected
-    ? '#38bdf8' // Sky blue
+    ? '#0284c7' // Bright Sky blue
     : isMoving
-    ? '#10b981' // Emerald
+    ? '#059669' // Emerald green
     : isStopped
-    ? '#f59e0b' // Amber
+    ? '#d97706' // Amber
     : '#64748b'; // Slate
 
   const glowColor = isSelected
-    ? 'rgba(56, 189, 248, 0.6)'
+    ? 'rgba(2, 132, 199, 0.4)'
     : isMoving
-    ? 'rgba(16, 185, 129, 0.5)'
+    ? 'rgba(5, 150, 105, 0.35)'
     : isStopped
-    ? 'rgba(245, 158, 11, 0.4)'
-    : 'rgba(100, 116, 139, 0.2)';
+    ? 'rgba(217, 119, 6, 0.3)'
+    : 'rgba(100, 116, 139, 0.15)';
 
   const heading = vehicle.heading || 0;
 
@@ -141,7 +141,7 @@ const createVehicleIcon = (vehicle: LiveVehicle, isSelected: boolean) => {
       <div style="position:relative; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
         ${
           isSelected
-            ? `<div style="position:absolute; width:52px; height:52px; border-radius:999px; border:2px solid ${color}; animation:ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; opacity:0.75;"></div>`
+            ? `<div style="position:absolute; width:50px; height:50px; border-radius:999px; border:2.5px solid ${color}; animation:ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; opacity:0.75;"></div>`
             : ''
         }
         <div style="
@@ -149,9 +149,9 @@ const createVehicleIcon = (vehicle: LiveVehicle, isSelected: boolean) => {
           width:36px; 
           height:36px; 
           border-radius:12px; 
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-          border: 2px solid ${color};
-          box-shadow: 0 0 16px ${glowColor}, 0 4px 6px -1px rgba(0,0,0,0.5);
+          background: #ffffff;
+          border: 2.5px solid ${color};
+          box-shadow: 0 0 14px ${glowColor}, 0 4px 8px rgba(15,23,42,0.15);
           display:flex; 
           align-items:center; 
           justify-content:center;
@@ -168,15 +168,15 @@ const createVehicleIcon = (vehicle: LiveVehicle, isSelected: boolean) => {
           bottom:-8px; 
           left:50%; 
           transform:translateX(-50%); 
-          background:#090d16; 
-          color:#f8fafc; 
-          border:1px solid ${color}; 
-          font-size:9px; 
+          background:#ffffff; 
+          color:#0f172a; 
+          border:1.5px solid ${color}; 
+          font-size:9.5px; 
           font-weight:900; 
-          padding:1px 4px; 
+          padding:1px 5px; 
           border-radius:6px; 
           white-space:nowrap;
-          box-shadow:0 2px 4px rgba(0,0,0,0.6);
+          box-shadow:0 2px 5px rgba(0,0,0,0.15);
         ">
           ${vehicle.speed > 0 ? `${Math.round(vehicle.speed)} km/h` : 'STOP'}
         </div>
@@ -206,7 +206,7 @@ export const LiveMap = () => {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
-  const [activeLayer, setActiveLayer] = useState<MapLayerType>('dark');
+  const [activeLayer, setActiveLayer] = useState<MapLayerType>('google_roads');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -494,30 +494,30 @@ export const LiveMap = () => {
   const isRtl = language === 'ar';
 
   return (
-    <div className="h-[calc(100vh-84px)] p-3 md:p-4 flex flex-col gap-3 bg-slate-950 font-sans text-slate-100 overflow-hidden">
-      {/* 2026 Futuristic Cyber Header */}
-      <div className="h-14 px-4 rounded-xl bg-slate-900/90 backdrop-blur-xl border border-slate-800/80 shadow-2xl flex items-center justify-between gap-3 flex-shrink-0">
+    <div className="h-[calc(100vh-84px)] p-3 md:p-4 flex flex-col gap-3 bg-slate-50/50 font-sans text-slate-800 overflow-hidden">
+      {/* Clean White Modern Header */}
+      <div className="h-14 px-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between gap-3 flex-shrink-0">
         {/* Left: Branding & Status Pulse */}
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">
+          <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600">
             <Radio className="w-4 h-4 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-black tracking-wide text-white flex items-center gap-2">
-                {tr('Live Fleet Telemetry', 'تتبع الأسطول المباشر')}
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/50">
-                  2026 HUD
+              <h2 className="text-sm font-black tracking-wide text-slate-900 flex items-center gap-2">
+                {tr('Télémétrie Flotte en Direct', 'تتبع الأسطول المباشر')}
+                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  LIVE HUD
                 </span>
               </h2>
             </div>
-            <div className="text-[10px] text-slate-400 flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                <span className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' : 'bg-amber-400 shadow-[0_0_8px_#fbbf24]'}`} />
-                {isLiveConnected ? tr('GPSwox Satellite Live', 'متصل بالقمر الصناعي GPSwox') : tr('Flotte Locale Active', 'نشط (الأسطول المحلي)')}
+            <div className="text-[11px] text-slate-500 flex items-center gap-2 font-medium">
+              <span className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'}`} />
+                {isLiveConnected ? tr('Satellite GPSwox Connecté', 'متصل بالأقمار الصناعية') : tr('Flotte Locale Active', 'الأسطول المحلي نشط')}
               </span>
               <span>•</span>
-              <span className="font-mono">{counts.total} {tr('véhicules suivis', 'مركبة متبعة')}</span>
+              <span className="font-semibold text-slate-700">{counts.total} {tr('véhicules', 'مركبة')}</span>
             </div>
           </div>
         </div>
@@ -526,13 +526,13 @@ export const LiveMap = () => {
         <div className="flex items-center gap-2">
           {/* Layer Selector */}
           <Select value={activeLayer} onValueChange={(val) => setActiveLayer(val as MapLayerType)}>
-            <SelectTrigger className="h-8 w-36 bg-slate-800/90 border-slate-700 text-xs font-semibold text-slate-200">
-              <Layers className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+            <SelectTrigger className="h-8 w-40 bg-white border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs">
+              <Layers className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+            <SelectContent className="bg-white border-slate-200 text-slate-800 shadow-xl">
               {Object.entries(MAP_LAYERS).map(([key, layer]) => (
-                <SelectItem key={key} value={key} className="text-xs">
+                <SelectItem key={key} value={key} className="text-xs font-medium cursor-pointer">
                   {layer.name}
                 </SelectItem>
               ))}
@@ -544,12 +544,12 @@ export const LiveMap = () => {
             size="sm"
             variant="outline"
             onClick={() => setClusterEnabled((prev) => !prev)}
-            className={`h-8 text-xs font-bold border-slate-700 ${
-              clusterEnabled ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-800/80 text-slate-400'
+            className={`h-8 text-xs font-bold border-slate-200 shadow-xs ${
+              clusterEnabled ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white text-slate-600 hover:bg-slate-50'
             }`}
             title={tr('Grouper les véhicules', 'تجميع المركبات')}
           >
-            <Navigation className="w-3.5 h-3.5 mr-1.5" />
+            <Navigation className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
             {tr('Clusters', 'تجميع')}
           </Button>
 
@@ -557,12 +557,12 @@ export const LiveMap = () => {
             size="sm"
             variant="outline"
             onClick={() => setTraceEnabled((prev) => !prev)}
-            className={`h-8 text-xs font-bold border-slate-700 hidden sm:flex ${
-              tracesEnabled ? 'bg-sky-600/20 text-sky-300 border-sky-500/40' : 'bg-slate-800/80 text-slate-400'
+            className={`h-8 text-xs font-bold border-slate-200 shadow-xs hidden sm:flex ${
+              tracesEnabled ? 'bg-sky-50 text-sky-700 border-sky-300' : 'bg-white text-slate-600 hover:bg-slate-50'
             }`}
             title={tr('Afficher les tracés de déplacement', 'عرض المسارات')}
           >
-            <Route className="w-3.5 h-3.5 mr-1.5" />
+            <Route className="w-3.5 h-3.5 mr-1.5 text-sky-600" />
             {tr('Traces', 'المسارات')}
           </Button>
 
@@ -570,10 +570,10 @@ export const LiveMap = () => {
             size="sm"
             variant="outline"
             onClick={handleFitAll}
-            className="h-8 text-xs font-bold bg-slate-800/90 hover:bg-slate-700 border-slate-700 text-slate-200"
+            className="h-8 text-xs font-bold bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-xs"
             title={tr('Ajuster la vue à tous les véhicules', 'عرض كامل الأسطول')}
           >
-            <Crosshair className="w-3.5 h-3.5 mr-1.5 text-cyan-400" />
+            <Crosshair className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
             {tr('Centrer', 'تركيز')}
           </Button>
 
@@ -582,11 +582,11 @@ export const LiveMap = () => {
             size="sm"
             variant="outline"
             onClick={() => setIsPaused((prev) => !prev)}
-            className={`h-8 text-xs font-bold border-slate-700 ${
-              isPaused ? 'bg-amber-600/20 text-amber-300 border-amber-500/40' : 'bg-slate-800/90 text-slate-200'
+            className={`h-8 text-xs font-bold border-slate-200 shadow-xs ${
+              isPaused ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isPaused ? <Play className="w-3.5 h-3.5 mr-1.5" /> : <Pause className="w-3.5 h-3.5 mr-1.5" />}
+            {isPaused ? <Play className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> : <Pause className="w-3.5 h-3.5 mr-1.5 text-slate-600" />}
             {isPaused ? tr('Reprendre', 'استئناف') : tr('Pause', 'إيقاف')}
           </Button>
 
@@ -595,16 +595,16 @@ export const LiveMap = () => {
             size="icon"
             onClick={() => void fetchLiveFleet()}
             disabled={isLoading}
-            className="h-8 w-8 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+            className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
 
           {/* GPSwox Settings Button */}
           <Button
             size="sm"
             onClick={() => setSettingsOpen(true)}
-            className="h-8 text-xs font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-500/20"
+            className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
           >
             <Settings2 className="w-3.5 h-3.5 mr-1.5" />
             {tr('GPS Config', 'إعدادات GPS')}
@@ -613,13 +613,13 @@ export const LiveMap = () => {
       </div>
 
       {/* Main Map & Live Drawer Body */}
-      <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800/90 shadow-2xl relative flex">
+      <div className="flex-1 rounded-2xl overflow-hidden border border-slate-200 shadow-sm relative flex bg-white">
         {/* The Interactive Map Viewport */}
         <div className="flex-1 h-full w-full relative z-0">
           <MapContainer
             center={MOROCCO_CENTER}
             zoom={6}
-            className="h-full w-full bg-slate-950"
+            className="h-full w-full bg-slate-100"
             whenReady={(evt) => {
               mapRef.current = evt.target;
             }}
@@ -641,9 +641,9 @@ export const LiveMap = () => {
                     key={`trace-${vehicle.id}`}
                     positions={line}
                     pathOptions={{
-                      color: isSelected ? '#38bdf8' : vehicle.moving ? '#10b981' : '#64748b',
-                      weight: isSelected ? 4 : 2,
-                      opacity: isSelected ? 0.9 : 0.45,
+                      color: isSelected ? '#0284c7' : vehicle.moving ? '#059669' : '#94a3b8',
+                      weight: isSelected ? 4 : 2.5,
+                      opacity: isSelected ? 0.95 : 0.6,
                       dashArray: vehicle.moving ? undefined : '4, 8',
                     }}
                   />
@@ -722,51 +722,51 @@ export const LiveMap = () => {
             )}
           </MapContainer>
 
-          {/* Floating HUD Telemetry Overlay on Map */}
+          {/* Floating White HUD Telemetry Overlay on Map */}
           <div className="absolute top-4 left-4 z-[900] flex flex-col gap-2 pointer-events-none">
             {/* Live Stats Pill */}
-            <div className="pointer-events-auto px-3.5 py-2 rounded-xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 shadow-xl flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <div className="pointer-events-auto px-4 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl flex items-center gap-3 text-xs font-semibold text-slate-700">
+              <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
                 <span>{counts.moving} {tr('En route', 'في الحركة')}</span>
               </div>
-              <span className="text-slate-600">|</span>
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1.5 text-amber-600 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
                 <span>{counts.stopped} {tr("À l'arrêt", 'متوقف')}</span>
               </div>
-              <span className="text-slate-600">|</span>
-              <div className="flex items-center gap-1.5 text-slate-400 font-bold">
-                <span className="w-2 h-2 rounded-full bg-slate-500" />
+              <span className="text-slate-300">|</span>
+              <div className="flex items-center gap-1.5 text-slate-500 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
                 <span>{counts.offline} {tr('Hors ligne', 'غير متصل')}</span>
               </div>
             </div>
           </div>
 
-          {/* Selected Vehicle Floating HUD Inspector */}
+          {/* Selected Vehicle Floating White HUD Inspector */}
           <AnimatePresence>
             {selectedVehicle && (
               <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 30, scale: 0.95 }}
-                className="absolute bottom-4 left-4 right-4 md:right-auto md:w-[420px] z-[900] p-4 rounded-2xl bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 shadow-[0_12px_40px_rgba(0,0,0,0.8)] text-slate-100 space-y-3"
+                className="absolute bottom-4 left-4 right-4 md:right-auto md:w-[420px] z-[900] p-5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200 shadow-2xl text-slate-800 space-y-4"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white shadow-md">
+                    <div className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-600 shadow-xs">
                       <Truck className="w-6 h-6" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-black text-white">{selectedVehicle.plate}</h3>
+                        <h3 className="text-base font-black text-slate-900">{selectedVehicle.plate}</h3>
                         <Badge
                           className={
                             selectedVehicle.moving
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold'
                               : selectedVehicle.online
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                              : 'bg-slate-700 text-slate-300'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 font-bold'
+                              : 'bg-slate-100 text-slate-600 border-slate-200 font-bold'
                           }
                         >
                           {selectedVehicle.moving
@@ -776,37 +776,37 @@ export const LiveMap = () => {
                             : tr('Hors ligne', 'غير متصل')}
                         </Badge>
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{selectedVehicle.name}</p>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">{selectedVehicle.name}</p>
                     </div>
                   </div>
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => setSelectedVehicleId(null)}
-                    className="h-7 w-7 text-slate-400 hover:text-white rounded-lg"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
                   >
                     ✕
                   </Button>
                 </div>
 
                 {/* Telemetry Metrics Grid */}
-                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-center">
+                <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100 text-center">
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase font-semibold">{tr('Vitesse', 'السرعة')}</div>
-                    <div className="text-lg font-black text-sky-400 font-mono">
-                      {Math.round(selectedVehicle.speed)} <span className="text-[10px]">km/h</span>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">{tr('Vitesse', 'السرعة')}</div>
+                    <div className="text-lg font-black text-sky-600 font-mono mt-0.5">
+                      {Math.round(selectedVehicle.speed)} <span className="text-[10px] text-slate-500">km/h</span>
                     </div>
                   </div>
-                  <div className="border-x border-slate-800 px-1">
-                    <div className="text-[10px] text-slate-400 uppercase font-semibold">{tr('Direction', 'الاتجاه')}</div>
-                    <div className="text-lg font-black text-indigo-400 font-mono flex items-center justify-center gap-1">
+                  <div className="border-x border-slate-200 px-1">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">{tr('Direction', 'الاتجاه')}</div>
+                    <div className="text-lg font-black text-indigo-600 font-mono mt-0.5 flex items-center justify-center gap-1">
                       <Compass className="w-4 h-4" style={{ transform: `rotate(${selectedVehicle.heading}deg)` }} />
                       {Math.round(selectedVehicle.heading)}°
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase font-semibold">{tr('Batterie', 'البطارية')}</div>
-                    <div className="text-lg font-black text-emerald-400 font-mono flex items-center justify-center gap-1">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">{tr('Batterie', 'البطارية')}</div>
+                    <div className="text-lg font-black text-emerald-600 font-mono mt-0.5 flex items-center justify-center gap-1">
                       <BatteryCharging className="w-4 h-4" />
                       {selectedVehicle.batteryLevel ?? 95}%
                     </div>
@@ -816,18 +816,20 @@ export const LiveMap = () => {
                 {/* Chauffeur & Contact */}
                 <div className="flex items-center justify-between text-xs px-1">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-slate-400" />
+                    <div className="p-1.5 rounded-lg bg-slate-100 text-slate-600">
+                      <User className="w-4 h-4" />
+                    </div>
                     <div>
-                      <span className="text-slate-400">{tr('Chauffeur:', 'السائق:')} </span>
-                      <strong className="text-slate-200">{selectedVehicle.driverName}</strong>
+                      <span className="text-slate-500">{tr('Chauffeur:', 'السائق:')} </span>
+                      <strong className="text-slate-900 font-bold">{selectedVehicle.driverName}</strong>
                     </div>
                   </div>
                   {selectedVehicle.driverPhone && (
                     <a
                       href={`tel:${selectedVehicle.driverPhone}`}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 font-bold flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
                     >
-                      <Phone className="w-3 h-3" />
+                      <Phone className="w-3.5 h-3.5" />
                       {tr('Appeler', 'اتصال')}
                     </a>
                   )}
@@ -837,43 +839,43 @@ export const LiveMap = () => {
           </AnimatePresence>
         </div>
 
-        {/* Collapsible Sidebar (HUD Fleet Manager) */}
+        {/* Collapsible White Sidebar (Fleet Manager) */}
         <div
-          className={`h-full bg-slate-900/95 backdrop-blur-2xl border-l border-slate-800 transition-all duration-300 z-10 flex flex-col ${
-            sidebarOpen ? 'w-80' : 'w-0 overflow-hidden border-none'
+          className={`h-full bg-white border-l border-slate-200 transition-all duration-300 z-10 flex flex-col ${
+            sidebarOpen ? 'w-84' : 'w-0 overflow-hidden border-none'
           }`}
         >
           {/* Search & Filter Header */}
-          <div className="p-3 border-b border-slate-800 space-y-2.5 flex-shrink-0">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Truck className="w-4 h-4 text-indigo-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Truck className="w-4 h-4 text-indigo-600" />
                 {tr('Flotte en direct', 'الأسطول المباشر')}
               </h3>
-              <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">
+              <Badge variant="outline" className="text-[11px] font-bold border-slate-200 bg-white text-slate-700 px-2 py-0.5">
                 {filteredVehicles.length} / {counts.total}
               </Badge>
             </div>
 
             {/* Search Input */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={tr('Rechercher matricule, chauffeur...', 'بحث برقم اللوحة، السائق...')}
-                className="h-8 pl-8 text-xs bg-slate-950 border-slate-800 text-slate-200"
+                className="h-9 pl-9 text-xs bg-white border-slate-200 text-slate-800 shadow-2xs focus:border-indigo-500 rounded-xl"
               />
             </div>
 
             {/* Filter Pills */}
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-4 gap-1.5">
               <Button
                 size="sm"
                 variant={filterMode === 'all' ? 'default' : 'ghost'}
                 onClick={() => setFilterMode('all')}
-                className={`h-7 text-[11px] font-bold ${
-                  filterMode === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`h-7 text-[11px] font-bold rounded-lg ${
+                  filterMode === 'all' ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs' : 'text-slate-600 hover:bg-white'
                 }`}
               >
                 {tr('Tous', 'الكل')}
@@ -882,8 +884,8 @@ export const LiveMap = () => {
                 size="sm"
                 variant={filterMode === 'moving' ? 'default' : 'ghost'}
                 onClick={() => setFilterMode('moving')}
-                className={`h-7 text-[11px] font-bold ${
-                  filterMode === 'moving' ? 'bg-emerald-600 text-white' : 'text-emerald-400/70 hover:text-emerald-300'
+                className={`h-7 text-[11px] font-bold rounded-lg ${
+                  filterMode === 'moving' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs' : 'text-emerald-700 hover:bg-emerald-50'
                 }`}
               >
                 {tr('Route', 'حركة')}
@@ -892,8 +894,8 @@ export const LiveMap = () => {
                 size="sm"
                 variant={filterMode === 'stopped' ? 'default' : 'ghost'}
                 onClick={() => setFilterMode('stopped')}
-                className={`h-7 text-[11px] font-bold ${
-                  filterMode === 'stopped' ? 'bg-amber-600 text-white' : 'text-amber-400/70 hover:text-amber-300'
+                className={`h-7 text-[11px] font-bold rounded-lg ${
+                  filterMode === 'stopped' ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-2xs' : 'text-amber-700 hover:bg-amber-50'
                 }`}
               >
                 {tr('Arrêt', 'توقف')}
@@ -902,8 +904,8 @@ export const LiveMap = () => {
                 size="sm"
                 variant={filterMode === 'offline' ? 'default' : 'ghost'}
                 onClick={() => setFilterMode('offline')}
-                className={`h-7 text-[11px] font-bold ${
-                  filterMode === 'offline' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'
+                className={`h-7 text-[11px] font-bold rounded-lg ${
+                  filterMode === 'offline' ? 'bg-slate-700 hover:bg-slate-800 text-white shadow-2xs' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
                 {tr('Hors', 'غير')}
@@ -912,8 +914,8 @@ export const LiveMap = () => {
           </div>
 
           {/* Vehicle Cards ScrollArea */}
-          <ScrollArea className="flex-1 p-2">
-            <div className="space-y-1.5">
+          <ScrollArea className="flex-1 p-3">
+            <div className="space-y-2">
               {filteredVehicles.map((vehicle) => {
                 const isSelected = selectedVehicleId === vehicle.id;
                 return (
@@ -921,36 +923,36 @@ export const LiveMap = () => {
                     key={vehicle.id}
                     type="button"
                     onClick={() => setSelectedVehicleId(vehicle.id)}
-                    className={`w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${
+                    className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-2.5 ${
                       isSelected
-                        ? 'bg-indigo-600/20 border-indigo-500/60 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
-                        : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/60 hover:border-slate-700'
+                        ? 'bg-indigo-50/80 border-indigo-400 shadow-md ring-2 ring-indigo-200/50'
+                        : 'bg-white border-slate-200/90 hover:bg-slate-50/80 hover:border-slate-300 shadow-2xs'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        className={`w-3 h-3 rounded-full flex-shrink-0 ${
                           vehicle.moving
-                            ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]'
+                            ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
                             : vehicle.online
-                            ? 'bg-amber-400'
-                            : 'bg-slate-600'
+                            ? 'bg-amber-500'
+                            : 'bg-slate-400'
                         }`}
                       />
                       <div className="min-w-0">
-                        <div className="font-bold text-xs text-white truncate">{vehicle.plate}</div>
-                        <div className="text-[11px] text-slate-400 truncate flex items-center gap-1">
-                          <User className="w-3 h-3" />
+                        <div className="font-black text-xs text-slate-900 truncate">{vehicle.plate}</div>
+                        <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1 mt-0.5">
+                          <User className="w-3 h-3 text-slate-400" />
                           <span>{vehicle.driverName}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <div className="text-xs font-black font-mono text-sky-400">
+                      <div className="text-xs font-black font-mono text-indigo-600">
                         {vehicle.speed > 0 ? `${Math.round(vehicle.speed)} km/h` : tr('STOP', 'متوقف')}
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-slate-400 font-medium mt-0.5">
                         {vehicle.source === 'gpswox' ? '📡 Sat' : '🚗 Sim'}
                       </div>
                     </div>
@@ -959,8 +961,8 @@ export const LiveMap = () => {
               })}
 
               {filteredVehicles.length === 0 && (
-                <div className="py-12 text-center text-slate-500 text-xs">
-                  <Truck className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  <Truck className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                   {tr('Aucun véhicule trouvé', 'لم يتم العثور على مركبات')}
                 </div>
               )}
@@ -968,12 +970,12 @@ export const LiveMap = () => {
           </ScrollArea>
 
           {/* Footer Bar */}
-          <div className="p-2.5 border-t border-slate-800 bg-slate-950 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>{tr('Sync:', 'تحديث:')} {lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : '—'}</span>
+          <div className="p-3 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+            <span>{tr('Sync:', 'تحديث:')} <strong className="text-slate-700">{lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : '—'}</strong></span>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              className="text-indigo-400 hover:text-indigo-300 font-bold"
+              className="text-indigo-600 hover:text-indigo-800 font-bold"
             >
               {tr('Gérer GPS', 'إدارة GPS')}
             </button>
@@ -984,7 +986,7 @@ export const LiveMap = () => {
         <button
           type="button"
           onClick={() => setSidebarOpen((prev) => !prev)}
-          className="absolute top-4 right-0 z-[900] h-8 w-6 bg-slate-900 border-y border-l border-slate-700 rounded-l-md text-slate-300 hover:text-white flex items-center justify-center shadow-lg"
+          className="absolute top-4 right-0 z-[900] h-8 w-6 bg-white border-y border-l border-slate-200 rounded-l-md text-slate-600 hover:text-slate-900 flex items-center justify-center shadow-md"
           title={sidebarOpen ? tr('Masquer le panneau', 'إخفاء القائمة') : tr('Afficher le panneau', 'عرض القائمة')}
         >
           {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -993,13 +995,13 @@ export const LiveMap = () => {
 
       {/* GPSwox Configuration Modal */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-md bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-md bg-white border border-slate-200 text-slate-900 shadow-2xl rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-black text-white">
-              <Radio className="w-5 h-5 text-indigo-400" />
+            <DialogTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
+              <Radio className="w-5 h-5 text-indigo-600" />
               {tr('Configuration Serveur GPSwox', 'إعدادات خادم GPSwox')}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
+            <DialogDescription className="text-xs text-slate-500 font-medium">
               {tr(
                 'Entrez les identifiants de votre instance GPSwox pour activer la télémétrie satellite en temps réel.',
                 'أدخل بيانات اعتماد خادم GPSwox لتفعيل التتبع المباشر بالأقمار الصناعية.'
@@ -1009,38 +1011,38 @@ export const LiveMap = () => {
 
           <div className="space-y-3.5 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-300">{tr('URL API GPSwox', 'رابط خادم GPSwox')}</Label>
+              <Label className="text-xs font-bold text-slate-700">{tr('URL API GPSwox', 'رابط خادم GPSwox')}</Label>
               <Input
                 value={gpswoxUrl}
                 onChange={(e) => setGpswoxUrl(e.target.value)}
                 placeholder="https://gps.sftgaz.com ou https://api.gpswox.com"
-                className="h-9 text-xs bg-slate-950 border-slate-800 text-slate-100"
+                className="h-9 text-xs bg-white border-slate-200 text-slate-900 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-300">{tr('Email / Identifiant', 'البريد / اسم المستخدم')}</Label>
+              <Label className="text-xs font-bold text-slate-700">{tr('Email / Identifiant', 'البريد / اسم المستخدم')}</Label>
               <Input
                 value={gpswoxEmail}
                 onChange={(e) => setGpswoxEmail(e.target.value)}
                 placeholder="admin@sftgaz.com"
-                className="h-9 text-xs bg-slate-950 border-slate-800 text-slate-100"
+                className="h-9 text-xs bg-white border-slate-200 text-slate-900 rounded-xl"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-300">{tr('Mot de passe / Clé API', 'كلمة المرور / المفتاح السري')}</Label>
+              <Label className="text-xs font-bold text-slate-700">{tr('Mot de passe / Clé API', 'كلمة المرور / المفتاح السري')}</Label>
               <Input
                 type="password"
                 value={gpswoxPassword}
                 onChange={(e) => setGpswoxPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="h-9 text-xs bg-slate-950 border-slate-800 text-slate-100"
+                className="h-9 text-xs bg-white border-slate-200 text-slate-900 rounded-xl"
               />
             </div>
 
-            <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-indigo-200 flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-800 flex items-start gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
               <span>
                 {tr(
                   "En l'absence de serveur GPSwox actif, le système utilise automatiquement la flotte réelle enregistrée dans l'application avec simulation dynamique des trajets.",
@@ -1052,16 +1054,16 @@ export const LiveMap = () => {
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => setSettingsOpen(false)}
-              className="text-xs text-slate-400 hover:text-white"
+              className="text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50"
             >
               {tr('Annuler', 'إلغاء')}
             </Button>
             <Button
               onClick={handleSaveSettings}
               disabled={isSavingSettings}
-              className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white"
+              className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {isSavingSettings ? tr('Connexion...', 'جارٍ الحفظ...') : tr('Enregistrer & Connecter', 'حفظ واتصال')}
             </Button>
