@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
-import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Minus, Package2, ChevronDown, ChevronUp, History, Trash2, RefreshCw } from 'lucide-react';
+import { Package, Edit, TrendingDown, TrendingUp, Eye, EyeOff, Archive, Truck, PackageCheck, AlertTriangle, Plus, Minus, Package2, ChevronDown, ChevronUp, History, Trash2, RefreshCw, HelpCircle } from 'lucide-react';
 import { AddBottleTypeDialog } from '@/components/dialogs/AddBottleTypeDialog';
 import { EditBottleTypeDialog } from '@/components/dialogs/EditBottleTypeDialog';
 import { BottleHistoryDialog } from '@/components/dialogs/BottleHistoryDialog';
+import { InventoryFeatureHelpDialog, InventoryHelpTab } from '@/components/dialogs/InventoryFeatureHelpDialog';
 import { BottleType } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AddEmptyStockDialog } from '@/components/dialogs/AddEmptyStockDialog';
@@ -170,6 +171,13 @@ const Inventory = () => {
   const [selectedDefectiveBottleType, setSelectedDefectiveBottleType] = useState<BottleType | null>(null);
   const [emptyStockDialogOpen, setEmptyStockDialogOpen] = useState(false);
   const [defectiveStockDialogOpen, setDefectiveStockDialogOpen] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+  const [helpDialogTab, setHelpDialogTab] = useState<InventoryHelpTab>('mission');
+
+  const openHelpFor = (tab: InventoryHelpTab) => {
+    setHelpDialogTab(tab);
+    setHelpDialogOpen(true);
+  };
   const [impactPanelVisible, setImpactPanelVisible] = useState(true);
   const [impactView, setImpactView] = useState<'today' | 'last7days'>('today');
   const [showEmpty, setShowEmpty] = useState(true);
@@ -1478,7 +1486,19 @@ const Inventory = () => {
                   <Archive className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-slate-900">{t('inventory.mission.title', 'Mission Control Inventory')}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900">{t('inventory.mission.title', 'Mission Control Inventory')}</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      type="button"
+                      onClick={() => openHelpFor('mission')}
+                      className="h-6 w-6 rounded-full text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 p-0"
+                      title={t('inventory.help.tooltip', 'Comprendre cette fonctionnalité')}
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                    </Button>
+                  </div>
                   <p className="text-xs text-slate-500">{t('inventory.mission.subtitle', 'Tri tactique des références selon risque de rupture')}</p>
                 </div>
               </div>
@@ -1531,7 +1551,19 @@ const Inventory = () => {
           <CardContent className="p-5 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">{t('inventory.autopilot.title', 'Stock Autopilot')}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">{t('inventory.autopilot.title', 'Stock Autopilot')}</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    type="button"
+                    onClick={() => openHelpFor('autopilot')}
+                    className="h-6 w-6 rounded-full text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 p-0"
+                    title={t('inventory.help.tooltip', 'Comprendre cette fonctionnalité')}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
                 <p className="text-xs text-slate-500">{t('inventory.autopilot.subtitle', 'Presets rapides pour piloter les priorités')}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setShowStockAutopilot((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
@@ -1611,7 +1643,19 @@ const Inventory = () => {
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <h3 className="text-base font-black text-slate-900">{t('inventory.forecast.title', 'Rupture Forecaster')}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">{t('inventory.forecast.title', 'Rupture Forecaster')}</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    type="button"
+                    onClick={() => openHelpFor('planner')}
+                    className="h-6 w-6 rounded-full text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 p-0"
+                    title={t('inventory.help.tooltip', 'Comprendre cette fonctionnalité')}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
                 <p className="text-xs text-slate-500">{t('inventory.forecast.subtitle', 'Projection par référence et priorité de réapprovisionnement')}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1670,7 +1714,19 @@ const Inventory = () => {
           <CardContent className="p-5 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">{t('inventory.planner.title', 'Replenishment Planner')}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900">{t('inventory.planner.title', 'Replenishment Planner')}</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    type="button"
+                    onClick={() => openHelpFor('planner')}
+                    className="h-6 w-6 rounded-full text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 p-0"
+                    title={t('inventory.help.tooltip', 'Comprendre cette fonctionnalité')}
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
                 <p className="text-xs text-slate-500">{t('inventory.planner.objective', 'Objectif global de recharge sur')} {replenishmentHorizon} {t('inventory.common.days', 'jours')}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={() => setShowReplenishmentPlanner((v) => !v)} className="text-slate-600 hover:text-indigo-600 font-bold">
@@ -3134,6 +3190,13 @@ const Inventory = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Feature Guide & Help Modal */}
+      <InventoryFeatureHelpDialog
+        open={helpDialogOpen}
+        onOpenChange={setHelpDialogOpen}
+        defaultTab={helpDialogTab}
+      />
     </div>
   );
 };

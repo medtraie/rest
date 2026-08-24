@@ -615,9 +615,14 @@
       "estimatedShortage": "Manque estimé",
       "unitsToThreshold": "unités pour revenir au seuil critique configuré."
     },
+    "help": {
+      "tooltip": "Comprendre cette fonctionnalité",
+      "guideTitle": "Guide & Fonctionnalités Intelligentes du Stock",
+      "guideSubtitle": "Comprendre les algorithmes de pilotage, triage et réapprovisionnement automatique."
+    },
     "mission": {
-      "title": "Mission Control Inventory",
-      "subtitle": "Tri tactique des références selon risque de rupture",
+      "title": "Centre de Commande (Mission Control)",
+      "subtitle": "Triage tactique des références selon risque de rupture et autonomie",
       "intervention": "Intervention",
       "watch": "Surveillance",
       "stable": "Stable",
@@ -664,21 +669,21 @@
       "subtitle": "Intensité journalière des mouvements et focus rapide"
     },
     "forecast": {
-      "title": "Rupture Forecaster",
-      "subtitle": "Projection par référence et priorité de réapprovisionnement",
+      "title": "Prévision de Rupture (Forecaster)",
+      "subtitle": "Projection de consommation par référence et risque de rupture",
       "autonomy": "Autonomie",
       "drainPerDay": "Drain/j",
-      "refill": "Refill",
+      "refill": "Recharge",
       "risk": {
         "urgent": "Urgent",
-        "watch": "Watch",
+        "watch": "À surveiller",
         "stable": "Stable"
       }
     },
     "planner": {
-      "title": "Replenishment Planner",
-      "objective": "Objectif global de recharge sur",
-      "refillRecommended": "Refill recommandé",
+      "title": "Planificateur de Recharge (Replenishment Planner)",
+      "objective": "Objectif global de réapprovisionnement usine sur",
+      "refillRecommended": "Recharge recommandée",
       "focusGlobalPlan": "Focus plan global"
     },
     "driverHeatmap": {
@@ -821,16 +826,16 @@
       "description": "Toutes les données associées à ce type seront définitivement supprimées."
     },
     "autopilot": {
-      "title": "Stock Autopilot",
-      "subtitle": "Presets rapides pour piloter les priorités",
-      "defenseMode": "Mode Défense",
-      "rotationMode": "Mode Rotation",
-      "balanceMode": "Mode Équilibre",
+      "title": "Pilote Automatique (Stock Autopilot)",
+      "subtitle": "Presets stratégiques pour reconfigurer les priorités d'un clic",
+      "defenseMode": "Mode Défense (Priorité Achats)",
+      "rotationMode": "Mode Rotation (Priorité Terrain)",
+      "balanceMode": "Mode Équilibre (Vision Globale)",
       "activeControl": "Pilotage actif",
-      "defenseHint": "Renforcer les références critiques",
-      "rotationHint": "Accélérer la récupération terrain",
-      "balanceHint": "Vision globale stabilisée",
-      "manualHint": "Ajustement manuel en cours"
+      "defenseHint": "Renforcer les références critiques & commandes usine",
+      "rotationHint": "Accélérer la récupération des emballages vides",
+      "balanceHint": "Vision globale stabilisée du dépôt",
+      "manualHint": "Ajustement manuel personnalisé"
     }
   },
   "factory": {
