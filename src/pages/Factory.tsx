@@ -34,6 +34,12 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  RotateCcw,
+  SlidersHorizontal,
+  CalendarDays,
   Zap,
   FileText
 } from 'lucide-react';
@@ -672,10 +678,11 @@ const Factory = () => {
       doc.text(tf('operationsHistoryTitle', 'HISTORIQUE DES OPÉRATIONS USINE'), 210 - 14, 25, { align: 'right' });
 
       // Stats Summary before table
-      const totalOps = factoryOperations.length;
-      const finishedOps = factoryOperations.filter(op => (op.receivedBottles || []).length > 0).length;
-      const totalSent_ = factoryOperations.reduce((sum, op) => sum + (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0), 0);
-      const totalReceived_ = factoryOperations.reduce((sum, op) => sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0), 0);
+      const opsToExport = filteredFactoryOperations.length > 0 ? filteredFactoryOperations : factoryOperations;
+      const totalOps = opsToExport.length;
+      const finishedOps = opsToExport.filter(op => (op.receivedBottles || []).length > 0).length;
+      const totalSent_ = opsToExport.reduce((sum, op) => sum + (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0), 0);
+      const totalReceived_ = opsToExport.reduce((sum, op) => sum + (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0), 0);
 
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(14, 45, 182, 20, 1, 1, 'F');
@@ -699,7 +706,7 @@ const Factory = () => {
       autoTable(doc, {
         startY: 75,
         head: [[tf('date', 'Date'), tf('driver', 'Chauffeur'), tf('sent', 'Envoyé'), tf('received', 'Reçu'), tf('amount', 'Montant'), tf('status', 'Statut'), tf('debtDiff', 'Dette/Diff.')]],
-        body: factoryOperations.map(op => {
+        body: opsToExport.map(op => {
           const sent = (op.sentBottles || []).reduce((s, b) => s + b.quantity, 0);
           const received = (op.receivedBottles || []).reduce((s, b) => s + b.quantity, 0);
           const isFinished = (op.receivedBottles || []).length > 0;
@@ -813,6 +820,15 @@ const Factory = () => {
   const [commandCenterLane, setCommandCenterLane] = useState<'all' | 'pending' | 'received'>('all');
   const [commandCenterSearch, setCommandCenterSearch] = useState('');
   const [commandCenterSort, setCommandCenterSort] = useState<'priority' | 'recent'>('priority');
+  const [operationsStatusFilter, setOperationsStatusFilter] = useState<'all' | 'finished' | 'pending'>('all');
+  const [operationsDriverFilter, setOperationsDriverFilter] = useState<string>('all');
+  const [operationsSupplierFilter, setOperationsSupplierFilter] = useState<string>('all');
+  const [operationsDatePeriod, setOperationsDatePeriod] = useState<'all' | 'today' | 'this_month' | 'last_30_days' | 'custom'>('all');
+  const [operationsDateFrom, setOperationsDateFrom] = useState<string>('');
+  const [operationsDateTo, setOperationsDateTo] = useState<string>('');
+  const [operationsPage, setOperationsPage] = useState<number>(1);
+  const [operationsPageSize, setOperationsPageSize] = useState<number>(50);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
   const [pendingPriorityOrder, setPendingPriorityOrder] = useState<string[]>([]);
   const [commandCenterMounted, setCommandCenterMounted] = useState(false);
   const [historySectionMounted, setHistorySectionMounted] = useState(false);
@@ -1267,22 +1283,136 @@ const Factory = () => {
     return [...grouped, ...standalone].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [needsInvoiceData, invoices, factoryOperations, factoryOperationSummaryById]);
   const historySearchValue = commandCenterSearch.trim().toLowerCase();
+
+  const availableOperationDrivers = useMemo(() => {
+    const set = new Set<string>();
+    factoryOperations.forEach((op) => {
+      if (op.driverName && op.driverName.trim()) set.add(op.driverName.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [factoryOperations]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (operationsStatusFilter !== 'all') count++;
+    if (operationsDriverFilter !== 'all') count++;
+    if (operationsSupplierFilter !== 'all') count++;
+    if (operationsDateFrom || operationsDateTo || operationsDatePeriod !== 'all') count++;
+    if (commandCenterSearch.trim()) count++;
+    return count;
+  }, [operationsStatusFilter, operationsDriverFilter, operationsSupplierFilter, operationsDateFrom, operationsDateTo, operationsDatePeriod, commandCenterSearch]);
+
+  const resetAllOperationFilters = () => {
+    setOperationsStatusFilter('all');
+    setOperationsDriverFilter('all');
+    setOperationsSupplierFilter('all');
+    setOperationsDatePeriod('all');
+    setOperationsDateFrom('');
+    setOperationsDateTo('');
+    setCommandCenterSearch('');
+    setOperationsPage(1);
+  };
+
+  const handleDatePeriodChange = (period: 'all' | 'today' | 'this_month' | 'last_30_days' | 'custom') => {
+    setOperationsDatePeriod(period);
+    setOperationsPage(1);
+    const now = new Date();
+    if (period === 'all') {
+      setOperationsDateFrom('');
+      setOperationsDateTo('');
+    } else if (period === 'today') {
+      const todayStr = format(now, 'yyyy-MM-dd');
+      setOperationsDateFrom(todayStr);
+      setOperationsDateTo(todayStr);
+    } else if (period === 'this_month') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      setOperationsDateFrom(format(firstDay, 'yyyy-MM-dd'));
+      setOperationsDateTo(format(now, 'yyyy-MM-dd'));
+    } else if (period === 'last_30_days') {
+      const past30 = new Date(now);
+      past30.setDate(now.getDate() - 30);
+      setOperationsDateFrom(format(past30, 'yyyy-MM-dd'));
+      setOperationsDateTo(format(now, 'yyyy-MM-dd'));
+    }
+  };
+
+  const sortedFactoryOperations = useMemo(() => {
+    return [...factoryOperations].sort((a, b) => {
+      const timeA = new Date(a.date).getTime() || 0;
+      const timeB = new Date(b.date).getTime() || 0;
+      if (timeB !== timeA) return timeB - timeA; // Latest date first
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+  }, [factoryOperations]);
+
   const filteredFactoryOperations = useMemo(() => {
     if (!historySectionMounted) return [] as FactoryOperation[];
-    const base = factoryOperations.slice().reverse();
-    if (!historySearchValue) return base;
-    return base.filter((operation) => {
-      const supplierName = suppliersById.get(String(operation.supplierId || ''))?.name || '';
-      const haystack = [
-        operation.driverName,
-        operation.blReference || '',
-        supplierName,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(historySearchValue);
+    return sortedFactoryOperations.filter((operation) => {
+      // 1. Text Search
+      if (historySearchValue) {
+        const supplierName = suppliersById.get(String(operation.supplierId || ''))?.name || '';
+        const haystack = [
+          operation.driverName || '',
+          operation.blReference || '',
+          supplierName,
+          operation.id || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(historySearchValue)) return false;
+      }
+
+      // 2. Status Filter
+      const isPending = (operation.receivedBottles || []).length === 0;
+      if (operationsStatusFilter === 'finished' && isPending) return false;
+      if (operationsStatusFilter === 'pending' && !isPending) return false;
+
+      // 3. Driver Filter
+      if (operationsDriverFilter !== 'all' && (operation.driverName || '').trim() !== operationsDriverFilter) {
+        return false;
+      }
+
+      // 4. Supplier Filter
+      if (operationsSupplierFilter !== 'all' && String(operation.supplierId || '') !== operationsSupplierFilter) {
+        return false;
+      }
+
+      // 5. Date Range Filter
+      const opDate = new Date(operation.date);
+      if (!isNaN(opDate.getTime())) {
+        if (operationsDateFrom) {
+          const from = new Date(operationsDateFrom);
+          from.setHours(0, 0, 0, 0);
+          if (opDate < from) return false;
+        }
+        if (operationsDateTo) {
+          const to = new Date(operationsDateTo);
+          to.setHours(23, 59, 59, 999);
+          if (opDate > to) return false;
+        }
+      }
+
+      return true;
     });
-  }, [historySectionMounted, factoryOperations, suppliersById, historySearchValue]);
+  }, [
+    historySectionMounted,
+    sortedFactoryOperations,
+    suppliersById,
+    historySearchValue,
+    operationsStatusFilter,
+    operationsDriverFilter,
+    operationsSupplierFilter,
+    operationsDateFrom,
+    operationsDateTo,
+  ]);
+
+  const totalOperationsPages = Math.ceil(filteredFactoryOperations.length / operationsPageSize) || 1;
+  const safeOperationsPage = Math.min(Math.max(1, operationsPage), totalOperationsPages);
+
+  const paginatedOperations = useMemo(() => {
+    const start = (safeOperationsPage - 1) * operationsPageSize;
+    return filteredFactoryOperations.slice(start, start + operationsPageSize);
+  }, [filteredFactoryOperations, safeOperationsPage, operationsPageSize]);
   const filteredDebtSettlements = useMemo(() => {
     if (!historySectionMounted) return [] as DebtSettlement[];
     if (!historySearchValue) return debtSettlements;
@@ -3679,6 +3809,25 @@ const Factory = () => {
                     className="pl-10 h-11 bg-slate-50 border-none rounded-xl focus-visible:ring-2 focus-visible:ring-slate-900/10 transition-all text-left"
                   />
                 </div>
+                {historyTab === 'operations' && (
+                  <Button 
+                    variant={showAdvancedFilters || activeFiltersCount > 0 ? 'default' : 'outline'} 
+                    onClick={() => setShowAdvancedFilters((v) => !v)}
+                    className={`h-11 px-4 rounded-xl font-bold transition-all ${
+                      showAdvancedFilters || activeFiltersCount > 0 
+                        ? 'bg-slate-900 text-white shadow-md' 
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    <Filter className="w-4 h-4 mr-2" />
+                    {tr('Filtres avancés', 'فلاتر متقدمة')}
+                    {activeFiltersCount > 0 && (
+                      <Badge className="ml-2 bg-indigo-500 hover:bg-indigo-500 text-white font-black text-[10px] px-1.5 py-0.5 rounded-full">
+                        {activeFiltersCount}
+                      </Badge>
+                    )}
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={exportOperationsPDF}
@@ -3691,8 +3840,129 @@ const Factory = () => {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            {historyTab === 'operations' && (
+              <div className="border-b border-slate-100 bg-slate-50/60 p-4 sm:p-5 space-y-3.5">
+                {/* Quick Period Buttons & Counter */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-black text-slate-500 uppercase tracking-wide mr-1 flex items-center gap-1">
+                      <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                      {tr('Période :', 'الفترة :')}
+                    </span>
+                    {[
+                      { key: 'all', label: tr('Tout', 'الكل') },
+                      { key: 'today', label: tr("Aujourd'hui", 'اليوم') },
+                      { key: 'this_month', label: tr('Ce mois', 'هذا الشهر') },
+                      { key: 'last_30_days', label: tr('30 derniers jours', 'آخر 30 يوماً') },
+                    ].map((p) => (
+                      <Button
+                        key={p.key}
+                        type="button"
+                        size="sm"
+                        variant={operationsDatePeriod === p.key ? 'default' : 'outline'}
+                        onClick={() => handleDatePeriodChange(p.key as any)}
+                        className={`h-8 px-3 rounded-lg text-xs font-bold transition-all ${
+                          operationsDatePeriod === p.key
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {p.label}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-white text-slate-700 font-bold border-slate-200 py-1 px-3">
+                      {tr(
+                        `${filteredFactoryOperations.length} opération${filteredFactoryOperations.length > 1 ? 's' : ''}`,
+                        `${filteredFactoryOperations.length} عملية`
+                      )}
+                    </Badge>
+
+                    {activeFiltersCount > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={resetAllOperationFilters}
+                        className="h-8 px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold rounded-lg"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                        {tr('Réinitialiser', 'إعادة ضبط')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Advanced Filter Inputs Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  {/* Status Filter */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase">{tr('Statut', 'الحالة')}</Label>
+                    <Select value={operationsStatusFilter} onValueChange={(val: any) => { setOperationsStatusFilter(val); setOperationsPage(1); }}>
+                      <SelectTrigger className="h-9 bg-white border-slate-200 rounded-xl text-xs font-bold">
+                        <SelectValue placeholder={tr('Tous les statuts', 'جميع الحالات')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{tr('Tous les statuts', 'جميع الحالات')}</SelectItem>
+                        <SelectItem value="finished">{tr('Terminée (Reçue)', 'مكتملة (مستلمة)')}</SelectItem>
+                        <SelectItem value="pending">{tr('En attente (Non reçue)', 'قيد الانتظار')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Driver Filter */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase">{tr('Chauffeur', 'السائق')}</Label>
+                    <Select value={operationsDriverFilter} onValueChange={(val: string) => { setOperationsDriverFilter(val); setOperationsPage(1); }}>
+                      <SelectTrigger className="h-9 bg-white border-slate-200 rounded-xl text-xs font-bold">
+                        <SelectValue placeholder={tr('Tous les chauffeurs', 'جميع السائقين')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{tr('Tous les chauffeurs', 'جميع السائقين')}</SelectItem>
+                        {availableOperationDrivers.map((driver) => (
+                          <SelectItem key={driver} value={driver}>{driver}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date From */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase">{tr('Date début', 'من تاريخ')}</Label>
+                    <Input
+                      type="date"
+                      value={operationsDateFrom}
+                      onChange={(e) => {
+                        setOperationsDateFrom(e.target.value);
+                        setOperationsDatePeriod('custom');
+                        setOperationsPage(1);
+                      }}
+                      className="h-9 bg-white border-slate-200 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+
+                  {/* Date To */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-bold text-slate-500 uppercase">{tr('Date fin', 'إلى تاريخ')}</Label>
+                    <Input
+                      type="date"
+                      value={operationsDateTo}
+                      onChange={(e) => {
+                        setOperationsDateTo(e.target.value);
+                        setOperationsDatePeriod('custom');
+                        setOperationsPage(1);
+                      }}
+                      className="h-9 bg-white border-slate-200 rounded-xl text-xs font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               {historyTab === 'operations' ? (
+                <>
                 <Table className="reports-table-ultra">
                   <TableHeader>
                   <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 border-b border-slate-100">
@@ -3710,8 +3980,8 @@ const Factory = () => {
                 </TableHeader>
                 <TableBody>
                   <AnimatePresence mode="popLayout">
-                    {filteredFactoryOperations.length > 0 ? (
-                      filteredFactoryOperations.map((operation, idx) => {
+                    {paginatedOperations.length > 0 ? (
+                      paginatedOperations.map((operation, idx) => {
                         const operationSummary = factoryOperationSummaryById.get(String(operation.id));
                         const totalSentOp = operationSummary?.totalSent || 0;
                         const totalReceivedOp = operationSummary?.totalReceived || 0;
@@ -3937,6 +4207,98 @@ const Factory = () => {
                   </AnimatePresence>
                 </TableBody>
               </Table>
+              {filteredFactoryOperations.length > 0 && (
+                <div className="p-4 bg-slate-50/70 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-slate-500 font-medium">
+                    {tr(
+                      `Affichage de ${((safeOperationsPage - 1) * operationsPageSize) + 1} à ${Math.min(safeOperationsPage * operationsPageSize, filteredFactoryOperations.length)} sur ${filteredFactoryOperations.length} opérations`,
+                      `عرض ${((safeOperationsPage - 1) * operationsPageSize) + 1} إلى ${Math.min(safeOperationsPage * operationsPageSize, filteredFactoryOperations.length)} من أصل ${filteredFactoryOperations.length} عملية`
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                    {/* Page Size Selector */}
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <span className="text-[11px] text-slate-400 font-bold uppercase">{tr('Lignes :', 'السطور :')}</span>
+                      <Select
+                        value={String(operationsPageSize)}
+                        onValueChange={(val) => {
+                          setOperationsPageSize(Number(val));
+                          setOperationsPage(1);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-20 bg-white border-slate-200 text-xs font-bold rounded-lg">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Prev button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safeOperationsPage <= 1}
+                      onClick={() => setOperationsPage((p) => Math.max(1, p - 1))}
+                      className="h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold disabled:opacity-40"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+                      {tr('Précédent', 'السابق')}
+                    </Button>
+
+                    {/* Page numbers */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalOperationsPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalOperationsPages || Math.abs(p - safeOperationsPage) <= 1)
+                        .reduce<(number | string)[]>((acc, p, index, arr) => {
+                          if (index > 0 && p - (arr[index - 1] as number) > 1) {
+                            acc.push(`dots-${p}`);
+                          }
+                          acc.push(p);
+                          return acc;
+                        }, [])
+                        .map((item) => {
+                          if (typeof item === 'string') {
+                            return <span key={item} className="px-1 text-xs text-slate-400 font-bold">...</span>;
+                          }
+                          const isCurrent = item === safeOperationsPage;
+                          return (
+                            <Button
+                              key={`page-${item}`}
+                              variant={isCurrent ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setOperationsPage(item)}
+                              className={`h-8 w-8 p-0 rounded-lg text-xs font-bold transition-all ${
+                                isCurrent 
+                                  ? 'bg-slate-900 text-white shadow-sm' 
+                                  : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {item}
+                            </Button>
+                          );
+                        })}
+                    </div>
+
+                    {/* Next button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safeOperationsPage >= totalOperationsPages}
+                      onClick={() => setOperationsPage((p) => Math.min(totalOperationsPages, p + 1))}
+                      className="h-8 px-3 rounded-lg border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold disabled:opacity-40"
+                    >
+                      {tr('Suivant', 'التالي')}
+                      <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              </>
               ) : historyTab === 'settlements' ? (
                 <Table className="reports-table-ultra">
                   <TableHeader>
