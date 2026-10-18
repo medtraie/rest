@@ -1085,31 +1085,49 @@ export const RecordReturnDialog: React.FC<RecordReturnDialogProps> = ({ open, on
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {items.map((item, index) => (
-                          <TableRow key={item.bottleTypeId} className="hover:bg-slate-50/50 transition-colors">
-                            <TableCell className="font-semibold text-slate-700">{item.bottleTypeName}</TableCell>
-                            <TableCell className="bg-blue-50/20"><Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-blue-100" placeholder="0" /></TableCell>
-                            <TableCell className="bg-green-50/20"><Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-green-100" placeholder="0" /></TableCell>
-                            <TableCell className="bg-orange-50/20"><Input type="number" value={item.consigneQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'consigneQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-orange-100" placeholder="0" /></TableCell>
-                            <TableCell className="bg-purple-50/20">
-                              <div className="flex items-center justify-center gap-2">
-                                <span className="font-bold text-purple-700">{item.foreignQuantity || 0}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-600 hover:bg-purple-50" onClick={() => openForeignBottlesModal(index)}><Plus className="h-3 w-3" /></Button>
-                              </div>
-                            </TableCell>
-                            <TableCell className="bg-red-50/20">
-                              <div className="flex flex-col gap-1">
-                                <Input type="number" value={item.defectiveQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'defectiveQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="Déf" />
-                                <Input type="number" value={item.lostQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'lostQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="RC" />
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${(item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity) === item.fullQuantity ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                {item.returnedEmptyQuantity + item.consigneQuantity + item.returnedFullQuantity + item.defectiveQuantity} / {item.fullQuantity}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {items.map((item, index) => {
+                          const totalRetour =
+                            (Number(item.returnedEmptyQuantity) || 0) +
+                            (Number(item.returnedFullQuantity) || 0) +
+                            (Number(item.consigneQuantity) || 0) +
+                            (Number(item.foreignQuantity) || 0) +
+                            (Number(item.defectiveQuantity) || 0) +
+                            (Number(item.lostQuantity) || 0);
+                          const totalSorti = Number(item.fullQuantity) || 0;
+
+                          let badgeColor = 'bg-emerald-100 text-emerald-700 border-emerald-300';
+                          if (totalRetour < totalSorti) {
+                            badgeColor = 'bg-red-100 text-red-700 border-red-300';
+                          } else if (totalRetour > totalSorti) {
+                            badgeColor = 'bg-orange-100 text-orange-700 border-orange-300';
+                          }
+
+                          return (
+                            <TableRow key={item.bottleTypeId} className="hover:bg-slate-50/50 transition-colors">
+                              <TableCell className="font-semibold text-slate-700">{item.bottleTypeName}</TableCell>
+                              <TableCell className="bg-blue-50/20"><Input type="number" value={item.returnedEmptyQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedEmptyQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-blue-100" placeholder="0" /></TableCell>
+                              <TableCell className="bg-green-50/20"><Input type="number" value={item.returnedFullQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'returnedFullQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-green-100" placeholder="0" /></TableCell>
+                              <TableCell className="bg-orange-50/20"><Input type="number" value={item.consigneQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'consigneQuantity', e.target.value)} className="w-20 mx-auto text-center font-bold border-orange-100" placeholder="0" /></TableCell>
+                              <TableCell className="bg-purple-50/20">
+                                <div className="flex items-center justify-center gap-2">
+                                  <span className="font-bold text-purple-700">{item.foreignQuantity || 0}</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-purple-400 hover:text-purple-600 hover:bg-purple-50" onClick={() => openForeignBottlesModal(index)}><Plus className="h-3 w-3" /></Button>
+                                </div>
+                              </TableCell>
+                              <TableCell className="bg-red-50/20">
+                                <div className="flex flex-col gap-1">
+                                  <Input type="number" value={item.defectiveQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'defectiveQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="Déf" />
+                                  <Input type="number" value={item.lostQuantity || ''} onChange={(e) => handleQuantityChange(item.bottleTypeId, 'lostQuantity', e.target.value)} className="w-20 mx-auto text-center h-7 text-xs border-red-100" placeholder="RC" />
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className={`text-[11px] font-bold px-2.5 py-1 rounded-full border inline-block ${badgeColor}`}>
+                                  {totalRetour} / {totalSorti}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
