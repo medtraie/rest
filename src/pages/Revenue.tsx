@@ -1,6 +1,6 @@
 
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApp } from '@/contexts/AppContext';
 import { useT } from '@/contexts/LanguageContext';
+import { supabaseService } from '@/lib/supabaseService';
 import { toast } from 'sonner';
 import { 
   Download, 
@@ -247,6 +248,26 @@ function Revenue() {
   const [whatIfHorizon, setWhatIfHorizon] = useState<'15' | '30' | '60'>('30');
   const [anomalyMode, setAnomalyMode] = useState<'all' | 'positive' | 'negative'>('all');
   const [activeTab, setActiveTab] = useState<'gestion' | 'historique'>('gestion');
+  const [factoryInvoices, setFactoryInvoices] = useState<any[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadInvoices = async () => {
+      try {
+        const rows = await supabaseService.getAll<any>('factory_invoices');
+        if (active && Array.isArray(rows)) {
+          setFactoryInvoices(rows);
+        }
+      } catch (err) {
+        console.error('Failed to load factory_invoices in Revenue:', err);
+      }
+    };
+    loadInvoices();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const normalizeAccountText = (value: string) => String(value || '').trim().toLowerCase();
   const supplierBankProfiles = useMemo(
     () =>
@@ -254,9 +275,9 @@ function Revenue() {
         .map((s: any) => ({
           id: String(s?.id || ''),
           name: String(s?.name || '').trim(),
-          bankAccountName: String(s?.bankAccountName || '').trim(),
+          bankAccountName: String(s?.bankAccountName || s?.name || '').trim(),
         }))
-        .filter((s) => s.id && s.bankAccountName),
+        .filter((s) => s.id && (s.bankAccountName || s.name)),
     [suppliers]
   );
   const supplierBankAccounts = useMemo(() => {
@@ -274,25 +295,49 @@ function Revenue() {
     () =>
       supplierBankProfiles
         .map((supplier) => {
-          const target = normalizeAccountText(supplier.bankAccountName);
+          const targetBank = normalizeAccountText(supplier.bankAccountName);
+          const targetName = normalizeAccountText(supplier.name);
+          const supplierId = String(supplier.id);
+
+          const matchesSupplier = (accountDetails?: string, text?: string) => {
+            const acc = normalizeAccountText(accountDetails);
+            const desc = normalizeAccountText(text);
+            if (targetBank && acc === targetBank) return true;
+            if (targetName && acc === targetName) return true;
+            if (targetBank && desc.includes(targetBank)) return true;
+            if (targetName && desc.includes(targetName)) return true;
+            return false;
+          };
+
           const seenIds = new Set<string>();
+          const seenInvoiceIds = new Set<string>();
           let totalIn = 0;
           let totalOut = 0;
           let movementCount = 0;
 
+          // 1. Opérations Cash / Banque
           (cashOperations || []).forEach((op: any) => {
             const status = String(op?.status || '');
             if (status !== 'pending' && status !== 'validated') return;
             if (normalizeAccountText(String(op?.accountAffected || '')) !== 'banque') return;
-            if (normalizeAccountText(String(op?.accountDetails || '')) !== target) return;
+            const isMatch = matchesSupplier(op?.accountDetails, op?.name);
+            if (!isMatch) return;
             const amount = Math.abs(Number(op?.amount) || 0);
             if (!amount) return;
             seenIds.add(String(op?.id ?? ''));
             movementCount += 1;
+
+            const opName = String(op?.name || '');
+            const invMatch = opName.match(/INV-[\w-]+/);
+            if (invMatch) {
+              seenInvoiceIds.add(invMatch[0]);
+            }
+
             if (String(op?.type || '') === 'versement') totalIn += amount;
             else totalOut += amount;
           });
 
+          // 2. Transferts bancaires
           (bankTransfers || []).forEach((transfer: any) => {
             const status = String(transfer?.status || '');
             if (status !== 'pending' && status !== 'validated') return;
@@ -303,8 +348,8 @@ function Revenue() {
             if (!amount || (source !== 'banque' && destination !== 'banque')) return;
             const sourceSupplierBank = normalizeAccountText(inferred.sourceSupplierBank);
             const destinationSupplierBank = normalizeAccountText(inferred.destinationSupplierBank);
-            const matchesSource = !!sourceSupplierBank && sourceSupplierBank === target;
-            const matchesDestination = !!destinationSupplierBank && destinationSupplierBank === target;
+            const matchesSource = (targetBank && sourceSupplierBank === targetBank) || (targetName && sourceSupplierBank === targetName);
+            const matchesDestination = (targetBank && destinationSupplierBank === targetBank) || (targetName && destinationSupplierBank === targetName);
             if (!matchesSource && !matchesDestination) return;
             seenIds.add(String(transfer?.id ?? ''));
             movementCount += 1;
@@ -312,19 +357,43 @@ function Revenue() {
             if (matchesSource && source === 'banque') totalOut += amount;
           });
 
+          // 3. Transactions financières
           (financialTransactions || []).forEach((tx: any) => {
             const txId = String(tx?.id ?? '');
             if (txId && seenIds.has(txId)) return;
             const status = String(tx?.status || '');
             if (status !== 'pending' && status !== 'completed') return;
-            if (normalizeAccountText(String(tx?.accountDetails || '')) !== target) return;
+            const isMatch = matchesSupplier(tx?.accountDetails, tx?.description);
+            if (!isMatch) return;
             const source = normalizeAccountText(String(tx?.sourceAccount || ''));
             const destination = normalizeAccountText(String(tx?.destinationAccount || ''));
             const amount = Math.abs(Number(tx?.amount) || 0);
             if (!amount || (source !== 'banque' && destination !== 'banque')) return;
             movementCount += 1;
+
+            const desc = String(tx?.description || '');
+            const invMatch = desc.match(/INV-[\w-]+/);
+            if (invMatch) {
+              seenInvoiceIds.add(invMatch[0]);
+            }
+
             if (destination === 'banque') totalIn += amount;
             if (source === 'banque') totalOut += amount;
+          });
+
+          // 4. Factures d'usine payées (Sorties consommées sur le compte fournisseur)
+          (factoryInvoices || []).forEach((inv: any) => {
+            if (inv?.status !== 'paid') return;
+            const invSupplierId = String(inv?.supplierId || '');
+            if (invSupplierId !== supplierId) return;
+            const invId = String(inv?.id || '');
+            if (invId && seenInvoiceIds.has(invId)) return;
+            const amount = Math.abs(Number(inv?.totalAmount) || 0);
+            if (!amount) return;
+
+            if (invId) seenInvoiceIds.add(invId);
+            movementCount += 1;
+            totalOut += amount;
           });
 
           return {
@@ -336,7 +405,7 @@ function Revenue() {
           };
         })
         .sort((a, b) => b.balance - a.balance),
-    [supplierBankProfiles, cashOperations, bankTransfers, financialTransactions]
+    [supplierBankProfiles, cashOperations, bankTransfers, financialTransactions, factoryInvoices]
   );
   const bankTransfersById = useMemo(
     () => new Map(bankTransfers.map((transfer) => [String(transfer.id), transfer])),
@@ -402,10 +471,12 @@ function Revenue() {
     if (filterAccount === 'all') return true;
     if (filterAccount.startsWith('supplier_bank:')) {
       const target = normalizeAccountText(filterAccount.replace('supplier_bank:', ''));
+      const detailsMatch = normalizeAccountText(String(row.accountDetails || '')) === target;
+      const descMatch = normalizeAccountText(String((row as any).description || (row as any).name || '')).includes(target);
       if (row.kind === 'operation') {
-        return normalizeAccountText(String(row.accountDetails || '')) === target && row.accountAffected === 'banque';
+        return (detailsMatch || descMatch) && row.accountAffected === 'banque';
       }
-      return normalizeAccountText(String(row.accountDetails || '')) === target;
+      return detailsMatch || descMatch;
     }
     if (row.kind === 'transfert') {
       return row.sourceAccount === filterAccount || row.destinationAccount === filterAccount;
@@ -440,8 +511,45 @@ function Revenue() {
     return filteredOps.filter((row) => getRowPriority(row) === priorityFilter);
   }, [filteredOps, priorityFilter]);
 
+  const unifiedTransactions = useMemo(() => {
+    const existingInvIds = new Set<string>();
+    (financialTransactions || []).forEach((tx) => {
+      const match = String(tx.description || '').match(/INV-[\w-]+/);
+      if (match) existingInvIds.add(match[0]);
+    });
+    (cashOperations || []).forEach((op) => {
+      const match = String(op.name || '').match(/INV-[\w-]+/);
+      if (match) existingInvIds.add(match[0]);
+    });
+
+    const supplierMap = new Map((suppliers || []).map((s) => [String(s.id), s]));
+
+    const virtualTxs: FinancialTransaction[] = (factoryInvoices || [])
+      .filter((inv) => inv?.status === 'paid' && !existingInvIds.has(String(inv.id)))
+      .map((inv) => {
+        const s = supplierMap.get(String(inv.supplierId));
+        const bankName = String(s?.bankAccountName || s?.name || '').trim();
+        const sName = String(s?.name || tr('Fournisseur', 'مورد')).trim();
+        const amount = Math.abs(Number(inv.totalAmount) || 0);
+        return {
+          id: inv.id,
+          date: inv.date || new Date().toISOString(),
+          type: 'retrait' as const,
+          description: `Facture Usine ${inv.id} | ${sName}${bankName ? ` (${bankName})` : ''}`,
+          amount: -amount,
+          sourceAccount: 'banque',
+          destinationAccount: 'autre',
+          accountDetails: bankName,
+          status: 'completed' as const,
+          createdAt: inv.createdAt || inv.date || new Date().toISOString(),
+        };
+      });
+
+    return [...(financialTransactions || []), ...virtualTxs];
+  }, [financialTransactions, cashOperations, factoryInvoices, suppliers]);
+
   const filteredHistory = useMemo(() => {
-    const rows = financialTransactions
+    const rows = unifiedTransactions
       .slice()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return rows.filter((r) => {
@@ -465,7 +573,8 @@ function Revenue() {
         if (filterAccount.startsWith('supplier_bank:')) {
           const target = normalizeAccountText(filterAccount.replace('supplier_bank:', ''));
           const detailsMatch = normalizeAccountText(String((r as any).accountDetails || '')) === target;
-          if (!detailsMatch) return false;
+          const descMatch = normalizeAccountText(String(r.description || '')).includes(target);
+          if (!detailsMatch && !descMatch) return false;
         } else {
           const affected = [r.sourceAccount, r.destinationAccount].filter(Boolean);
           if (affected.length > 0 && !affected.includes(filterAccount)) return false;
@@ -475,7 +584,7 @@ function Revenue() {
       // Amount
       return passesAmount(r.amount);
     });
-  }, [financialTransactions, filterType, filterStartDate, filterEndDate, filterAccount, filterAmountMin, filterAmountMax]);
+  }, [unifiedTransactions, filterType, filterStartDate, filterEndDate, filterAccount, filterAmountMin, filterAmountMax]);
 
   const applyCommandFocus = (mode: 'pending' | 'inflow' | 'outflow' | 'reset') => {
     if (mode === 'pending') {

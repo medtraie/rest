@@ -185,7 +185,9 @@ const Factory = () => {
     addSupplier,
     updateSupplier,
     deleteSupplier,
+    cashOperations,
     addCashOperation,
+    deleteCashOperation,
     currentUserId,
     currentUserEmail,
   } = useApp();
@@ -1480,6 +1482,7 @@ const Factory = () => {
     }
     setSelectedSupplierForInvoice(operation.supplierId);
     setSelectedBLsForInvoice([operation.blReference]);
+    setInvoicePaymentMethod('none');
     setShowInvoiceForm(true);
   };
 
@@ -1949,19 +1952,63 @@ const Factory = () => {
   };
 
   const deleteInvoice = async (invoiceId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette facture ?')) {
+    if (window.confirm(tr('Êtes-vous sûr de vouloir supprimer cette facture ?', 'هل أنت متأكد من حذف هذه الفاتورة؟'))) {
       const ok = await supabaseService.delete('factory_invoices', invoiceId);
       if (ok) {
         setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+        // Supprimer toute opération bancaire liée à cette facture
+        const relatedOps = (cashOperations || []).filter(op => 
+          String(op.name || '').includes(invoiceId)
+        );
+        for (const op of relatedOps) {
+          await deleteCashOperation(op.id);
+        }
       }
     }
   };
 
   const handleUpdateInvoice = async () => {
     if (!editingInvoice || !originalInvoiceId) return;
+    const oldInvoice = invoices.find(inv => inv.id === originalInvoiceId);
     const updated = await supabaseService.update<Invoice>('factory_invoices', originalInvoiceId, editingInvoice);
     if (updated) {
       setInvoices(prev => prev.map(inv => inv.id === originalInvoiceId ? updated : inv));
+
+      // Synchroniser avec les comptes bancaires si le statut a changé
+      if (oldInvoice && oldInvoice.status !== updated.status) {
+        const invoiceSupplier = safeSuppliers.find(s => s.id === updated.supplierId);
+        const supplierBankName = String((invoiceSupplier as any)?.bankAccountName || '').trim();
+        const supplierName = String((invoiceSupplier as any)?.name || '').trim();
+        const effectiveBankAccount = supplierBankName || supplierName;
+        const amount = Number(updated.totalAmount) || 0;
+
+        if (updated.status === 'paid' && amount > 0) {
+          await addCashOperation({
+            date: new Date().toISOString(),
+            name: `Paiement Facture ${updated.id}${effectiveBankAccount ? ` | ${effectiveBankAccount}` : ''}`,
+            amount,
+            type: 'retrait',
+            accountAffected: 'banque',
+            accountDetails: effectiveBankAccount || undefined,
+            status: 'validated',
+          });
+        } else if (updated.status === 'pending' && amount > 0) {
+          const existingOp = (cashOperations || []).find(op => String(op.name || '').includes(updated.id));
+          if (existingOp) {
+            await deleteCashOperation(existingOp.id);
+          } else {
+            await addCashOperation({
+              date: new Date().toISOString(),
+              name: `Annulation Paiement Facture ${updated.id}${effectiveBankAccount ? ` | ${effectiveBankAccount}` : ''}`,
+              amount,
+              type: 'versement',
+              accountAffected: 'banque',
+              accountDetails: effectiveBankAccount || undefined,
+              status: 'validated',
+            });
+          }
+        }
+      }
     }
     setShowEditInvoice(false);
     setEditingInvoice(null);
@@ -1971,15 +2018,18 @@ const Factory = () => {
 
   const handleCreateInvoice = async () => {
     if (!selectedSupplierForInvoice || selectedBLsForInvoice.length === 0) {
-      alert('Veuillez sélectionner un fournisseur et au moins un BL');
+      alert(tr('Veuillez sélectionner un fournisseur et au moins un BL', 'يرجى اختيار مورد وعلى الأقل BL واحد'));
       return;
     }
 
     const { totalSentSelected, totalReceivedSelected, totalAmountSelected } = selectedInvoiceTotals;
-    const status = invoicePaymentMethod === 'banque' ? 'paid' : 'pending';
-    const supplierBankAccount = String((selectedInvoiceSupplier as any)?.bankAccountName || '').trim();
+    const isPaid = invoicePaymentMethod === 'banque';
+    const status = isPaid ? 'paid' : 'pending';
+    const supplierBankName = String((selectedInvoiceSupplier as any)?.bankAccountName || '').trim();
+    const supplierName = String((selectedInvoiceSupplier as any)?.name || '').trim();
+    const effectiveBankAccount = supplierBankName || supplierName;
 
-    if (invoicePaymentMethod === 'banque' && !supplierBankAccount) {
+    if (isPaid && !effectiveBankAccount) {
       alert(tr('Veuillez renseigner le compte fournisseur avant paiement banque.', 'يرجى إدخال حساب المورد قبل الدفع البنكي.'));
       return;
     }
@@ -2033,11 +2083,11 @@ const Factory = () => {
     if (status === 'paid' && (finalInvoice.totalAmount || 0) > 0) {
       await addCashOperation({
         date: new Date().toISOString(),
-        name: `Paiement Facture ${finalInvoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
+        name: `Paiement Facture ${finalInvoice.id}${effectiveBankAccount ? ` | ${effectiveBankAccount}` : ''}`,
         amount: finalInvoice.totalAmount || 0,
         type: 'retrait',
         accountAffected: 'banque',
-        accountDetails: supplierBankAccount || undefined,
+        accountDetails: effectiveBankAccount || undefined,
         status: 'validated',
       });
     }
@@ -2047,28 +2097,31 @@ const Factory = () => {
     setSelectedSupplierForInvoice(null);
     setInvoicePaymentMethod('none');
     setHistoryTab('invoices');
-    alert('Facture créée avec succès !');
+    alert(tr('Facture créée avec succès !', 'تم إنشاء الفاتورة بنجاح!'));
   };
   
   const handleToggleInvoicePaid = async (invoice: Invoice) => {
     const invoiceSupplier = safeSuppliers.find(s => s.id === invoice.supplierId);
-    const supplierBankAccount = String((invoiceSupplier as any)?.bankAccountName || '').trim();
+    const supplierBankName = String((invoiceSupplier as any)?.bankAccountName || '').trim();
+    const supplierName = String((invoiceSupplier as any)?.name || '').trim();
+    const effectiveBankAccount = supplierBankName || supplierName;
+
     if (invoice.status === 'pending') {
       const amount = invoice.totalAmount || 0;
-      if (!supplierBankAccount) {
+      if (!effectiveBankAccount) {
         alert(tr('Ce fournisseur n’a pas de compte banque configuré.', 'هذا المورد ليس لديه حساب بنك مضبوط.'));
         return;
       }
-      const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'paid' });
+      const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'paid', paymentMethod: 'banque' });
       if (updated) {
         if (amount > 0) {
           await addCashOperation({
             date: new Date().toISOString(),
-            name: `Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
+            name: `Paiement Facture ${invoice.id}${effectiveBankAccount ? ` | ${effectiveBankAccount}` : ''}`,
             amount,
             type: 'retrait',
             accountAffected: 'banque',
-            accountDetails: supplierBankAccount || undefined,
+            accountDetails: effectiveBankAccount || undefined,
             status: 'validated',
           });
         }
@@ -2078,18 +2131,23 @@ const Factory = () => {
       }
     } else {
       const amount = invoice.totalAmount || 0;
-      const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'pending' });
+      const updated = await supabaseService.update<Invoice>('factory_invoices', invoice.id, { status: 'pending', paymentMethod: 'none' });
       if (updated) {
         if (amount > 0) {
-          await addCashOperation({
-            date: new Date().toISOString(),
-            name: `Annulation Paiement Facture ${invoice.id}${supplierBankAccount ? ` | ${supplierBankAccount}` : ''}`,
-            amount,
-            type: 'versement',
-            accountAffected: 'banque',
-            accountDetails: supplierBankAccount || undefined,
-            status: 'validated',
-          });
+          const existingOp = (cashOperations || []).find(op => String(op.name || '').includes(invoice.id));
+          if (existingOp) {
+            await deleteCashOperation(existingOp.id);
+          } else {
+            await addCashOperation({
+              date: new Date().toISOString(),
+              name: `Annulation Paiement Facture ${invoice.id}${effectiveBankAccount ? ` | ${effectiveBankAccount}` : ''}`,
+              amount,
+              type: 'versement',
+              accountAffected: 'banque',
+              accountDetails: effectiveBankAccount || undefined,
+              status: 'validated',
+            });
+          }
         }
         setInvoices(prev => prev.map(inv => inv.id === invoice.id ? updated : inv));
       } else {
@@ -3120,6 +3178,8 @@ const Factory = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedSupplierForInvoice(supplier.id);
+                            setSelectedBLsForInvoice([]);
+                            setInvoicePaymentMethod('none');
                             setShowInvoiceForm(true);
                           }}
                           className="rounded-xl border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300"
@@ -3330,10 +3390,15 @@ const Factory = () => {
                   <SelectValue placeholder={tr('Choisir...', 'اختر...')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{tr('Non payé', 'غير مدفوع')}</SelectItem>
-                  <SelectItem value="banque">{tr('Banque', 'بنكي')}</SelectItem>
+                  <SelectItem value="none">{tr('Non payé (En attente)', 'غير مدفوع (قيد الانتظار)')}</SelectItem>
+                  <SelectItem value="banque">{tr('Banque (Payée immédiatement)', 'بنكي (مدفوعة فوراً)')}</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-slate-500 font-medium">
+                {invoicePaymentMethod === 'banque'
+                  ? tr('La facture sera marquée comme "Payée" et déduite du compte bancaire fournisseur.', 'سيتم تعليم الفاتورة كـ "مدفوعة" وخصمها من الحساب البنكي للمورد.')
+                  : tr('La facture sera enregistrée comme "En attente" sans mouvement bancaire immédiat.', 'سيتم تسجيل الفاتورة كـ "قيد الانتظار" دون أي خصم بنكي فوري.')}
+              </p>
               <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <div className="min-w-0">
                   <p className="text-[11px] font-bold text-slate-500 uppercase">{tr('Compte Fournisseur', 'حساب المورّد')}</p>
