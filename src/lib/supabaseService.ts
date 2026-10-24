@@ -88,6 +88,7 @@ const toCamelKey = (key: string) => {
   if (lower === 'clientname') return 'clientName';
   if (lower === 'montant') return 'amount';
   if (lower === 'libelle') return 'description';
+  if (lower === 'paymentmethod' || lower === 'payment_method') return 'paymentMethod';
   if (lower === 'avance') return 'advances';
   if (lower === 'avances') return 'advances';
   if (lower === 'totalvalue') return 'totalValue';
@@ -172,6 +173,9 @@ const columnMap: Record<string, Record<string, string>> = {
     truckId: 'truck_id',
     paidAmount: 'paid_amount',
     debtAmount: 'debt_amount',
+    paymentMethod: 'payment_method',
+  },
+  expenses: {
     paymentMethod: 'payment_method',
   },
   suppliers: {

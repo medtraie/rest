@@ -752,7 +752,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             setSupplyReturns(supplyReturnsData);
             setForeignBottles(foreignBottlesData);
             setTruckAssignments(truckAssignmentsData);
-            setExpenses(expensesData);
+            const normalizedExpenses = (expensesData || []).map(exp => {
+              const noteText = exp.note || '';
+              const match = noteText.match(/\[(?:Fournisseur:\s*)?([^\]]+)\]/);
+              if (match && (!exp.paymentMethod || exp.paymentMethod === 'banque' || exp.paymentMethod === 'compte_fournisseur')) {
+                const bankName = match[1].trim();
+                return {
+                  ...exp,
+                  paymentMethod: 'compte_fournisseur',
+                  supplierBankName: exp.supplierBankName || bankName,
+                  accountDetails: exp.accountDetails || bankName,
+                };
+              }
+              return exp;
+            });
+            setExpenses(normalizedExpenses);
             setRepairs(repairsData);
             setTransactions(transactionsData);
           } catch (error) {
@@ -1573,22 +1587,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addExpense = async (expense: Expense) => {
-    const id = expense.id ?? (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
-    const newExpense = { ...expense, id };
-    const created = await supabaseService.create<Expense>("expenses", newExpense);
-    const finalExpense = created || newExpense;
-    setExpenses(prev => [...prev, finalExpense]);
-
+    const id = (expense.id && expense.id.length >= 24)
+      ? expense.id 
+      : (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
     const isSupplierBank = expense.paymentMethod === 'compte_fournisseur' || expense.paymentMethod === 'banque_fournisseur' || !!expense.supplierBankName;
     const accountDetails = expense.accountDetails || expense.supplierBankName;
+    const rawNote = expense.note || '';
+    const noteWithBank = isSupplierBank && accountDetails && !rawNote.includes(`[${accountDetails}]`)
+      ? (rawNote ? `${rawNote} [${accountDetails}]` : `[${accountDetails}]`)
+      : (rawNote || undefined);
+
+    // Database payload: clean, only standard columns accepted by PostgreSQL
+    const dbPaymentMethod = isSupplierBank ? 'banque' : normalizeAccount(expense.paymentMethod);
+    const expenseDbPayload: Record<string, any> = {
+      id,
+      type: expense.type,
+      code: expense.code || '',
+      amount: expense.amount,
+      paymentMethod: dbPaymentMethod,
+      date: expense.date,
+      note: noteWithBank,
+    };
+
+    const created = await supabaseService.create<Expense>("expenses", expenseDbPayload);
+    const finalExpense: Expense = {
+      ...expense,
+      id: created?.id || id,
+      note: noteWithBank,
+      supplierBankName: accountDetails,
+      accountDetails: accountDetails,
+    };
+    setExpenses(prev => [finalExpense, ...prev.filter(e => e.id !== finalExpense.id)]);
+
     const sourceAccount = isSupplierBank ? 'banque' : normalizeAccount(expense.paymentMethod);
+    const txDescription = `Dépense: ${expense.type}${expense.code ? ` [${expense.code}]` : ''}${isSupplierBank && accountDetails ? ` | Compte: ${accountDetails}` : ''}${rawNote ? ' - ' + rawNote : ''}`;
 
     await addFinancialTransaction({
       id,
       date: expense.date,
-      type: 'dépense',
-      description: `Dépense: ${expense.type} [${expense.code || 'N/A'}]${isSupplierBank && accountDetails ? ` | Compte: ${accountDetails}` : ''}${expense.note ? ' - ' + expense.note : ''}`,
-      amount: -expense.amount,
+      type: 'retrait',
+      description: txDescription,
+      amount: -Math.abs(expense.amount),
       sourceAccount: sourceAccount,
       destinationAccount: 'charge',
       accountDetails: isSupplierBank ? accountDetails : undefined,
@@ -1600,46 +1639,72 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const cashOpPayload: CashOperation = {
         id,
         date: expense.date,
-        name: `Dépense: ${expense.type} [${expense.code || 'N/A'}] | ${accountDetails}`,
-        amount: expense.amount,
+        name: txDescription,
+        amount: Math.abs(expense.amount),
         type: 'retrait',
         accountAffected: 'banque',
         accountDetails: accountDetails,
         status: 'validated',
       };
       await supabaseService.create<CashOperation>("cash_operations", cashOpPayload);
-      setCashOperations(prev => [...prev, cashOpPayload]);
+      setCashOperations(prev => [cashOpPayload, ...prev.filter(op => String(op.id) !== String(id))]);
     }
   };
 
   const updateExpense = async (id: string, patch: Partial<Expense>) => {
-    const updated = await supabaseService.update<Expense>("expenses", id, patch);
-    const current = expenses.find(e => e.id === id);
-    const effectiveExpense = (updated || { ...(current || {}), ...patch }) as Expense;
-    setExpenses(prev => prev.map(exp => (exp.id === id ? { ...exp, ...effectiveExpense } : exp)));
+    const isSupplierBank = patch.paymentMethod === 'compte_fournisseur' || patch.paymentMethod === 'banque_fournisseur' || !!patch.supplierBankName;
+    const accountDetails = patch.accountDetails || patch.supplierBankName;
+    const rawNote = patch.note !== undefined ? patch.note : (expenses.find(e => e.id === id)?.note || '');
+    const noteWithBank = isSupplierBank && accountDetails && !rawNote.includes(`[${accountDetails}]`)
+      ? (rawNote ? `${rawNote} [${accountDetails}]` : `[${accountDetails}]`)
+      : (rawNote || undefined);
 
-    const isSupplierBank = effectiveExpense.paymentMethod === 'compte_fournisseur' || effectiveExpense.paymentMethod === 'banque_fournisseur' || !!effectiveExpense.supplierBankName;
-    const accountDetails = effectiveExpense.accountDetails || effectiveExpense.supplierBankName;
-    const sourceAccount = isSupplierBank ? 'banque' : normalizeAccount(effectiveExpense.paymentMethod);
+    const expenseDbPatch: Record<string, any> = {};
+    if (patch.type !== undefined) expenseDbPatch.type = patch.type;
+    if (patch.code !== undefined) expenseDbPatch.code = patch.code || '';
+    if (patch.amount !== undefined) expenseDbPatch.amount = patch.amount;
+    if (patch.date !== undefined) expenseDbPatch.date = patch.date;
+    if (patch.note !== undefined || isSupplierBank) expenseDbPatch.note = noteWithBank;
+    if (patch.paymentMethod !== undefined) {
+      expenseDbPatch.paymentMethod = isSupplierBank ? 'banque' : normalizeAccount(patch.paymentMethod);
+    }
+
+    const updated = await supabaseService.update<Expense>("expenses", id, expenseDbPatch);
+    const current = expenses.find(e => e.id === id);
+    const effectiveExpense: Expense = {
+      ...(current || {}),
+      ...patch,
+      id,
+      note: noteWithBank,
+      supplierBankName: accountDetails || current?.supplierBankName,
+      accountDetails: accountDetails || current?.accountDetails,
+    } as Expense;
+    setExpenses(prev => prev.map(exp => (exp.id === id ? effectiveExpense : exp)));
+
+    const effectiveIsSupplier = effectiveExpense.paymentMethod === 'compte_fournisseur' || !!effectiveExpense.supplierBankName;
+    const effectiveDetails = effectiveExpense.accountDetails || effectiveExpense.supplierBankName;
+    const sourceAccount = effectiveIsSupplier ? 'banque' : normalizeAccount(effectiveExpense.paymentMethod);
+    const txDescription = `Dépense: ${effectiveExpense.type}${effectiveExpense.code ? ` [${effectiveExpense.code}]` : ''}${effectiveIsSupplier && effectiveDetails ? ` | Compte: ${effectiveDetails}` : ''}${rawNote ? ' - ' + rawNote : ''}`;
 
     const txUpdate = {
       date: effectiveExpense.date,
-      amount: -effectiveExpense.amount,
-      description: `Dépense: ${effectiveExpense.type} [${effectiveExpense.code || 'N/A'}]${isSupplierBank && accountDetails ? ` | Compte: ${accountDetails}` : ''}${effectiveExpense.note ? ' - ' + effectiveExpense.note : ''}`,
+      type: 'retrait' as const,
+      amount: -Math.abs(effectiveExpense.amount),
+      description: txDescription,
       sourceAccount: sourceAccount,
-      accountDetails: isSupplierBank ? accountDetails : undefined,
+      accountDetails: effectiveIsSupplier ? effectiveDetails : undefined,
     };
     await supabaseService.update<FinancialTransaction>("financial_transactions", id, txUpdate);
     setFinancialTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...txUpdate } : tx));
 
-    if (isSupplierBank && accountDetails) {
+    if (effectiveIsSupplier && effectiveDetails) {
       const cashOpUpdate = {
         date: effectiveExpense.date,
-        name: `Dépense: ${effectiveExpense.type} [${effectiveExpense.code || 'N/A'}] | ${accountDetails}`,
-        amount: effectiveExpense.amount,
+        name: txDescription,
+        amount: Math.abs(effectiveExpense.amount),
         type: 'retrait' as const,
         accountAffected: 'banque' as const,
-        accountDetails: accountDetails,
+        accountDetails: effectiveDetails,
         status: 'validated' as const,
       };
       const existingCashOp = cashOperations.find(op => String(op.id) === String(id));
@@ -1648,7 +1713,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCashOperations(prev => prev.map(op => String(op.id) === String(id) ? { ...op, ...cashOpUpdate } : op));
       } else {
         await supabaseService.create<CashOperation>("cash_operations", { id, ...cashOpUpdate });
-        setCashOperations(prev => [...prev, { id, ...cashOpUpdate }]);
+        setCashOperations(prev => [cashOpUpdate as CashOperation, ...prev]);
       }
     } else {
       await supabaseService.delete("cash_operations", id);

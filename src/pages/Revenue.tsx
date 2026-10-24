@@ -440,12 +440,13 @@ function Revenue() {
           kind: 'operation',
           id: t.id || Math.random().toString(),
           date: t.date,
+          type: t.type,
           typeLabel: t.type === 'versement' || t.type === 'encaissement' ? 'versement' : 
                      t.type === 'retrait' || t.type === 'dépense' || t.type === 'réparation' ? 'retrait' : 'versement',
           description: t.description,
           amount: Math.abs(t.amount),
           accountAffected: (t.amount >= 0 ? t.destinationAccount : t.sourceAccount) as any,
-          accountDetails: t.accountDetails,
+          accountDetails: t.accountDetails || op?.accountDetails,
           status: op?.status || 'validated',
         };
     }).sort(
@@ -463,8 +464,8 @@ function Revenue() {
     if (filterType === 'all') return true;
     if (filterType === 'transfert') return row.kind === 'transfert';
     if (filterType === 'versement') return row.kind === 'operation' && row.typeLabel === 'versement';
-    if (filterType === 'retrait') return row.kind === 'operation' && row.typeLabel === 'retrait';
-    if (filterType === 'dépense') return row.kind === 'operation' && row.typeLabel === 'dépense';
+    if (filterType === 'retrait') return row.kind === 'operation' && (row.typeLabel === 'retrait' || (row as any).type === 'retrait' || (row as any).type === 'dépense');
+    if (filterType === 'dépense') return row.kind === 'operation' && ((row as any).type === 'dépense' || row.typeLabel === 'dépense' || String(row.description || '').toLowerCase().includes('dépense'));
     return true;
   };
   const passesAccount = (row: OpRow) => {

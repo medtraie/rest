@@ -143,13 +143,8 @@ const Expenses = () => {
     setCode(`EXP-${todayStr}-${randomSuffix}`);
   };
 
-  const handleQuickAddAmount = (addValue: number) => {
-    const currentVal = parseFloat(amount) || 0;
-    setAmount((currentVal + addValue).toFixed(2));
-  };
-
   const handleAddExpense = () => {
-    if (!expenseType || !code || !amount || !paymentMethod) {
+    if (!expenseType || !amount || !paymentMethod) {
       toast.error(tu('toast.fillRequired', 'Veuillez remplir tous les champs obligatoires'));
       return;
     }
@@ -174,10 +169,12 @@ const Expenses = () => {
     const finalSupplierId = selectedSupplierId || matchedSupplier?.id;
     const finalSupplierBank = selectedSupplierBank || matchedSupplier?.bankAccountName;
 
+    const trimmedCode = code ? code.trim() : '';
+
     if (expenseToEdit) {
       updateExpense(expenseToEdit.id, {
         type: finalType as any,
-        code,
+        code: trimmedCode,
         amount: parseFloat(amount),
         paymentMethod: paymentMethod as any,
         date: date.toISOString(),
@@ -188,10 +185,11 @@ const Expenses = () => {
       });
       toast.success(tu('toast.expenseUpdated', 'Dépense mise à jour avec succès'));
     } else {
+      const generatedId = (window.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
       const newExpense: Expense = {
-        id: Date.now().toString(),
+        id: generatedId,
         type: finalType as any,
-        code,
+        code: trimmedCode,
         amount: parseFloat(amount),
         paymentMethod: paymentMethod as any,
         date: date.toISOString(),
@@ -299,9 +297,9 @@ const Expenses = () => {
   };
 
   const filteredExpenses = expenses.filter(expense => 
-    (expense.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.note?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    ((expense.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (expense.code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (expense.note || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
     (!dateRange?.from || new Date(expense.date) >= dateRange.from) &&
     (!dateRange?.to || new Date(expense.date) <= dateRange.to) &&
     (paymentFilter === 'all' || expense.paymentMethod === paymentFilter)
@@ -1568,7 +1566,7 @@ const Expenses = () => {
               <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="code" className="text-slate-800 font-bold text-sm">
-                    {tu('form.codeLabel', 'Code')} <span className="text-rose-500">*</span>
+                    {tu('form.codeLabel', 'Code')} <span className="text-xs font-normal text-slate-400">({tr('facultatif', 'اختياري')})</span>
                   </Label>
                   <Button
                     type="button"
@@ -1610,30 +1608,6 @@ const Expenses = () => {
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">DH</span>
                 </div>
               </div>
-            </div>
-
-            {/* Quick Amount Chips */}
-            <div className="flex flex-wrap items-center gap-1.5 px-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">{tr('Montants rapides :', 'مبالغ سريعة :')}</span>
-              {[50, 100, 200, 500, 1000].map((quickVal) => (
-                <button
-                  key={quickVal}
-                  type="button"
-                  onClick={() => handleQuickAddAmount(quickVal)}
-                  className="px-2.5 py-1 text-xs font-bold bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 border border-slate-200 hover:border-rose-200 rounded-lg shadow-2xs transition-all active:scale-95"
-                >
-                  +{quickVal} DH
-                </button>
-              ))}
-              {amount && (
-                <button
-                  type="button"
-                  onClick={() => setAmount('')}
-                  className="px-2 py-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors ml-auto"
-                >
-                  {tr('Effacer', 'مسح')}
-                </button>
-              )}
             </div>
 
             {/* Mode de règlement */}
