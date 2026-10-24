@@ -39,14 +39,16 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Banknote,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { BankTransfer, CashOperation, FinancialTransaction } from '@/types';
 import FinancialTxCard from '@/components/ui/FinancialTxCard';
 import { motion } from 'framer-motion';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-const RevenueCommandCenterSection = lazyWithRetry(() => import('@/components/revenue/RevenueCommandCenterSection'), 'revenue-command-center-section');
 const RevenueHistoryTab = lazyWithRetry(() => import('@/components/revenue/RevenueHistoryTab'), 'revenue-history-tab');
 const MButton = motion(Button);
 
@@ -127,15 +129,6 @@ type OpRow =
       accountDetails?: string;
       status: 'pending' | 'validated';
     };
-
-type RevenueAnomaly = {
-  id: string;
-  date: string;
-  amount: number;
-  score: number;
-  direction: 'positive' | 'negative';
-  label: string;
-};
 
 function Revenue() {
   const {
@@ -235,18 +228,16 @@ function Revenue() {
   const [editingCash, setEditingCash] = useState<CashOperation | null>(null);
 
   // Filters (shared)
+  const [filterSearch, setFilterSearch] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
-  const [filterType, setFilterType] = useState<string>('all'); // 'all' | 'encaissement' | 'transfert' | 'versement' | 'retrait'
+  const [filterType, setFilterType] = useState<string>('all'); // 'all' | 'encaissement' | 'transfert' | 'versement' | 'retrait' | 'dépense'
   const [filterAccount, setFilterAccount] = useState<string>('all'); // 'all' | 'espece' | 'banque' | 'cheque' | 'autre'
+  const [filterStatus, setFilterStatus] = useState<string>('all'); // 'all' | 'validated' | 'pending'
   const [filterAmountMin, setFilterAmountMin] = useState<string>('');
   const [filterAmountMax, setFilterAmountMax] = useState<string>('');
-  const [commandWindow, setCommandWindow] = useState<'7j' | '30j' | '90j' | 'all'>('30j');
-  const [priorityFilter, setPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [whatIfDailyIn, setWhatIfDailyIn] = useState<string>('0');
-  const [whatIfDailyOut, setWhatIfDailyOut] = useState<string>('0');
-  const [whatIfHorizon, setWhatIfHorizon] = useState<'15' | '30' | '60'>('30');
-  const [anomalyMode, setAnomalyMode] = useState<'all' | 'positive' | 'negative'>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 50;
   const [activeTab, setActiveTab] = useState<'gestion' | 'historique'>('gestion');
   const [factoryInvoices, setFactoryInvoices] = useState<any[]>([]);
 
@@ -498,22 +489,108 @@ function Revenue() {
     return true;
   };
 
-  const filteredOps = useMemo(
-    () => opRows.filter((r) => passesDate(r.date) && passesType(r) && passesAccount(r) && passesAmount(r.amount)),
-    [opRows, filterStartDate, filterEndDate, filterType, filterAccount, filterAmountMin, filterAmountMax]
-  );
-
-  const getRowPriority = (row: OpRow): 'high' | 'medium' | 'low' => {
-    if (row.status === 'pending') return 'high';
-    if (row.amount >= 12000) return 'high';
-    if (row.amount >= 4000) return 'medium';
-    return 'low';
+  const passesSearch = (row: OpRow) => {
+    if (!filterSearch.trim()) return true;
+    const q = filterSearch.trim().toLowerCase();
+    const desc = String(row.description || '').toLowerCase();
+    const details = String(row.accountDetails || '').toLowerCase();
+    const type = String(row.typeLabel || row.type || '').toLowerCase();
+    const src = String(row.sourceAccount || '').toLowerCase();
+    const dst = String(row.destinationAccount || '').toLowerCase();
+    const aff = String(row.accountAffected || '').toLowerCase();
+    const amt = String(row.amount || '');
+    return desc.includes(q) || details.includes(q) || type.includes(q) || src.includes(q) || dst.includes(q) || aff.includes(q) || amt.includes(q);
   };
 
-  const visibleOps = useMemo(() => {
-    if (priorityFilter === 'all') return filteredOps;
-    return filteredOps.filter((row) => getRowPriority(row) === priorityFilter);
-  }, [filteredOps, priorityFilter]);
+  const passesStatus = (row: OpRow) => {
+    if (filterStatus === 'all') return true;
+    if (filterStatus === 'validated') return row.status === 'validated' || row.status === 'completed';
+    if (filterStatus === 'pending') return row.status === 'pending';
+    return true;
+  };
+
+  const filteredOps = useMemo(
+    () => opRows.filter((r) => passesDate(r.date) && passesType(r) && passesAccount(r) && passesAmount(r.amount) && passesSearch(r) && passesStatus(r)),
+    [opRows, filterStartDate, filterEndDate, filterType, filterAccount, filterAmountMin, filterAmountMax, filterSearch, filterStatus]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStartDate, filterEndDate, filterType, filterAccount, filterAmountMin, filterAmountMax, filterSearch, filterStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOps.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredOps.length);
+  const paginatedOps = useMemo(
+    () => filteredOps.slice(startIndex, endIndex),
+    [filteredOps, startIndex, endIndex]
+  );
+
+  const visibleOps = paginatedOps;
+
+  const filteredMetrics = useMemo(() => {
+    let totalIn = 0;
+    let totalOut = 0;
+    filteredOps.forEach((r) => {
+      const amt = Number(r.amount) || 0;
+      if (r.typeLabel === 'versement' || (r.kind !== 'transfert' && amt >= 0)) {
+        totalIn += Math.abs(amt);
+      } else {
+        totalOut += Math.abs(amt);
+      }
+    });
+    return {
+      count: filteredOps.length,
+      totalIn,
+      totalOut,
+      net: totalIn - totalOut,
+    };
+  }, [filteredOps]);
+
+  const setQuickPeriod = (preset: 'today' | '7d' | 'month' | 'clear') => {
+    const today = new Date();
+    if (preset === 'today') {
+      const d = format(today, 'yyyy-MM-dd');
+      setFilterStartDate(d);
+      setFilterEndDate(d);
+    } else if (preset === '7d') {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 6);
+      setFilterStartDate(format(from, 'yyyy-MM-dd'));
+      setFilterEndDate(format(today, 'yyyy-MM-dd'));
+    } else if (preset === 'month') {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFilterStartDate(format(from, 'yyyy-MM-dd'));
+      setFilterEndDate(format(today, 'yyyy-MM-dd'));
+    } else {
+      setFilterStartDate('');
+      setFilterEndDate('');
+    }
+  };
+
+  const resetAllFilters = () => {
+    setFilterSearch('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterType('all');
+    setFilterAccount('all');
+    setFilterStatus('all');
+    setFilterAmountMin('');
+    setFilterAmountMax('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = Boolean(
+    filterSearch ||
+    filterStartDate ||
+    filterEndDate ||
+    filterType !== 'all' ||
+    filterAccount !== 'all' ||
+    filterStatus !== 'all' ||
+    filterAmountMin ||
+    filterAmountMax
+  );
 
   const unifiedTransactions = useMemo(() => {
     const existingInvIds = new Set<string>();
@@ -590,92 +667,7 @@ function Revenue() {
     });
   }, [unifiedTransactions, filterType, filterStartDate, filterEndDate, filterAccount, filterAmountMin, filterAmountMax]);
 
-  const applyCommandFocus = (mode: 'pending' | 'inflow' | 'outflow' | 'reset') => {
-    if (mode === 'pending') {
-      setPriorityFilter('high');
-      return;
-    }
-    if (mode === 'inflow') {
-      setFilterType('versement');
-      setPriorityFilter('all');
-      return;
-    }
-    if (mode === 'outflow') {
-      setFilterType('retrait');
-      setPriorityFilter('medium');
-      return;
-    }
-    setPriorityFilter('all');
-    setFilterType('all');
-    setFilterAccount('all');
-    setFilterAmountMin('');
-    setFilterAmountMax('');
-  };
 
-  const applyForecastFocus = (account: 'espece' | 'banque' | 'cheque', risk: 'high' | 'medium' | 'low') => {
-    setFilterAccount(account);
-    if (risk === 'high') {
-      setPriorityFilter('high');
-      return;
-    }
-    if (risk === 'medium') {
-      setPriorityFilter('medium');
-      return;
-    }
-    setPriorityFilter('low');
-  };
-
-  const applyHeatmapFocus = (start: Date, end: Date, trend: 'up' | 'down') => {
-    setFilterStartDate(format(start, 'yyyy-MM-dd'));
-    setFilterEndDate(format(end, 'yyyy-MM-dd'));
-    if (trend === 'up') {
-      setFilterType('versement');
-      return;
-    }
-    setFilterType('retrait');
-  };
-
-  const applyAnomalyFocus = (anomaly: RevenueAnomaly) => {
-    const date = new Date(anomaly.date);
-    const from = new Date(date);
-    const to = new Date(date);
-    from.setDate(from.getDate() - 3);
-    to.setDate(to.getDate() + 3);
-    setFilterStartDate(format(from, 'yyyy-MM-dd'));
-    setFilterEndDate(format(to, 'yyyy-MM-dd'));
-    setFilterType(anomaly.direction === 'positive' ? 'versement' : 'retrait');
-    setPriorityFilter(Math.abs(anomaly.score) >= 2 ? 'high' : 'medium');
-  };
-
-  const applyAutopilot = (mode: 'protect' | 'accelerate' | 'balance') => {
-    if (mode === 'protect') {
-      setCommandWindow('30j');
-      setFilterType('retrait');
-      setPriorityFilter('high');
-      setWhatIfDailyIn('300');
-      setWhatIfDailyOut('900');
-      setWhatIfHorizon('30');
-      return;
-    }
-    if (mode === 'accelerate') {
-      setCommandWindow('90j');
-      setFilterType('versement');
-      setPriorityFilter('medium');
-      setWhatIfDailyIn('1200');
-      setWhatIfDailyOut('450');
-      setWhatIfHorizon('60');
-      return;
-    }
-    setCommandWindow('30j');
-    setFilterType('all');
-    setFilterAccount('all');
-    setPriorityFilter('all');
-    setFilterStartDate('');
-    setFilterEndDate('');
-    setWhatIfDailyIn('0');
-    setWhatIfDailyOut('0');
-    setWhatIfHorizon('30');
-  };
 
   // Submit transfer
   const handleSubmitTransfer = async () => {
@@ -1196,38 +1188,6 @@ function Revenue() {
           )}
         </CardContent>
       </Card>
-      <React.Suspense fallback={revenueSectionFallback}>
-        <RevenueCommandCenterSection
-          t={t}
-          tr={tr}
-          uiLocale={uiLocale}
-          opRows={opRows}
-          financialTransactions={financialTransactions}
-          soldeEspece={soldeEspece}
-          soldeBanque={soldeBanque}
-          soldeCheque={soldeCheque}
-          commandWindow={commandWindow}
-          setCommandWindow={setCommandWindow}
-          whatIfDailyIn={whatIfDailyIn}
-          setWhatIfDailyIn={setWhatIfDailyIn}
-          whatIfDailyOut={whatIfDailyOut}
-          setWhatIfDailyOut={setWhatIfDailyOut}
-          whatIfHorizon={whatIfHorizon}
-          setWhatIfHorizon={setWhatIfHorizon}
-          anomalyMode={anomalyMode}
-          setAnomalyMode={setAnomalyMode}
-          formatCurrency={formatCurrency}
-          formatDateLocalized={formatDateLocalized}
-          formatOpType={formatOpType}
-          formatAccountName={formatAccountName}
-          applyCommandFocus={applyCommandFocus}
-          applyForecastFocus={applyForecastFocus}
-          applyHeatmapFocus={applyHeatmapFocus}
-          applyAnomalyFocus={applyAnomalyFocus}
-          applyAutopilot={applyAutopilot}
-        />
-      </React.Suspense>
-
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'gestion' | 'historique')} className="w-full space-y-4">
         <TabsList className="bg-white border p-1 shadow-sm">
           <TabsTrigger value="gestion" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
@@ -1243,118 +1203,234 @@ function Revenue() {
         <TabsContent value="gestion" className="space-y-4">
           <Card className="border-none shadow-sm overflow-hidden">
             <CardHeader className="bg-white border-b py-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.management.title', 'Gestion des Flux')}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg font-semibold text-slate-800">{t('revenue.management.title', 'Gestion des Flux')}</CardTitle>
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 font-semibold">
+                      {filteredOps.length} {tr('opérations', 'عملية')}
+                    </Badge>
+                  </div>
                   <p className="text-sm text-slate-500">{t('revenue.management.subtitle', 'Suivi des opérations et transferts')}</p>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                  onClick={exportOpsToPDF}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('revenue.management.exportPdf', 'Exporter PDF')}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-slate-600 border-slate-200 hover:bg-slate-50"
+                    onClick={resetAllFilters}
+                    title={tr('Réinitialiser les filtres', 'إعادة ضبط الفلاتر')}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                    {tr('Réinitialiser', 'إعادة ضبط')}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    onClick={exportOpsToPDF}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {t('revenue.management.exportPdf', 'Exporter PDF')}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Quick Summary Metrics for Filtered Operations */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between px-3 py-2 bg-emerald-50/70 border border-emerald-100 rounded-lg">
+                  <span className="text-xs font-medium text-emerald-800 flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                    {tr('Total Entrées', 'مجموع المداخل')}
+                  </span>
+                  <span className="text-sm font-bold text-emerald-700">{formatCurrency(filteredMetrics.inflows)}</span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 bg-rose-50/70 border border-rose-100 rounded-lg">
+                  <span className="text-xs font-medium text-rose-800 flex items-center gap-1.5">
+                    <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
+                    {tr('Total Sorties', 'مجموع المخارج')}
+                  </span>
+                  <span className="text-sm font-bold text-rose-700">{formatCurrency(filteredMetrics.outflows)}</span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/70 border border-indigo-100 rounded-lg">
+                  <span className="text-xs font-medium text-indigo-800 flex items-center gap-1.5">
+                    <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-600" />
+                    {tr('Flux Net', 'صافي التدفق')}
+                  </span>
+                  <span className={`text-sm font-bold ${filteredMetrics.net >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>
+                    {formatCurrency(filteredMetrics.net)}
+                  </span>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {/* Filters Section */}
-              <div className="p-4 bg-slate-50/50 border-b grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-end">
-                <div className="space-y-1.5 min-w-0 md:col-span-2 xl:col-span-4">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.period', 'Période')}</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              {/* Advanced Filters Section */}
+              <div className="p-4 bg-slate-50/70 border-b space-y-3">
+                {/* Search Bar + Statut */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-8 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      type="text"
+                      className="h-9 pl-9 pr-8 text-sm bg-white"
+                      placeholder={tr('Rechercher par description, compte, montant...', 'البحث بالبيان، الحساب، المبلغ...')}
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                    />
+                    {filterSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        title={tr('Effacer la recherche', 'مسح البحث')}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="md:col-span-4">
+                    <Select value={filterStatus} onValueChange={(v: 'all' | 'validated' | 'pending') => setFilterStatus(v)}>
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder={tr('Tous les statuts', 'جميع الحالات')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{tr('Tous les statuts', 'جميع الحالات')}</SelectItem>
+                        <SelectItem value="validated">{tr('Validé', 'مؤكد')}</SelectItem>
+                        <SelectItem value="pending">{tr('En attente', 'في الانتظار')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Date shortcuts and range */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                  <div className="md:col-span-5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1">
+                      {t('revenue.filters.period', 'Période')}:
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 bg-white hover:bg-slate-100"
+                      onClick={() => setQuickPeriod('today')}
+                    >
+                      {tr("Aujourd'hui", 'اليوم')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 bg-white hover:bg-slate-100"
+                      onClick={() => setQuickPeriod('7d')}
+                    >
+                      {tr('7 derniers jours', 'آخر 7 أيام')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2.5 bg-white hover:bg-slate-100"
+                      onClick={() => setQuickPeriod('month')}
+                    >
+                      {tr('Ce mois', 'هذا الشهر')}
+                    </Button>
+                    {(filterStartDate || filterEndDate) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs px-2 text-rose-600 hover:bg-rose-50"
+                        onClick={() => setQuickPeriod('clear')}
+                      >
+                        {tr('Effacer dates', 'إلغاء التواريخ')}
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="md:col-span-7 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                     <Input 
                       type="date" 
-                      className="h-9 text-sm min-w-0"
+                      className="h-9 text-sm bg-white"
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
                     />
-                    <span className="text-slate-400 text-center">{t('revenue.filters.to', 'à')}</span>
+                    <span className="text-slate-400 text-center text-xs">{t('revenue.filters.to', 'à')}</span>
                     <Input 
                       type="date" 
-                      className="h-9 text-sm min-w-0"
+                      className="h-9 text-sm bg-white"
                       value={filterEndDate} 
                       onChange={(e) => setFilterEndDate(e.target.value)} 
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5 min-w-0 xl:col-span-2">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.type', 'Type')}</Label>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger className="h-9 text-sm w-full min-w-0">
-                      <SelectValue placeholder={t('revenue.filters.allTypes', 'Tous les types')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allTypes', 'Tous les types')}</SelectItem>
-                      <SelectItem value="transfert">{t('revenue.table.transfert', 'Transfert')}</SelectItem>
-                      <SelectItem value="versement">{t('revenue.types.versement', 'Versement')}</SelectItem>
-                      <SelectItem value="retrait">{t('revenue.types.retrait', 'Retrait')}</SelectItem>
-                      <SelectItem value="dépense">{t('revenue.types.depense', 'Dépense')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Type, Account, Min/Max */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end">
+                  <div className="md:col-span-4 space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.type', 'Type')}</Label>
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder={t('revenue.filters.allTypes', 'Tous les types')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('revenue.filters.allTypes', 'Tous les types')}</SelectItem>
+                        <SelectItem value="transfert">{t('revenue.table.transfert', 'Transfert')}</SelectItem>
+                        <SelectItem value="versement">{t('revenue.types.versement', 'Versement')}</SelectItem>
+                        <SelectItem value="retrait">{t('revenue.types.retrait', 'Retrait')}</SelectItem>
+                        <SelectItem value="dépense">{t('revenue.types.depense', 'Dépense')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-1.5 min-w-0 xl:col-span-3">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.account', 'Compte')}</Label>
-                  <Select value={filterAccount} onValueChange={setFilterAccount}>
-                    <SelectTrigger className="h-9 text-sm w-full min-w-0">
-                      <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('revenue.filters.allAccounts', 'Tous les comptes')}</SelectItem>
-                      <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
-                      <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
-                      <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
-                      {supplierBankAccounts.map((account) => (
-                        <SelectItem key={`mgmt-${account}`} value={`supplier_bank:${account}`}>
-                          {tr('Banque fournisseur', 'بنك المورّد')}: {account}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div className="md:col-span-4 space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.account', 'Compte')}</Label>
+                    <Select value={filterAccount} onValueChange={setFilterAccount}>
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder={t('revenue.filters.allAccounts', 'Tous les comptes')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t('revenue.filters.allAccounts', 'Tous les comptes')}</SelectItem>
+                        <SelectItem value="espece">{tr('Espèce', 'نقد')}</SelectItem>
+                        <SelectItem value="cheque">{tr('Chèque', 'شيك')}</SelectItem>
+                        <SelectItem value="banque">{tr('Banque', 'بنك')}</SelectItem>
+                        {supplierBankAccounts.map((account) => (
+                          <SelectItem key={`mgmt-${account}`} value={`supplier_bank:${account}`}>
+                            {tr('Banque fournisseur', 'بنك المورّد')}: {account}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="autre">{tr('Autre', 'أخرى')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-1.5 min-w-0 md:col-span-2 xl:col-span-3">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.amountRange', 'Montant')}</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.min', 'Min')}</span>
-                      <Input 
-                        className="h-9 pl-10 text-sm"
-                        placeholder="0.00"
-                        value={filterAmountMin} 
-                        onChange={(e) => setFilterAmountMin(e.target.value)} 
-                      />
-                    </div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.max', 'Max')}</span>
-                      <Input 
-                        className="h-9 pl-10 text-sm"
-                        placeholder="999..."
-                        value={filterAmountMax} 
-                        onChange={(e) => setFilterAmountMax(e.target.value)} 
-                      />
+                  <div className="md:col-span-4 space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('revenue.filters.amountRange', 'Montant')}</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.min', 'Min')}</span>
+                        <Input 
+                          className="h-9 pl-9 text-sm bg-white"
+                          placeholder="0.00"
+                          value={filterAmountMin} 
+                          onChange={(e) => setFilterAmountMin(e.target.value)} 
+                        />
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{t('revenue.filters.max', 'Max')}</span>
+                        <Input 
+                          className="h-9 pl-9 text-sm bg-white"
+                          placeholder="999..."
+                          value={filterAmountMax} 
+                          onChange={(e) => setFilterAmountMax(e.target.value)} 
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="md:col-span-2 xl:col-span-12 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
-                    {t('revenue.intelligence.priority', 'Priorité')}: {priorityFilter === 'all' ? tr('Toutes', 'الكل') : priorityFilter === 'high' ? tr('Critique', 'حرج') : priorityFilter === 'medium' ? tr('Surveillance', 'مراقبة') : tr('Stable', 'مستقر')}
-                  </Badge>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
-                    {t('revenue.intelligence.window', 'Fenêtre')}: {commandWindow === 'all' ? t('revenue.window.all', 'Tout') : commandWindow}
-                  </Badge>
-                  <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white">
-                    {tr('Radar', 'الرادار')}: {anomalyMode === 'all' ? tr('Tous signaux', 'كل الإشارات') : anomalyMode === 'positive' ? tr('Entrées atypiques', 'مداخل غير اعتيادية') : tr('Sorties atypiques', 'مخارج غير اعتيادية')}
-                  </Badge>
-                </div>
               </div>
 
-              {/* Table Section */}
+              {/* Table Section Desktop */}
               <div className="smart-scroll-x hidden md:block">
                 <Table className="smart-table">
                   <TableHeader className="bg-slate-50">
@@ -1369,17 +1445,27 @@ function Revenue() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleOps.length === 0 ? (
+                    {paginatedOps.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="h-32 text-center text-slate-500">
                           <div className="flex flex-col items-center justify-center">
                             <Filter className="h-8 w-8 text-slate-300 mb-2" />
                             <p>{t('revenue.table.noResults', 'Aucun résultat')}</p>
+                            {(filterSearch || filterStatus !== 'all' || filterType !== 'all' || filterAccount !== 'all' || filterStartDate || filterEndDate || filterAmountMin || filterAmountMax) && (
+                              <Button
+                                variant="link"
+                                size="sm"
+                                onClick={resetAllFilters}
+                                className="mt-1 text-xs text-blue-600"
+                              >
+                                {tr('Réinitialiser les filtres', 'إعادة ضبط الفلاتر')}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      visibleOps.map((r) => (
+                      paginatedOps.map((r) => (
                         <TableRow key={`${r.kind}-${r.id}`} className="hover:bg-slate-50/50 transition-colors">
                           <TableCell className="font-medium text-slate-700">{formatDateLocalized(r.date)}</TableCell>
                           <TableCell>
@@ -1412,7 +1498,6 @@ function Revenue() {
                                 </>
                               ) : (
                                 <div className="flex items-center gap-1.5">
-                                  {/* Determine if it's an entry or exit to show the flow correctly */}
                                   {r.typeLabel === 'versement' ? (
                                     <>
                                       <Badge variant="outline" className="border-slate-200 bg-slate-50/50">
@@ -1506,18 +1591,141 @@ function Revenue() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Mobile View */}
               <div className="md:hidden grid grid-cols-1 gap-2 p-3">
-                {filteredHistory.map((r: FinancialTransaction) => (
-                  <FinancialTxCard
-                    key={r.id}
-                    tx={r}
-                    formatDate={(iso) => new Date(iso).toLocaleDateString(uiLocale)}
-                    formatAmount={(n) => formatCurrency(n)}
-                    formatAccountName={(acc) => formatAccountName(acc || '', tr)}
-                    labelMap={(type) => formatOpType(type)}
-                  />
-                ))}
+                {paginatedOps.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 bg-white rounded-lg border">
+                    <Filter className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm">{t('revenue.table.noResults', 'Aucun résultat')}</p>
+                  </div>
+                ) : (
+                  paginatedOps.map((r) => (
+                    <div key={`mob-${r.kind}-${r.id}`} className="p-3 bg-white rounded-lg border shadow-sm space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{formatDateLocalized(r.date)}</span>
+                        <Badge className={r.status === 'validated' ? 'bg-emerald-100 text-emerald-700 border-none' : 'bg-amber-100 text-amber-700 border-none'}>
+                          {formatStatus(r.status)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-800 text-sm">
+                          {r.kind === 'transfert' ? (
+                            <ArrowRightLeft className="h-4 w-4 text-blue-600" />
+                          ) : r.typeLabel === 'versement' ? (
+                            <TrendingUp className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4 text-rose-600" />
+                          )}
+                          <span>{formatOpType(r.typeLabel)}</span>
+                        </div>
+                        <span className={`font-bold text-sm ${r.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {formatCurrency(Number(r.amount) || 0)}
+                        </span>
+                      </div>
+                      {r.description && (
+                        <p className="text-xs text-slate-600 line-clamp-2">{r.description}</p>
+                      )}
+                      <div className="flex items-center justify-between pt-2 border-t text-xs">
+                        <div className="text-slate-500">
+                          {r.kind === 'transfert' ? (
+                            <span>{formatAccountName(r.sourceAccount, tr)} → {formatAccountName(r.destinationAccount, tr)}</span>
+                          ) : (
+                            <span>{formatAccountName(r.accountAffected, tr)}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {r.status === 'pending' ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-blue-600"
+                                onClick={() => {
+                                  if (r.kind === 'transfert') {
+                                    openEditTransfer(bankTransfersById.get(String(r.id))!);
+                                  } else {
+                                    openEditCash(cashOperationsById.get(String(r.id))!);
+                                  }
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-emerald-600"
+                                onClick={() => {
+                                  if (r.kind === 'transfert') {
+                                    handleValidateTransfer(bankTransfersById.get(String(r.id))!);
+                                  } else {
+                                    handleValidateCash(cashOperationsById.get(String(r.id))!);
+                                  }
+                                }}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-rose-600"
+                                onClick={() => handleDeleteOperation(r.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-rose-600"
+                              onClick={() => handleDeleteOperation(r.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
+
+              {/* Pagination Controls */}
+              {filteredOps.length > 0 && (
+                <div className="p-3.5 bg-slate-50 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-xs text-slate-600">
+                    {tr('Affichage de', 'عرض')} <span className="font-semibold text-slate-800">{startIndex + 1}</span> {tr('à', 'إلى')}{' '}
+                    <span className="font-semibold text-slate-800">{Math.min(endIndex, filteredOps.length)}</span> {tr('sur', 'من أصل')}{' '}
+                    <span className="font-semibold text-slate-800">{filteredOps.length}</span> {tr('opérations (50 par page)', 'عملية (50 في كل صفحة)')}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-white"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      {tr('Précédent', 'السابق')}
+                    </Button>
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-white border rounded text-slate-700">
+                      {tr('Page', 'صفحة')} {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-3 text-xs bg-white"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                    >
+                      {tr('Suivant', 'التالي')}
+                      <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
