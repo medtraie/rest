@@ -52,8 +52,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 const RevenueHistoryTab = lazyWithRetry(() => import('@/components/revenue/RevenueHistoryTab'), 'revenue-history-tab');
 const MButton = motion(Button);
 
-const fmtMAD = (n: number, locale = 'fr-MA') =>
-  n.toLocaleString(locale, { style: 'currency', currency: 'MAD', minimumFractionDigits: 2 });
+const fmtMAD = (n: number | null | undefined, locale = 'fr-MA') =>
+  (Number(n) || 0).toLocaleString(locale, { style: 'currency', currency: 'MAD', minimumFractionDigits: 2 });
 
 const formatAccountName = (acc: string, tr: (fr: string, ar: string) => string = (frText) => frText) => {
   switch (acc?.toLowerCase()) {
@@ -154,7 +154,7 @@ function Revenue() {
   const t = useT();
   const uiLocale = 'fr-MA';
   const tr = (frText: string, _arText: string) => frText;
-  const formatCurrency = (n: number) => fmtMAD(n, uiLocale);
+  const formatCurrency = (n: number | null | undefined) => fmtMAD(n, uiLocale);
   const formatOpType = (type: string) => {
     if (type === 'transfert') return tr('Transfert', 'تحويل');
     if (type === 'versement' || type === 'encaissement') return tr('Versement', 'إيداع');
@@ -449,9 +449,19 @@ function Revenue() {
   }, [financialTransactions, cashOperationsById, bankTransfersById]);
 
   const passesDate = (iso: string) => {
+    if (!iso) return true;
     const d = new Date(iso);
-    if (filterStartDate && d < new Date(filterStartDate)) return false;
-    if (filterEndDate && d > new Date(filterEndDate)) return false;
+    if (isNaN(d.getTime())) return true;
+    if (filterStartDate) {
+      const start = new Date(filterStartDate);
+      start.setHours(0, 0, 0, 0);
+      if (d < start) return false;
+    }
+    if (filterEndDate) {
+      const end = new Date(filterEndDate);
+      end.setHours(23, 59, 59, 999);
+      if (d > end) return false;
+    }
     return true;
   };
   const passesType = (row: OpRow) => {
@@ -532,7 +542,7 @@ function Revenue() {
   const filteredMetrics = useMemo(() => {
     let totalIn = 0;
     let totalOut = 0;
-    filteredOps.forEach((r) => {
+    (filteredOps || []).forEach((r) => {
       const amt = Number(r.amount) || 0;
       if (r.typeLabel === 'versement' || (r.kind !== 'transfert' && amt >= 0)) {
         totalIn += Math.abs(amt);
@@ -541,7 +551,9 @@ function Revenue() {
       }
     });
     return {
-      count: filteredOps.length,
+      count: filteredOps ? filteredOps.length : 0,
+      inflows: totalIn,
+      outflows: totalOut,
       totalIn,
       totalOut,
       net: totalIn - totalOut,
