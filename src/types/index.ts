@@ -1,11 +1,14 @@
 export interface Expense {
   id: string;
   code: string;
-  type: 'bureau' | 'salaire' | 'cnss' | 'loyer' | 'charger dépôt' | 'équipement' | 'électricité' | 'transport' | 'autre';
+  type: 'bureau' | 'salaire' | 'cnss' | 'loyer' | 'charger dépôt' | 'équipement' | 'électricité' | 'transport' | 'autre' | string;
   amount: number;
-  paymentMethod: 'espèces' | 'chèques' | 'banque' | 'dette';
+  paymentMethod: 'espèces' | 'espece' | 'chèques' | 'cheque' | 'banque' | 'dette' | 'compte_fournisseur' | string;
   date: string;
   note?: string;
+  supplierId?: string;
+  supplierBankName?: string;
+  accountDetails?: string;
 }
 export interface Revenue {
   id: string;

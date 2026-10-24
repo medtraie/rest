@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
-import { DollarSign, Plus, Calendar, Search, Filter, Download, Trash2, Receipt, Wallet, CreditCard, Banknote, History, CheckCircle2, AlertCircle, Pencil, Sparkles, BarChart3, Layers, TrendingDown, Gauge, Target, Siren, Rocket, BellRing, Save, RotateCcw, BrainCircuit } from 'lucide-react';
+import { DollarSign, Plus, Calendar, Search, Filter, Download, Trash2, Receipt, Wallet, CreditCard, Banknote, History, CheckCircle2, AlertCircle, Pencil, Sparkles, BarChart3, Layers, TrendingDown, Gauge, Target, Siren, Rocket, BellRing, Save, RotateCcw, BrainCircuit, Landmark, Building2, ArrowDownRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Expense } from '@/types';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ import { useLanguage, useT } from '@/contexts/LanguageContext';
 
 const paymentMethods = [
   'espece',
+  'compte_fournisseur',
   'cheque',
   'banque'
 ];
@@ -41,7 +42,7 @@ type ScenarioSnapshot = {
 };
 
 const Expenses = () => {
-  const { expenses, addExpense, updateExpense, deleteExpense, expenseTypes, addExpenseType } = useApp();
+  const { expenses, addExpense, updateExpense, deleteExpense, expenseTypes, addExpenseType, suppliers } = useApp();
   const t = useT();
   const { language } = useLanguage();
   const tr = (frText: string, arText: string) => (language === 'ar' ? arText : frText);
@@ -50,8 +51,20 @@ const Expenses = () => {
     new Date(value).toLocaleDateString(uiLocale, options || { year: 'numeric', month: '2-digit', day: '2-digit' });
   const te = (key: string, fallback: string) => t(`expenses.pdf.${key}`, fallback);
   const tu = (key: string, fallback: string) => t(`expenses.ui.${key}`, fallback);
-  const paymentLabel = (method: string) =>
-    method === 'espece' ? tu('payment.cash', 'Espèce') : method === 'cheque' ? tu('payment.cheque', 'Chèque') : method === 'banque' ? tu('payment.bank', 'Banque') : method;
+  const paymentLabel = (method: string) => {
+    switch (method) {
+      case 'espece':
+        return tu('payment.cash', 'Espèce');
+      case 'compte_fournisseur':
+        return tr('Compte Bancaire Fournisseur', 'حساب بنكي للمورد');
+      case 'cheque':
+        return tu('payment.cheque', 'Chèque');
+      case 'banque':
+        return tu('payment.bank', 'Banque');
+      default:
+        return method;
+    }
+  };
   const isArabicPdf = language === 'ar';
   const arabicPdfFontFile = 'NotoNaskhArabic-Regular.ttf';
   const arabicPdfFontName = 'NotoNaskhArabic';
@@ -97,11 +110,13 @@ const Expenses = () => {
   const [code, setCode] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [selectedSupplierBank, setSelectedSupplierBank] = useState<string>('');
   const [date, setDate] = useState<Date>(new Date());
   const [note, setNote] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [paymentFilter, setPaymentFilter] = useState<'all' | 'espece' | 'cheque' | 'banque'>('all');
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'espece' | 'compte_fournisseur' | 'cheque' | 'banque'>('all');
   const [monthlyBudget, setMonthlyBudget] = useState<string>('50000');
   const [forecastMode, setForecastMode] = useState<'prudent' | 'equilibre' | 'offensif'>('equilibre');
   const [selectedTargetCategory, setSelectedTargetCategory] = useState<string>('all');
@@ -109,6 +124,29 @@ const Expenses = () => {
   const [whatIfVariation, setWhatIfVariation] = useState<string>('0');
   const [scenarioHistory, setScenarioHistory] = useState<ScenarioSnapshot[]>([]);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+
+  const supplierBankProfiles = useMemo(() => {
+    return (suppliers || [])
+      .map((s) => ({
+        id: String(s?.id || ''),
+        name: String(s?.name || '').trim(),
+        bankAccountName: String(s?.bankAccountName || s?.name || '').trim(),
+        bankName: String(s?.bankName || '').trim(),
+        rib: String(s?.rib || '').trim()
+      }))
+      .filter((s) => s.id && (s.bankAccountName || s.name));
+  }, [suppliers]);
+
+  const handleGenerateCode = () => {
+    const todayStr = format(new Date(), 'yyyyMMdd');
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    setCode(`EXP-${todayStr}-${randomSuffix}`);
+  };
+
+  const handleQuickAddAmount = (addValue: number) => {
+    const currentVal = parseFloat(amount) || 0;
+    setAmount((currentVal + addValue).toFixed(2));
+  };
 
   const handleAddExpense = () => {
     if (!expenseType || !code || !amount || !paymentMethod) {
@@ -121,11 +159,20 @@ const Expenses = () => {
       return;
     }
 
+    if (paymentMethod === 'compte_fournisseur' && !selectedSupplierBank) {
+      toast.error(tr('Veuillez sélectionner un compte bancaire fournisseur', 'يرجى اختيار حساب بنكي للمورد'));
+      return;
+    }
+
     let finalType = expenseType;
     if (expenseType === 'autre') {
       finalType = customExpenseType;
       addExpenseType(customExpenseType);
     }
+
+    const matchedSupplier = supplierBankProfiles.find(s => s.bankAccountName === selectedSupplierBank || s.id === selectedSupplierId);
+    const finalSupplierId = selectedSupplierId || matchedSupplier?.id;
+    const finalSupplierBank = selectedSupplierBank || matchedSupplier?.bankAccountName;
 
     if (expenseToEdit) {
       updateExpense(expenseToEdit.id, {
@@ -134,7 +181,10 @@ const Expenses = () => {
         amount: parseFloat(amount),
         paymentMethod: paymentMethod as any,
         date: date.toISOString(),
-        note: note || undefined
+        note: note || undefined,
+        supplierId: paymentMethod === 'compte_fournisseur' ? finalSupplierId : undefined,
+        supplierBankName: paymentMethod === 'compte_fournisseur' ? finalSupplierBank : undefined,
+        accountDetails: paymentMethod === 'compte_fournisseur' ? finalSupplierBank : undefined,
       });
       toast.success(tu('toast.expenseUpdated', 'Dépense mise à jour avec succès'));
     } else {
@@ -145,7 +195,10 @@ const Expenses = () => {
         amount: parseFloat(amount),
         paymentMethod: paymentMethod as any,
         date: date.toISOString(),
-        note: note || undefined
+        note: note || undefined,
+        supplierId: paymentMethod === 'compte_fournisseur' ? finalSupplierId : undefined,
+        supplierBankName: paymentMethod === 'compte_fournisseur' ? finalSupplierBank : undefined,
+        accountDetails: paymentMethod === 'compte_fournisseur' ? finalSupplierBank : undefined,
       };
 
       addExpense(newExpense);
@@ -164,6 +217,15 @@ const Expenses = () => {
     setPaymentMethod(expense.paymentMethod);
     setDate(new Date(expense.date));
     setNote(expense.note || '');
+    if (expense.paymentMethod === 'compte_fournisseur') {
+      const bankName = expense.supplierBankName || expense.accountDetails || '';
+      setSelectedSupplierBank(bankName);
+      const sup = supplierBankProfiles.find(s => s.id === expense.supplierId || s.bankAccountName === bankName);
+      setSelectedSupplierId(sup?.id || expense.supplierId || '');
+    } else {
+      setSelectedSupplierId('');
+      setSelectedSupplierBank('');
+    }
     setDialogOpen(true);
   };
 
@@ -194,6 +256,8 @@ const Expenses = () => {
     setCode('');
     setAmount('');
     setPaymentMethod('');
+    setSelectedSupplierId('');
+    setSelectedSupplierBank('');
     setDate(new Date());
     setNote('');
   };
@@ -787,6 +851,10 @@ const Expenses = () => {
             <div className="flex flex-wrap items-center gap-2">
               <Button variant={paymentFilter === 'all' ? 'default' : 'outline'} className={paymentFilter === 'all' ? 'bg-indigo-600 hover:bg-indigo-700' : ''} onClick={() => setPaymentFilter('all')}>{tu('filters.all', 'Tous')}</Button>
               <Button variant={paymentFilter === 'espece' ? 'default' : 'outline'} className={paymentFilter === 'espece' ? 'bg-emerald-600 hover:bg-emerald-700' : ''} onClick={() => setPaymentFilter('espece')}>{tu('payment.cash', 'Espèce')}</Button>
+              <Button variant={paymentFilter === 'compte_fournisseur' ? 'default' : 'outline'} className={paymentFilter === 'compte_fournisseur' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''} onClick={() => setPaymentFilter('compte_fournisseur')}>
+                <Landmark className="w-3.5 h-3.5 mr-1" />
+                {tr('Compte Fournisseur', 'حساب المورد')}
+              </Button>
               <Button variant={paymentFilter === 'cheque' ? 'default' : 'outline'} className={paymentFilter === 'cheque' ? 'bg-amber-600 hover:bg-amber-700' : ''} onClick={() => setPaymentFilter('cheque')}>{tu('payment.cheque', 'Chèque')}</Button>
               <Button variant={paymentFilter === 'banque' ? 'default' : 'outline'} className={paymentFilter === 'banque' ? 'bg-indigo-600 hover:bg-indigo-700' : ''} onClick={() => setPaymentFilter('banque')}>{tu('payment.bank', 'Banque')}</Button>
             </div>
@@ -1225,7 +1293,7 @@ const Expenses = () => {
               <button
                 key={item.method}
                 type="button"
-                onClick={() => setPaymentFilter(item.method as 'espece' | 'cheque' | 'banque')}
+                onClick={() => setPaymentFilter(item.method as any)}
                 className="w-full rounded-lg border border-slate-200 bg-slate-50/60 p-2.5 text-left hover:bg-slate-50 transition-colors"
               >
                 <div className="flex items-center justify-between">
@@ -1334,12 +1402,20 @@ const Expenses = () => {
                     <TableCell className="text-slate-600 font-medium">{formatDateUi(expense.date)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {expense.paymentMethod === 'espece' && <Banknote className="w-4 h-4 text-emerald-500" />}
-                        {expense.paymentMethod === 'cheque' && <Receipt className="w-4 h-4 text-amber-500" />}
-                        {expense.paymentMethod === 'banque' && <CreditCard className="w-4 h-4 text-indigo-500" />}
-                        <span className="capitalize text-slate-700 font-medium">
-                          {expense.paymentMethod === 'espece' ? tu('payment.cash', 'Espèce') : expense.paymentMethod === 'cheque' ? tu('payment.cheque', 'Chèque') : expense.paymentMethod === 'banque' ? tu('payment.bank', 'Banque') : expense.paymentMethod}
-                        </span>
+                        {expense.paymentMethod === 'espece' && <Banknote className="w-4 h-4 text-emerald-500 shrink-0" />}
+                        {expense.paymentMethod === 'compte_fournisseur' && <Landmark className="w-4 h-4 text-purple-600 shrink-0" />}
+                        {expense.paymentMethod === 'cheque' && <Receipt className="w-4 h-4 text-amber-500 shrink-0" />}
+                        {expense.paymentMethod === 'banque' && <CreditCard className="w-4 h-4 text-indigo-500 shrink-0" />}
+                        <div className="flex flex-col">
+                          <span className="capitalize text-slate-700 font-medium">
+                            {paymentLabel(expense.paymentMethod)}
+                          </span>
+                          {expense.paymentMethod === 'compte_fournisseur' && (expense.supplierBankName || expense.accountDetails) && (
+                            <span className="text-[11px] text-purple-600 font-semibold tracking-tight">
+                              {expense.supplierBankName || expense.accountDetails}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[220px] truncate text-slate-500 italic text-sm">{expense.note || '-'}</TableCell>
@@ -1397,125 +1473,339 @@ const Expenses = () => {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md p-0 border-none overflow-hidden shadow-2xl">
-          <div className="bg-rose-600 p-6 text-white">
+        <DialogContent className="max-w-xl p-0 border-none overflow-hidden shadow-2xl rounded-2xl max-h-[92vh] flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-rose-600 via-rose-700 to-indigo-950 p-6 text-white shrink-0 relative overflow-hidden">
+            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
             <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                  <Receipt className="w-6 h-6" />
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-md shadow-inner border border-white/20">
+                  <Receipt className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-bold text-white">
-                    {expenseToEdit ? tu('dialog.editTitle', 'Modifier la Charge') : tu('dialog.newTitle', 'Nouvelle Charge')}
-                  </DialogTitle>
-                  <p className="text-rose-100 text-xs mt-0.5">
-                    {expenseToEdit ? tu('dialog.editSubtitle', 'Mettre à jour les informations de la charge') : tu('dialog.newSubtitle', 'Enregistrer une nouvelle charge financière')}
+                  <div className="flex items-center gap-2">
+                    <DialogTitle className="text-xl font-black text-white tracking-wide">
+                      {expenseToEdit ? tu('dialog.editTitle', 'Modifier la Charge') : tu('dialog.newTitle', 'Nouvelle Charge')}
+                    </DialogTitle>
+                    <Badge className="bg-white/20 text-white hover:bg-white/30 border-none text-[11px] font-semibold px-2">
+                      <Sparkles className="w-3 h-3 mr-1 text-amber-300 inline" />
+                      {expenseToEdit ? tr('Édition', 'تعديل') : tr('Enregistrement', 'تسجيل')}
+                    </Badge>
+                  </div>
+                  <p className="text-rose-100/90 text-xs mt-1 font-medium">
+                    {expenseToEdit 
+                      ? tr('Mettre à jour les paramètres et le mode de règlement de la charge', 'تحديث بيانات ومصدر دفع المصروف') 
+                      : tr('Enregistrer une charge avec affectation automatique du compte', 'تسجيل مصروف جديد مع الخصم التلقائي من الحساب المالي المختار')}
                   </p>
                 </div>
               </div>
             </DialogHeader>
           </div>
           
-          <div className="p-6 space-y-5 bg-white">
-            <div className="space-y-2">
-              <Label htmlFor="type" className="text-slate-700 font-semibold ml-1">{tu('form.expenseTypeLabel', 'Ajouter une dépense *')}</Label>
+          {/* Form Content */}
+          <div className="p-6 space-y-5 bg-slate-50/40 overflow-y-auto flex-1">
+            {/* Type de Dépense */}
+            <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="type" className="text-slate-800 font-bold text-sm flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-rose-500" />
+                  {tu('form.expenseTypeLabel', 'Type de dépense')} <span className="text-rose-500">*</span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2"
+                  onClick={() => setShowAddTypeInline((prev) => !prev)}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {tr('Nouveau type', 'نوع جديد')}
+                </Button>
+              </div>
+
               <Select value={expenseType} onValueChange={setExpenseType}>
-                <SelectTrigger className="h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl">
+                <SelectTrigger className="h-11 bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl">
                   <SelectValue placeholder={tu('form.chooseType', 'Choisir un type')} />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                <SelectContent className="rounded-xl border-slate-100 shadow-xl max-h-60">
                   {expenseTypes.map(type => (
-                    <SelectItem key={type} value={type} className="rounded-lg capitalize">{type}</SelectItem>
+                    <SelectItem key={type} value={type} className="rounded-lg capitalize font-medium">{type}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <div className="pt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  onClick={() => setShowAddTypeInline((prev) => !prev)}
-                >
-                  Ajouter un dépense dans la liste
-                </Button>
-              </div>
+
               {showAddTypeInline && (
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-2 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 animate-in fade-in-50 duration-200">
                   <Input
                     value={newExpenseTypeName}
                     onChange={(e) => setNewExpenseTypeName(e.target.value)}
-                    placeholder="Dépense"
-                    className="h-10 bg-slate-50 border-slate-100"
+                    placeholder={tr('Nom du nouveau type...', 'اسم النوع الجديد...')}
+                    className="h-9 bg-white border-indigo-200 text-sm"
                   />
-                  <Button type="button" className="h-10 bg-indigo-600 hover:bg-indigo-700" onClick={handleAddExpenseTypeToList}>
-                    Ajouter
+                  <Button type="button" size="sm" className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 font-medium" onClick={handleAddExpenseTypeToList}>
+                    {tr('Ajouter', 'إضافة')}
                   </Button>
+                </div>
+              )}
+
+              {expenseType === 'autre' && (
+                <div className="space-y-1.5 pt-2">
+                  <Label htmlFor="customExpenseType" className="text-slate-700 text-xs font-semibold">{tu('form.customExpenseNameLabel', 'Préciser le nom de la dépense *')}</Label>
+                  <Input
+                    id="customExpenseType"
+                    value={customExpenseType}
+                    onChange={(e) => setCustomExpenseType(e.target.value)}
+                    placeholder={tu('form.customExpenseNamePlaceholder', 'Entrez le nom de la dépense')}
+                    className="h-10 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-semibold"
+                  />
                 </div>
               )}
             </div>
 
-            {expenseType === 'autre' && (
-              <div className="space-y-2">
-                <Label htmlFor="customExpenseType" className="text-slate-700 font-semibold ml-1">{tu('form.customExpenseNameLabel', 'Nom de dépense *')}</Label>
+            {/* Code & Montant Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Code */}
+              <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="code" className="text-slate-800 font-bold text-sm">
+                    {tu('form.codeLabel', 'Code')} <span className="text-rose-500">*</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleGenerateCode}
+                    className="h-6 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 px-2"
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    {tr('Auto', 'تلقائي')}
+                  </Button>
+                </div>
                 <Input
-                  id="customExpenseType"
-                  value={customExpenseType}
-                  onChange={(e) => setCustomExpenseType(e.target.value)}
-                  placeholder={tu('form.customExpenseNamePlaceholder', 'Entrez le nom de la dépense')}
-                  className="h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-bold"
+                  id="code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder={tu('form.codePlaceholder', 'Ex: EXP-20261024-01')}
+                  className="h-11 bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-bold font-mono text-slate-800"
                 />
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="code" className="text-slate-700 font-semibold ml-1">{tu('form.codeLabel', 'Code *')}</Label>
-              <Input
-                id="code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder={tu('form.codePlaceholder', 'Code de la dépense')}
-                className="h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-bold"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="text-slate-700 font-semibold ml-1">{tu('form.amountLabel', 'Montant (MAD) *')}</Label>
-              <div className="relative group">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-rose-600 transition-colors" />
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="pl-10 h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-bold"
-                />
+              {/* Amount */}
+              <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <Label htmlFor="amount" className="text-slate-800 font-bold text-sm">
+                  {tu('form.amountLabel', 'Montant (MAD)')} <span className="text-rose-500">*</span>
+                </Label>
+                <div className="relative group">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-rose-600 transition-colors" />
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="pl-9 pr-12 h-11 bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl font-black text-rose-600 text-lg"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">DH</span>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod" className="text-slate-700 font-semibold ml-1">{tu('form.paymentMethodLabel', 'Mode de règlement *')}</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl">
-                  <SelectValue placeholder={tu('form.choosePaymentMethod', 'Choisir un mode')} />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  <SelectItem value="espece">{tu('payment.cash', 'Espèce')}</SelectItem>
-                  <SelectItem value="cheque">{tu('payment.cheque', 'Chèque')}</SelectItem>
-                  <SelectItem value="banque">{tu('payment.bank', 'Banque')}</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Quick Amount Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 px-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">{tr('Montants rapides :', 'مبالغ سريعة :')}</span>
+              {[50, 100, 200, 500, 1000].map((quickVal) => (
+                <button
+                  key={quickVal}
+                  type="button"
+                  onClick={() => handleQuickAddAmount(quickVal)}
+                  className="px-2.5 py-1 text-xs font-bold bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-600 border border-slate-200 hover:border-rose-200 rounded-lg shadow-2xs transition-all active:scale-95"
+                >
+                  +{quickVal} DH
+                </button>
+              ))}
+              {amount && (
+                <button
+                  type="button"
+                  onClick={() => setAmount('')}
+                  className="px-2 py-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors ml-auto"
+                >
+                  {tr('Effacer', 'مسح')}
+                </button>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date" className="text-slate-700 font-semibold ml-1">{tu('form.operationDateLabel', "Date de l'opération *")}</Label>
+            {/* Mode de règlement */}
+            <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between">
+                <Label className="text-slate-800 font-bold text-sm flex items-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-purple-600" />
+                  {tu('form.paymentMethodLabel', 'Mode de règlement')} <span className="text-rose-500">*</span>
+                </Label>
+                {paymentMethod === 'compte_fournisseur' && (
+                  <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200 text-[10px] font-bold">
+                    {tr('Débit Fournisseur Direct', 'خصم بنكي مباشر')}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Visual payment mode selector grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* Espèce */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('espece');
+                    setSelectedSupplierId('');
+                    setSelectedSupplierBank('');
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center gap-1.5",
+                    paymentMethod === 'espece'
+                      ? "border-emerald-500 bg-emerald-50/70 text-emerald-900 ring-2 ring-emerald-500/20 shadow-sm font-bold"
+                      : "border-slate-200 hover:border-slate-300 bg-slate-50/50 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <Banknote className={cn("w-5 h-5", paymentMethod === 'espece' ? "text-emerald-600" : "text-slate-400")} />
+                  <span className="text-xs font-bold leading-tight">{tu('payment.cash', 'Espèce')}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">{tr('Caisse', 'الصندوق')}</span>
+                </button>
+
+                {/* Compte Bancaire Fournisseur */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('compte_fournisseur');
+                    if (!selectedSupplierBank && supplierBankProfiles.length > 0) {
+                      setSelectedSupplierId(supplierBankProfiles[0].id);
+                      setSelectedSupplierBank(supplierBankProfiles[0].bankAccountName);
+                    }
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center gap-1.5",
+                    paymentMethod === 'compte_fournisseur'
+                      ? "border-purple-600 bg-purple-50/80 text-purple-950 ring-2 ring-purple-500/20 shadow-sm font-bold"
+                      : "border-slate-200 hover:border-slate-300 bg-slate-50/50 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <Landmark className={cn("w-5 h-5", paymentMethod === 'compte_fournisseur' ? "text-purple-600" : "text-slate-400")} />
+                  <span className="text-xs font-bold leading-tight">{tr('Compte Fournisseur', 'حساب المورد')}</span>
+                  <span className="text-[10px] text-purple-600/80 font-semibold">{tr('Débit auto', 'خصم بنكي')}</span>
+                </button>
+
+                {/* Chèque */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('cheque');
+                    setSelectedSupplierId('');
+                    setSelectedSupplierBank('');
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center gap-1.5",
+                    paymentMethod === 'cheque'
+                      ? "border-amber-500 bg-amber-50/70 text-amber-900 ring-2 ring-amber-500/20 shadow-sm font-bold"
+                      : "border-slate-200 hover:border-slate-300 bg-slate-50/50 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <Receipt className={cn("w-5 h-5", paymentMethod === 'cheque' ? "text-amber-600" : "text-slate-400")} />
+                  <span className="text-xs font-bold leading-tight">{tu('payment.cheque', 'Chèque')}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">{tr('Portefeuille', 'شيك')}</span>
+                </button>
+
+                {/* Banque Société */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('banque');
+                    setSelectedSupplierId('');
+                    setSelectedSupplierBank('');
+                  }}
+                  className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center gap-1.5",
+                    paymentMethod === 'banque'
+                      ? "border-indigo-600 bg-indigo-50/70 text-indigo-950 ring-2 ring-indigo-500/20 shadow-sm font-bold"
+                      : "border-slate-200 hover:border-slate-300 bg-slate-50/50 text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  <CreditCard className={cn("w-5 h-5", paymentMethod === 'banque' ? "text-indigo-600" : "text-slate-400")} />
+                  <span className="text-xs font-bold leading-tight">{tu('payment.bank', 'Banque')}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">{tr('Société', 'حساب الشركة')}</span>
+                </button>
+              </div>
+
+              {/* Dedicated Supplier Bank Account Selector when compte_fournisseur is chosen */}
+              {paymentMethod === 'compte_fournisseur' && (
+                <div className="mt-3 p-4 bg-purple-50/60 rounded-xl border border-purple-200 space-y-3 animate-in fade-in-50 duration-200">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-purple-600" />
+                      {tr('Sélectionner le compte bancaire fournisseur *', 'اختر حساب بنك المورد *')}
+                    </Label>
+                    <span className="text-[11px] text-purple-600 font-semibold">
+                      {supplierBankProfiles.length} {tr('comptes disponibles', 'حسابات متوفرة')}
+                    </span>
+                  </div>
+
+                  <Select
+                    value={selectedSupplierBank}
+                    onValueChange={(val) => {
+                      setSelectedSupplierBank(val);
+                      const matched = supplierBankProfiles.find(s => s.bankAccountName === val);
+                      if (matched) setSelectedSupplierId(matched.id);
+                    }}
+                  >
+                    <SelectTrigger className="h-11 bg-white border-purple-200 focus:ring-2 focus:ring-purple-500 rounded-xl font-medium text-slate-800">
+                      <SelectValue placeholder={tr('Choisir un compte bancaire fournisseur', 'اختر حساب بنك المورد')} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-purple-100 shadow-xl max-h-60">
+                      {supplierBankProfiles.map((sup) => (
+                        <SelectItem key={sup.id} value={sup.bankAccountName} className="rounded-lg py-2">
+                          <div className="flex flex-col text-left">
+                            <span className="font-bold text-slate-800">{sup.bankAccountName}</span>
+                            <span className="text-[11px] text-slate-500">
+                              {sup.name !== sup.bankAccountName ? `${sup.name} · ` : ''}
+                              {sup.bankName ? `${sup.bankName} ` : ''}
+                              {sup.rib ? `(RIB: ${sup.rib.slice(-6)})` : ''}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Impact notice banner */}
+                  <div className="flex items-start gap-2.5 p-3 rounded-lg bg-white/90 border border-purple-200/80 text-xs text-purple-900">
+                    <ArrowDownRight className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">
+                        {tr('Déduction automatique du compte bancaire fournisseur :', 'خصم تلقائي من حساب بنك المورد :')}
+                      </p>
+                      <p className="text-[11px] text-purple-700 mt-0.5">
+                        {tr(
+                          `Le montant de ${amount ? `${parseFloat(amount).toFixed(2)} DH` : '0.00 DH'} sera débité directement du compte "${selectedSupplierBank || 'Fournisseur'}" dans la section Comptes Bancaires Fournisseurs.`,
+                          `سيتم خصم مبلغ ${amount ? `${parseFloat(amount).toFixed(2)} DH` : '0.00 DH'} مباشرة من حساب "${selectedSupplierBank || 'المورد'}" في قسم حسابات بنوك الموردين.`
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Date de l'opération */}
+            <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+              <Label htmlFor="date" className="text-slate-800 font-bold text-sm flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-rose-500" />
+                {tu('form.operationDateLabel', "Date de l'opération")} <span className="text-rose-500">*</span>
+              </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full h-11 bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl justify-start text-left font-normal",
+                      "w-full h-11 bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl justify-start text-left font-semibold text-slate-700",
                       !date && "text-muted-foreground"
                     )}
                   >
@@ -1535,26 +1825,81 @@ const Expenses = () => {
               </Popover>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="note" className="text-slate-700 font-semibold ml-1">{tu('form.noteLabel', 'Note / Détails (facultatif)')}</Label>
+            {/* Note / Détails */}
+            <div className="space-y-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+              <Label htmlFor="note" className="text-slate-800 font-bold text-sm">
+                {tu('form.noteLabel', 'Note / Observations')} <span className="text-xs font-normal text-slate-400">({tr('facultatif', 'اختياري')})</span>
+              </Label>
               <Textarea
                 id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder={tu('form.notePlaceholder', 'Précisions sur la dépense...')}
-                className="bg-slate-50 border-slate-100 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl resize-none min-h-[100px]"
+                placeholder={tu('form.notePlaceholder', 'Précisions ou référence sur la dépense...')}
+                className="bg-slate-50/80 border-slate-200 focus:ring-2 focus:ring-rose-500 transition-all rounded-xl resize-none min-h-[85px] text-sm"
               />
             </div>
 
-            <DialogFooter className="flex gap-3 pt-4 sm:justify-start">
-              <Button onClick={handleAddExpense} className="flex-1 h-11 bg-rose-600 hover:bg-rose-700 shadow-md transition-all font-bold rounded-xl text-white">
-                {expenseToEdit ? tu('actions.update', 'Mettre à jour') : tu('actions.save', 'Enregistrer')}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => {
-                setDialogOpen(false);
-                resetForm();
-              }} className="flex-1 h-11 border-slate-200 font-medium rounded-xl hover:bg-slate-50">
+            {/* Live Financial Summary */}
+            {amount && parseFloat(amount) > 0 && (
+              <div className="p-3.5 bg-gradient-to-r from-rose-50 to-indigo-50/60 rounded-xl border border-rose-100 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700 font-bold">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-800 block">
+                      {paymentMethod === 'compte_fournisseur' 
+                        ? tr(`Débit Compte Fournisseur (${selectedSupplierBank || 'Non spécifié'})`, `خصم من حساب بنك المورد (${selectedSupplierBank || 'غير محدد'})`) 
+                        : paymentMethod === 'espece' 
+                          ? tr('Débit Caisse (Espèce)', 'خصم من الصندوق (نقدًا)')
+                          : paymentMethod === 'cheque' 
+                            ? tr('Chèque émis', 'شيك صادر')
+                            : tr('Débit Banque Société', 'خصم من الحساب البنكي')}
+                    </span>
+                    <span className="text-slate-500 text-[11px] font-medium">
+                      {expenseType || tr('Charge générale', 'مصروف عام')} {code ? `· ${code}` : ''}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-black text-rose-600 block">
+                    -{parseFloat(amount).toFixed(2)} DH
+                  </span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold">TTC</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="p-4 bg-white border-t border-slate-100 shrink-0">
+            <DialogFooter className="flex gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDialogOpen(false);
+                  resetForm();
+                }}
+                className="flex-1 sm:flex-none h-11 border-slate-200 font-semibold rounded-xl hover:bg-slate-50 px-5"
+              >
                 {tu('actions.cancel', 'Annuler')}
+              </Button>
+              <Button
+                onClick={handleAddExpense}
+                className="flex-1 sm:flex-none h-11 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 shadow-md hover:shadow-lg transition-all font-bold rounded-xl text-white px-6"
+              >
+                {expenseToEdit ? (
+                  <>
+                    <Save className="w-4 h-4 mr-1.5" />
+                    {tu('actions.update', 'Mettre à jour')}
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    {tu('actions.save', 'Enregistrer la charge')}
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </div>
