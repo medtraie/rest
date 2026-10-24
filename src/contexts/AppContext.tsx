@@ -1599,20 +1599,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     // Database payload: clean, only standard columns accepted by PostgreSQL
     const dbPaymentMethod = isSupplierBank ? 'banque' : normalizeAccount(expense.paymentMethod);
+    const finalCode = expense.code && expense.code.trim() ? expense.code.trim() : null;
     const expenseDbPayload: Record<string, any> = {
       id,
       type: expense.type,
-      code: expense.code || '',
       amount: expense.amount,
       paymentMethod: dbPaymentMethod,
       date: expense.date,
       note: noteWithBank,
     };
+    if (finalCode) {
+      expenseDbPayload.code = finalCode;
+    }
 
     const created = await supabaseService.create<Expense>("expenses", expenseDbPayload);
     const finalExpense: Expense = {
       ...expense,
       id: created?.id || id,
+      code: finalCode || '',
       note: noteWithBank,
       supplierBankName: accountDetails,
       accountDetails: accountDetails,
@@ -1661,7 +1665,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const expenseDbPatch: Record<string, any> = {};
     if (patch.type !== undefined) expenseDbPatch.type = patch.type;
-    if (patch.code !== undefined) expenseDbPatch.code = patch.code || '';
+    if (patch.code !== undefined) {
+      expenseDbPatch.code = patch.code && patch.code.trim() ? patch.code.trim() : null;
+    }
     if (patch.amount !== undefined) expenseDbPatch.amount = patch.amount;
     if (patch.date !== undefined) expenseDbPatch.date = patch.date;
     if (patch.note !== undefined || isSupplierBank) expenseDbPatch.note = noteWithBank;

@@ -16,7 +16,13 @@ const hasNoRowsSingleError = (message?: string) => {
   const text = (message || '').toLowerCase();
   return text.includes('json object requested') && text.includes('no rows');
 };
-const sharedTables = new Set(["supply_orders", "return_orders"]);
+const sharedTables = new Set([
+  "supply_orders",
+  "return_orders",
+  "expenses",
+  "financial_transactions",
+  "cash_operations"
+]);
 const SHARED_TABLES_PAGE_SIZE = 1000;
 const fetchSharedTableRows = async (table: string) => {
   const rows: Record<string, any>[] = [];
@@ -26,7 +32,7 @@ const fetchSharedTableRows = async (table: string) => {
     const to = from + SHARED_TABLES_PAGE_SIZE - 1;
     let query = supabase.from(table).select("*");
     
-    if (table === 'supply_orders' || table === 'return_orders' || table === 'stock_history' || table === 'transactions' || table === 'factory_operations') {
+    if (table === 'supply_orders' || table === 'return_orders' || table === 'stock_history' || table === 'transactions' || table === 'factory_operations' || table === 'expenses' || table === 'financial_transactions' || table === 'cash_operations') {
       query = query.order("date", { ascending: false });
     }
     
@@ -125,16 +131,15 @@ const toCamelShallow = (value: Record<string, any>) => {
 };
 const columnMap: Record<string, Record<string, string>> = {
   cash_operations: {
-    accountAffected: 'account_affected',
-    accountDetails: 'account_details',
+    accountAffected: 'accountaffected',
+    accountDetails: 'accountdetails',
     validatedAt: 'validated_at',
     validatedBy: 'validated_by',
   },
   financial_transactions: {
-    sourceAccount: 'source_account',
-    destinationAccount: 'destination_account',
-    accountDetails: 'account_details',
-    createdAt: 'created_at',
+    sourceAccount: 'sourceaccount',
+    destinationAccount: 'destinationaccount',
+    accountDetails: 'accountdetails',
   },
   empty_bottles_stock: {
     bottleTypeId: 'bottletypeid',
@@ -216,7 +221,7 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
   const columns = tableColumnHints[table] || [];
   for (const [key, val] of Object.entries(value)) {
     if (val === undefined || (typeof val === 'number' && isNaN(val))) continue;
-    if ((table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') && !columns.length) {
+    if ((table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history' || table === 'financial_transactions' || table === 'cash_operations' || table === 'expenses') && !columns.length) {
       payload[key] = val;
       const snake = toSnakeKey(key);
       payload[snake] = val;
@@ -237,7 +242,7 @@ const toWritePayload = (table: string, value: Record<string, any>) => {
       }
       continue;
     }
-    if (!columns.length || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') {
+    if (!columns.length || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history' || table === 'financial_transactions' || table === 'cash_operations' || table === 'expenses') {
       const snake = toSnakeKey(key);
       payload[snake] = val;
       const flat = key.toLowerCase();
@@ -253,7 +258,7 @@ const stripMissingColumn = (payload: Record<string, any>, column: string, table?
   const next = { ...payload };
   // Remove the exact column reported by Supabase
   delete next[column];
-  if (table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history') {
+  if (table === 'factory_invoices' || table === 'bottle_types' || table === 'empty_bottles_stock' || table === 'defective_stock' || table === 'stock_history' || table === 'financial_transactions' || table === 'cash_operations' || table === 'expenses') {
     // Keep alternative candidates for this table so retries can converge
     // on the real schema instead of deleting sibling variants too early.
     return next;
@@ -596,7 +601,75 @@ const normalizeStockHistoryRow = (row: Record<string, any>) => {
   };
 };
 
+const normalizeFinancialTransactionRow = (row: Record<string, any>) => {
+  const sourceAccount = row.sourceAccount ?? row.sourceaccount ?? row.source_account;
+  const destinationAccount = row.destinationAccount ?? row.destinationaccount ?? row.destination_account;
+  const accountDetails = row.accountDetails ?? row.accountdetails ?? row.account_details;
+  return {
+    ...row,
+    id: String(row.id ?? ''),
+    date: row.date ? new Date(row.date).toISOString() : new Date().toISOString(),
+    type: row.type ?? 'retrait',
+    description: row.description ?? '',
+    amount: Number(row.amount ?? 0) || 0,
+    sourceAccount: sourceAccount,
+    destinationAccount: destinationAccount,
+    accountDetails: accountDetails,
+    status: row.status ?? 'completed',
+    createdAt: row.createdAt ?? row.created_at ?? row.date ?? new Date().toISOString(),
+  };
+};
+
+const normalizeCashOperationRow = (row: Record<string, any>) => {
+  const accountAffected = row.accountAffected ?? row.accountaffected ?? row.account_affected ?? 'banque';
+  const accountDetails = row.accountDetails ?? row.accountdetails ?? row.account_details;
+  return {
+    ...row,
+    id: String(row.id ?? ''),
+    date: row.date ? new Date(row.date).toISOString() : new Date().toISOString(),
+    name: row.name ?? row.description ?? '',
+    amount: Number(row.amount ?? 0) || 0,
+    type: row.type ?? 'retrait',
+    accountAffected: accountAffected,
+    accountDetails: accountDetails,
+    status: row.status ?? 'validated',
+  };
+};
+
+const normalizeExpenseRow = (row: Record<string, any>) => {
+  const paymentMethod = row.paymentMethod ?? row.payment_method ?? row.paymentmethod ?? 'autre';
+  const noteText = row.note ?? '';
+  const bankMatch = String(noteText).match(/\[(?:Fournisseur:\s*)?([^\]]+)\]/);
+  const detectedBank = bankMatch ? bankMatch[1].trim() : undefined;
+  const supplierBankName = row.supplierBankName ?? row.supplier_bank_name ?? row.accountDetails ?? row.account_details ?? detectedBank;
+  const accountDetails = row.accountDetails ?? row.account_details ?? supplierBankName;
+
+  const isSupplier = paymentMethod === 'compte_fournisseur' || (detectedBank && paymentMethod === 'banque');
+
+  return {
+    ...row,
+    id: String(row.id ?? ''),
+    type: row.type ?? 'autre',
+    code: row.code ?? '',
+    amount: Number(row.amount ?? row.montant ?? 0) || 0,
+    paymentMethod: isSupplier ? 'compte_fournisseur' : paymentMethod,
+    date: row.date ? new Date(row.date).toISOString() : new Date().toISOString(),
+    note: noteText,
+    supplierBankName: supplierBankName,
+    accountDetails: accountDetails,
+  };
+};
+
 const normalizeRow = (table: string, row: Record<string, any>) => {
+  if (table === 'financial_transactions') {
+    return normalizeFinancialTransactionRow(row);
+  }
+  if (table === 'cash_operations') {
+    return normalizeCashOperationRow(row);
+  }
+  if (table === 'expenses') {
+    return normalizeExpenseRow(row);
+  }
   if (table === 'bottle_types') {
     return normalizeBottleTypesRow(row);
   }
@@ -694,9 +767,10 @@ export const supabaseService = {
   // Generic Create
   async create<T>(table: string, item: Partial<T>): Promise<T | null> {
     const uid = await currentUserId();
+    const shouldAttachUid = uid && (!sharedTables.has(table) || table === 'expenses' || table === 'financial_transactions' || table === 'cash_operations');
     const nextItem =
-      uid && !sharedTables.has(table)
-        ? { ...(item as Record<string, any>), user_id: uid }
+      shouldAttachUid
+        ? { user_id: uid, ...(item as Record<string, any>) }
         : (item as Record<string, any>);
     let payload = toWritePayload(table, nextItem);
     if (!Object.keys(payload).length) return null;

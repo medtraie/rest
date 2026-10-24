@@ -436,6 +436,9 @@ function Revenue() {
       }
       
       const op = cashOperationsById.get(String(t.id));
+      const rowSource = t.sourceAccount || (t as any).sourceaccount || op?.accountAffected || (op as any)?.accountaffected;
+      const rowDest = t.destinationAccount || (t as any).destinationaccount;
+      const rowDetails = t.accountDetails || (t as any).accountdetails || op?.accountDetails || (op as any)?.accountdetails;
       return {
           kind: 'operation',
           id: t.id || Math.random().toString(),
@@ -445,8 +448,8 @@ function Revenue() {
                      t.type === 'retrait' || t.type === 'dépense' || t.type === 'réparation' ? 'retrait' : 'versement',
           description: t.description,
           amount: Math.abs(t.amount),
-          accountAffected: (t.amount >= 0 ? t.destinationAccount : t.sourceAccount) as any,
-          accountDetails: t.accountDetails || op?.accountDetails,
+          accountAffected: (t.amount >= 0 ? rowDest : rowSource) as any,
+          accountDetails: rowDetails,
           status: op?.status || 'validated',
         };
     }).sort(
@@ -475,7 +478,7 @@ function Revenue() {
       const detailsMatch = normalizeAccountText(String(row.accountDetails || '')) === target;
       const descMatch = normalizeAccountText(String((row as any).description || (row as any).name || '')).includes(target);
       if (row.kind === 'operation') {
-        return (detailsMatch || descMatch) && row.accountAffected === 'banque';
+        return (detailsMatch || descMatch) && (row.accountAffected === 'banque' || !row.accountAffected);
       }
       return detailsMatch || descMatch;
     }

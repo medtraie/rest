@@ -123,7 +123,7 @@ const Expenses = () => {
     setCode(`EXP-${todayStr}-${randomSuffix}`);
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!expenseType || !amount || !paymentMethod) {
       toast.error(tu('toast.fillRequired', 'Veuillez remplir tous les champs obligatoires'));
       return;
@@ -142,7 +142,7 @@ const Expenses = () => {
     let finalType = expenseType;
     if (expenseType === 'autre') {
       finalType = customExpenseType;
-      addExpenseType(customExpenseType);
+      await addExpenseType(customExpenseType);
     }
 
     const matchedSupplier = supplierBankProfiles.find(s => s.bankAccountName === selectedSupplierBank || s.id === selectedSupplierId);
@@ -152,7 +152,7 @@ const Expenses = () => {
     const trimmedCode = code ? code.trim() : '';
 
     if (expenseToEdit) {
-      updateExpense(expenseToEdit.id, {
+      await updateExpense(expenseToEdit.id, {
         type: finalType as any,
         code: trimmedCode,
         amount: parseFloat(amount),
@@ -179,7 +179,7 @@ const Expenses = () => {
         accountDetails: paymentMethod === 'compte_fournisseur' ? finalSupplierBank : undefined,
       };
 
-      addExpense(newExpense);
+      await addExpense(newExpense);
       toast.success(tu('toast.expenseAdded', 'Dépense ajoutée avec succès'));
     }
     
