@@ -367,8 +367,8 @@ interface AppContextType {
   removeRoleAssignment: (assignmentId: string) => Promise<void>;
   hasPermission: (permission: PermissionKey) => boolean;
   // Data management functions
-  exportData: () => void;
-  importData: (jsonData: string) => void;
+  exportData: () => Promise<void>;
+  importData: (jsonData: string, onProgress?: (step: string) => void) => Promise<{ success: boolean; error?: string }>;
   clearAllData: () => void;
 }
 
@@ -2663,7 +2663,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     assignRoleToEmail,
     removeRoleAssignment,
     hasPermission,
-    exportData: () => {
+    exportData: async () => {
+      // 1. Fetch additional tables that are not stored in AppContext root state
+      let factoryOperations: any[] = [];
+      let factoryInvoices: any[] = [];
+      let debtSettlements: any[] = [];
+
+      try {
+        const [cloudOps, directOps, invs, debts] = await Promise.all([
+          kvGet<any[]>('factory_operations_cloud').catch(() => null),
+          supabaseService.getAll<any>('factory_operations').catch(() => []),
+          supabaseService.getAll<any>('factory_invoices').catch(() => []),
+          supabaseService.getAll<any>('debt_settlements').catch(() => []),
+        ]);
+
+        const opsMap = new Map<string, any>();
+        [...(Array.isArray(cloudOps) ? cloudOps : []), ...(directOps || [])].forEach((op) => {
+          if (op && op.id) opsMap.set(String(op.id), op);
+        });
+        factoryOperations = Array.from(opsMap.values());
+        factoryInvoices = invs || [];
+        debtSettlements = debts || [];
+      } catch (e) {
+        console.warn("Could not load factory tables for export:", e);
+      }
+
       const data = {
         clients,
         brands,
@@ -2697,8 +2721,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         suppliers,
         roles,
         roleAssignments,
+        factoryOperations,
+        factoryInvoices,
+        debtSettlements,
         exportDate: new Date().toISOString(),
-        version: "1.0.0"
+        version: "2.0.0"
       };
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -2711,10 +2738,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     },
-    importData: (jsonData: string) => {
+    importData: async (jsonData: string, onProgress?: (step: string) => void): Promise<{ success: boolean; error?: string }> => {
       try {
         const data = JSON.parse(jsonData);
-        
+
+        // 1. Update React Local States
+        onProgress?.("Mise à jour de la mémoire locale...");
         if (data.clients) setClients(data.clients);
         if (data.brands) setBrands(data.brands);
         if (data.drivers) setDrivers(data.drivers);
@@ -2748,11 +2777,74 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (data.roles) setRoles(data.roles);
         if (data.roleAssignments) setRoleAssignments(data.roleAssignments);
 
-        alert("Données importées avec succès !");
-        window.location.reload();
-      } catch (error) {
+        // 2. Persist to Supabase safely via upsertMany
+        const syncTable = async (tableName: string, items: any[], label: string) => {
+          if (Array.isArray(items) && items.length > 0) {
+            onProgress?.(`Sauvegarde ${label} (${items.length})...`);
+            await supabaseService.upsertMany(tableName, items);
+          }
+        };
+
+        // Master definitions first
+        await syncTable("brands", data.brands, "Marques");
+        await syncTable("bottle_types", data.bottleTypes, "Types de bouteilles");
+        await syncTable("suppliers", data.suppliers, "Fournisseurs");
+        await syncTable("clients", data.clients, "Clients");
+        await syncTable("drivers", data.drivers, "Chauffeurs");
+        await syncTable("trucks", data.trucks, "Camions");
+        await syncTable("truck_assignments", data.truckAssignments, "Affectations");
+
+        // Stocks & Inventory
+        await syncTable("empty_bottles_stock", data.emptyBottlesStock, "Stock vides");
+        await syncTable("defective_stock", data.defectiveStock, "Stock défectueux");
+        await syncTable("foreign_bottles", data.foreignBottles, "Bouteilles étrangères");
+        await syncTable("inventory", data.inventory, "Inventaire");
+        await syncTable("stock_history", data.stockHistory, "Historique stock");
+
+        // Operations & Orders
+        await syncTable("supply_orders", data.supplyOrders, "Bons de sortie");
+        await syncTable("return_orders", data.returnOrders, "Bons d'entrée");
+        await syncTable("supplies", data.supplies, "Approvisionnements");
+        await syncTable("supply_returns", data.supplyReturns, "Retours");
+        await syncTable("exchanges", data.exchanges, "Échanges");
+        await syncTable("transactions", data.transactions, "Transactions");
+
+        // Financials & Expenses
+        await syncTable("cash_operations", data.cashOperations, "Opérations caisse");
+        await syncTable("expenses", data.expenses, "Dépenses");
+        await syncTable("repairs", data.repairs, "Réparations");
+        await syncTable("revenues", data.revenues, "Revenus");
+        await syncTable("bank_transfers", data.bankTransfers, "Transferts bancaires");
+        await syncTable("financial_transactions", data.financialTransactions, "Transactions financières");
+
+        // Fuel & Oil
+        await syncTable("fuel_purchases", data.fuelPurchases, "Achats carburant");
+        await syncTable("fuel_consumptions", data.fuelConsumptions, "Consommations carburant");
+        await syncTable("fuel_drains", data.fuelDrains, "Vidanges carburant");
+        await syncTable("oil_purchases", data.oilPurchases, "Achats huile");
+        await syncTable("oil_consumptions", data.oilConsumptions, "Consommations huile");
+        await syncTable("oil_drains", data.oilDrains, "Vidanges huile");
+
+        // Factory
+        await syncTable("factory_operations", data.factoryOperations, "Opérations usine");
+        await syncTable("factory_invoices", data.factoryInvoices, "Factures usine");
+        await syncTable("debt_settlements", data.debtSettlements, "Règlements de dettes");
+
+        // If factory operations exist, sync cloud KV store as well
+        if (Array.isArray(data.factoryOperations) && data.factoryOperations.length > 0) {
+          try {
+            await kvSet('factory_operations_cloud', data.factoryOperations);
+          } catch {}
+        }
+
+        // Roles & Permissions
+        await syncTable("roles", data.roles, "Rôles");
+        await syncTable("role_assignments", data.roleAssignments, "Affectations rôles");
+
+        return { success: true };
+      } catch (error: any) {
         console.error("Error importing data:", error);
-        alert("Erreur lors de l'importation des données. Veuillez vérifier le fichier.");
+        return { success: false, error: error?.message || "Erreur de format JSON" };
       }
     },
     clearAllData: () => {

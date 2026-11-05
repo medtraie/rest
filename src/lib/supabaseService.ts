@@ -952,36 +952,53 @@ export const supabaseService = {
     return (existenceCheck.data ?? []).length === 0;
   },
 
-  // Bulk Upsert (useful for syncing/migration)
+  // Bulk Upsert (useful for syncing/migration/restore)
   async upsertMany<T>(table: string, items: T[]): Promise<void> {
+    if (!items || !items.length) return;
     const uid = await currentUserId();
-    const nextItems = uid && !sharedTables.has(table)
+    const shouldAttachUid = uid && (!sharedTables.has(table) || table === 'expenses' || table === 'financial_transactions' || table === 'cash_operations');
+    const nextItems = shouldAttachUid
       ? items.map((item) => ({ ...(item as Record<string, any>), user_id: uid }))
       : items;
-    let payloads = nextItems.map((item) => toWritePayload(table, item as Record<string, any>));
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      console.log(`Upserting many in ${table}, attempt ${attempt + 1}, keys:`, Object.keys(payloads[0] || {}));
-      const { error } = await supabase.from(table).upsert(payloads);
-      if (!error) return;
-      console.warn(`Upsert error in ${table}:`, error.message);
-      const match = error.message.match(missingColumnRegex);
-      if (!match) {
-        console.error(`Error upserting into ${table}:`, error.message);
-        return;
-      }
-      const missingCol = match[1];
-      if (uid && missingCol === 'user_id') {
+
+    // Process in batches of 50 to avoid payload size or timeout issues
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < nextItems.length; i += BATCH_SIZE) {
+      const batch = nextItems.slice(i, i + BATCH_SIZE);
+      let payloads = batch.map((item) => toWritePayload(table, item as Record<string, any>));
+
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (!payloads.length || !Object.keys(payloads[0] || {}).length) break;
+        const { error } = await supabase.from(table).upsert(payloads);
+        if (!error) break;
+
+        const match = error.message.match(missingColumnRegex);
+        if (!match) {
+          console.error(`Error upserting batch into ${table}:`, error.message);
+          // If upsert fails with a non-column error (e.g. constraints), attempt single-item upsert fallback
+          for (const itemPayload of payloads) {
+            try {
+              await supabase.from(table).upsert(itemPayload);
+            } catch (singleErr) {
+              console.error(`Single upsert fallback error in ${table}:`, singleErr);
+            }
+          }
+          break;
+        }
+
+        const missingCol = match[1];
+        if (uid && missingCol === 'user_id') {
+          payloads = stripMissingColumnMany(payloads, missingCol);
+          if (!payloads.length || !Object.keys(payloads[0]).length) break;
+          continue;
+        }
+
         payloads = stripMissingColumnMany(payloads, missingCol);
-        if (!payloads.length || !Object.keys(payloads[0]).length) return;
-        continue;
-      }
-      console.log(`Stripping missing column: ${missingCol}`);
-      payloads = stripMissingColumnMany(payloads, missingCol);
-      if (!payloads.length || !Object.keys(payloads[0]).length) {
-        console.error(`Error upserting into ${table}: All columns stripped or invalid payloads.`);
-        return;
+        if (!payloads.length || !Object.keys(payloads[0]).length) {
+          console.error(`Error upserting into ${table}: All columns stripped.`);
+          break;
+        }
       }
     }
-    console.error(`Error upserting into ${table}:`, "Too many missing columns");
   }
 };

@@ -74,6 +74,8 @@ const Settings = () => {
     return tr('Violet Néon', 'بنفسجي نيون');
   };
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgressText, setImportProgressText] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [assignmentEmail, setAssignmentEmail] = useState("");
@@ -1003,16 +1005,45 @@ const Settings = () => {
     toast({ title: 'Affectation enregistrée' });
   };
 
-  const handleImport = (e: React.FormEvent) => {
+  const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!importFile) return;
+    if (!importFile || isImporting) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      importData(content);
-    };
-    reader.readAsText(importFile);
+    setIsImporting(true);
+    setImportProgressText(tr("Lecture du fichier...", "قراءة الملف..."));
+
+    try {
+      const content = await importFile.text();
+      const res = await importData(content, (msg) => {
+        setImportProgressText(msg);
+      });
+
+      if (res.success) {
+        toast({
+          title: tr("Restauration réussie", "تمت استعادة البيانات بنجاح"),
+          description: tr("Toutes les données ont été synchronisées avec succès.", "تمت مزامنة جميع البيانات بنجاح مع Supabase."),
+        });
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        setIsImporting(false);
+        setImportProgressText("");
+        toast({
+          title: tr("Erreur de restauration", "خطأ في استعادة البيانات"),
+          description: res.error || tr("Veuillez vérifier le fichier sélectionné.", "يرجى التحقق من الملف المحدد."),
+          variant: "destructive",
+        });
+      }
+    } catch (err: any) {
+      setIsImporting(false);
+      setImportProgressText("");
+      toast({
+        title: tr("Erreur", "خطأ"),
+        description: err?.message || tr("Impossible de lire le fichier.", "تعذر قراءة الملف."),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpdate = () => {
@@ -2192,17 +2223,24 @@ const Settings = () => {
                         id="backup-file"
                         type="file"
                         accept=".json"
+                        disabled={isImporting}
                         onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                        className="cursor-pointer border-slate-700 bg-slate-950 text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-slate-100"
+                        className="cursor-pointer border-slate-700 bg-slate-950 text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1.5 file:text-slate-100 disabled:opacity-50"
                       />
                     </div>
+                    {isImporting && (
+                      <div className="rounded-lg bg-indigo-950/60 border border-indigo-700/50 p-3 text-xs text-indigo-200 flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-ping inline-block" />
+                        <span className="font-medium">{importProgressText || tr("Synchronisation avec Supabase en cours...", "جاري المزامنة مع Supabase...")}</span>
+                      </div>
+                    )}
                     <Button
                       type="submit"
-                      disabled={!importFile}
+                      disabled={!importFile || isImporting}
                       className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:opacity-50"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {tr('Restaurer les données', 'استرجاع البيانات')}
+                      {isImporting ? tr('Restauration en cours...', 'جاري الاسترجاع...') : tr('Restaurer les données', 'استرجاع البيانات')}
                     </Button>
                   </form>
                 </CardContent>
